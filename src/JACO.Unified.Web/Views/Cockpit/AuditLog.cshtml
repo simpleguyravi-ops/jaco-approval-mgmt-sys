@@ -1,0 +1,96 @@
+@model List<AuditLogRow>
+@{
+    ViewData["Title"] = "Operations Cockpit";
+    var filter = (AuditLogFilter)ViewBag.Filter;
+    var totalCount = (int)ViewBag.TotalCount;
+    var pageSize = (int)ViewBag.PageSize;
+    var actionCodes = (List<string>)ViewBag.ActionCodes;
+    string BadgeClass(string action) => action switch { "Approve" or "Submit" => "jaco-badge-success", "Reject" or "AuditLogCleared" or "RoutingLogCleared" => "jaco-badge-danger", "SendBack" or "Resubmit" => "jaco-badge-warning", _ => "jaco-badge-neutral" };
+    bool IsAdminOverride(string? detail) => detail is not null && detail.StartsWith(RequestService.AdminOverrideMarker);
+
+    string SortUrl(string field)
+    {
+        var dir = filter.Sort == field && filter.Dir == "asc" ? "desc" : "asc";
+        var qs = new List<string>();
+        if (!string.IsNullOrWhiteSpace(filter.RequestNumber)) qs.Add($"RequestNumber={Uri.EscapeDataString(filter.RequestNumber)}");
+        if (!string.IsNullOrWhiteSpace(filter.ActionCode)) qs.Add($"ActionCode={Uri.EscapeDataString(filter.ActionCode)}");
+        if (filter.DateFrom is not null) qs.Add($"DateFrom={filter.DateFrom:yyyy-MM-dd}");
+        if (filter.DateTo is not null) qs.Add($"DateTo={filter.DateTo:yyyy-MM-dd}");
+        if (filter.AdminOverrideOnly) qs.Add("AdminOverrideOnly=true");
+        qs.Add($"Sort={field}"); qs.Add($"Dir={dir}");
+        return "/Cockpit/AuditLog?" + string.Join("&", qs);
+    }
+    string SortArrow(string field) => filter.Sort != field ? "" : (filter.Dir == "asc" ? " &#9650;" : " &#9660;");
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div><h1>Operations Cockpit</h1><p>Every action taken on a request &mdash; who, what, and when.</p></div>
+</div>
+
+<div class="lookup-tabs" style="margin-bottom:16px;">
+    <a class="lookup-tab" asp-controller="Cockpit" asp-action="RoutingLog">Routing / Determination Log</a>
+    <a class="lookup-tab selected" asp-controller="Cockpit" asp-action="AuditLog">Request Audit Log</a>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="margin-bottom:16px;">
+    <form method="get" action="/Cockpit/AuditLog" style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr auto auto;gap:12px;align-items:end;">
+        <div class="jaco-form-group" style="margin:0;"><label>Request No</label><input name="RequestNumber" value="@filter.RequestNumber" class="jaco-input" style="margin:0;" placeholder="CR-2026-..." /></div>
+        <div class="jaco-form-group" style="margin:0;">
+            <label>Action</label>
+            <select name="ActionCode" class="jaco-select">
+                <option value="">(all)</option>
+                @foreach (var ac in actionCodes) { <option value="@ac" selected="@(filter.ActionCode == ac)">@ac</option> }
+            </select>
+        </div>
+        <div class="jaco-form-group" style="margin:0;"><label>From</label><input type="date" name="DateFrom" value="@(filter.DateFrom?.ToString("yyyy-MM-dd"))" class="jaco-input" style="margin:0;" /></div>
+        <div class="jaco-form-group" style="margin:0;"><label>To</label><input type="date" name="DateTo" value="@(filter.DateTo?.ToString("yyyy-MM-dd"))" class="jaco-input" style="margin:0;" /></div>
+        <div class="jaco-form-group" style="margin:0;">
+            <label style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
+                <input type="checkbox" name="AdminOverrideOnly" value="true" checked="@filter.AdminOverrideOnly" style="width:auto;margin:0;" /> Admin override only
+            </label>
+        </div>
+        <button type="submit" class="jaco-btn jaco-btn-primary">Filter</button>
+    </form>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <span style="font-size:12.5px;color:var(--jaco-text-muted);">Showing @Model.Count of @totalCount matching entries@(totalCount > pageSize ? $" (most recent {pageSize})" : "").</span>
+    <div style="display:flex;gap:8px;">
+        <a class="jaco-btn jaco-btn-outline jaco-btn-sm" asp-controller="Cockpit" asp-action="ExportAuditLog" asp-all-route-data="@(new Dictionary<string,string>{ ["RequestNumber"]=filter.RequestNumber??"", ["ActionCode"]=filter.ActionCode??"", ["DateFrom"]=filter.DateFrom?.ToString("yyyy-MM-dd")??"", ["DateTo"]=filter.DateTo?.ToString("yyyy-MM-dd")??"", ["AdminOverrideOnly"]=filter.AdminOverrideOnly?"true":"" })">Download CSV</a>
+        <a class="jaco-btn jaco-btn-outline jaco-btn-sm" asp-controller="Cockpit" asp-action="ClearAuditLog">Clear Old Entries&hellip;</a>
+    </div>
+</div>
+
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("CreatedAt")">Date/Time (UTC)@(Html.Raw(SortArrow("CreatedAt")))</a></th>
+            <th><a class="link" href="@SortUrl("Request")">Request@(Html.Raw(SortArrow("Request")))</a></th>
+            <th><a class="link" href="@SortUrl("User")">User@(Html.Raw(SortArrow("User")))</a></th>
+            <th><a class="link" href="@SortUrl("Action")">Action@(Html.Raw(SortArrow("Action")))</a></th>
+            <th>Detail</th>
+        </tr></thead>
+        <tbody>
+        @foreach (var r in Model)
+        {
+            <tr>
+                <td>@r.CreatedAt.ToString("dd MMM yyyy HH:mm:ss")</td>
+                <td>@(r.RequestNumber ?? "—")</td>
+                <td>@(r.UserName ?? "—")</td>
+                <td>
+                    <span class="jaco-badge @BadgeClass(r.ActionCode)">@r.ActionCode</span>
+                    @if (IsAdminOverride(r.DetailsJson))
+                    {
+                        <span class="jaco-badge jaco-badge-warning" title="An admin decided on behalf of the assigned approver(s)">Admin Override</span>
+                    }
+                </td>
+                <td style="max-width:380px;font-size:12.5px;color:var(--jaco-text-muted);word-break:break-word;">@r.DetailsJson</td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="5" style="text-align:center;color:var(--jaco-text-muted);">No entries match this filter.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

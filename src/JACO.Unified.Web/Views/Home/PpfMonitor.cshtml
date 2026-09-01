@@ -1,0 +1,153 @@
+@model PpfMonitorViewModel
+@{
+    ViewData["Title"] = "PPF Monitor";
+    var f = Model.Filter;
+    string StatusBadge(string status) => status switch
+    {
+        "Sent" => "jaco-badge jaco-badge-success",
+        "Failed" => "jaco-badge jaco-badge-danger",
+        "Skipped" => "jaco-badge jaco-badge-neutral",
+        _ => "jaco-badge"
+    };
+
+    string SortUrl(string field)
+    {
+        var dir = f.Sort == field && f.Dir == "asc" ? "desc" : "asc";
+        var qs = new List<string>();
+        if (!string.IsNullOrWhiteSpace(f.RequestNumber)) qs.Add($"RequestNumber={Uri.EscapeDataString(f.RequestNumber)}");
+        if (f.ApprovalTypeId is not null) qs.Add($"ApprovalTypeId={f.ApprovalTypeId}");
+        if (!string.IsNullOrWhiteSpace(f.EventCode)) qs.Add($"EventCode={Uri.EscapeDataString(f.EventCode)}");
+        if (!string.IsNullOrWhiteSpace(f.ActionType)) qs.Add($"ActionType={Uri.EscapeDataString(f.ActionType)}");
+        if (!string.IsNullOrWhiteSpace(f.Status)) qs.Add($"Status={Uri.EscapeDataString(f.Status)}");
+        if (f.FromDate is not null) qs.Add($"FromDate={f.FromDate:yyyy-MM-dd}");
+        if (f.ToDate is not null) qs.Add($"ToDate={f.ToDate:yyyy-MM-dd}");
+        qs.Add($"Sort={field}"); qs.Add($"Dir={dir}");
+        return "/Home/PpfMonitor?" + string.Join("&", qs);
+    }
+    string SortArrow(string field) => f.Sort != field ? "" : (f.Dir == "asc" ? " &#9650;" : " &#9660;");
+
+    string StatUrl(string? status)
+    {
+        var qs = new List<string>();
+        if (!string.IsNullOrWhiteSpace(f.RequestNumber)) qs.Add($"RequestNumber={Uri.EscapeDataString(f.RequestNumber)}");
+        if (f.ApprovalTypeId is not null) qs.Add($"ApprovalTypeId={f.ApprovalTypeId}");
+        if (!string.IsNullOrWhiteSpace(f.EventCode)) qs.Add($"EventCode={Uri.EscapeDataString(f.EventCode)}");
+        if (!string.IsNullOrWhiteSpace(f.ActionType)) qs.Add($"ActionType={Uri.EscapeDataString(f.ActionType)}");
+        if (f.FromDate is not null) qs.Add($"FromDate={f.FromDate:yyyy-MM-dd}");
+        if (f.ToDate is not null) qs.Add($"ToDate={f.ToDate:yyyy-MM-dd}");
+        qs.Add($"Status={Uri.EscapeDataString(status ?? "")}");
+        return "/Home/PpfMonitor?" + string.Join("&", qs);
+    }
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div><h1>PPF Monitor</h1><p>Every action a Post-Processing Rule triggered &mdash; what fired, for which request, sent to whom, and whether it succeeded.</p></div>
+</div>
+
+<div class="jaco-stat-grid">
+    <a class="jaco-card jaco-stat-card @(string.IsNullOrEmpty(f.Status) ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@StatUrl(null)">
+        <div class="jaco-stat-icon" style="background:var(--jaco-info-bg);color:var(--jaco-info);"><span class="jaco-icon jaco-icon-clipboard"></span></div>
+        <div><div class="jaco-stat-value">@Model.TotalCount</div><div class="jaco-stat-label">Total</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card @(f.Status == "Sent" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@StatUrl("Sent")">
+        <div class="jaco-stat-icon" style="background:var(--jaco-success-bg);color:var(--jaco-success);"><span class="jaco-icon jaco-icon-check-circle"></span></div>
+        <div><div class="jaco-stat-value">@Model.SentCount</div><div class="jaco-stat-label">Sent</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card @(f.Status == "Failed" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@StatUrl("Failed")">
+        <div class="jaco-stat-icon" style="background:var(--jaco-danger-bg);color:var(--jaco-danger);"><span class="jaco-icon jaco-icon-docs"></span></div>
+        <div><div class="jaco-stat-value">@Model.FailedCount</div><div class="jaco-stat-label">Failed</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card @(f.Status == "Skipped" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@StatUrl("Skipped")">
+        <div class="jaco-stat-icon" style="background:var(--jaco-warning-bg);color:var(--jaco-warning);"><span class="jaco-icon jaco-icon-undo"></span></div>
+        <div><div class="jaco-stat-value">@Model.SkippedCount</div><div class="jaco-stat-label">Skipped</div></div>
+    </a>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="margin:16px 0;">
+    <form method="get" action="/Home/PpfMonitor">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr auto;gap:12px;align-items:end;">
+            <div class="jaco-form-group" style="margin:0;"><label>Request No</label><input name="RequestNumber" value="@f.RequestNumber" class="jaco-input" style="margin:0;" placeholder="CR-2026-..." /></div>
+            <div class="jaco-form-group" style="margin:0;">
+                <label>Approval Type</label>
+                <select name="ApprovalTypeId" class="jaco-select">
+                    <option value="">(all)</option>
+                    @foreach (var t in Model.ApprovalTypes) { <option value="@t.Id" selected="@(f.ApprovalTypeId == t.Id)">@t.Name</option> }
+                </select>
+            </div>
+            <div class="jaco-form-group" style="margin:0;">
+                <label>Event</label>
+                <select name="EventCode" class="jaco-select">
+                    <option value="">(all)</option>
+                    @foreach (var e in Model.EventCodes) { <option value="@e" selected="@(f.EventCode == e)">@e</option> }
+                </select>
+            </div>
+            <div class="jaco-form-group" style="margin:0;">
+                <label>Action Type</label>
+                <select name="ActionType" class="jaco-select">
+                    <option value="">(all)</option>
+                    @foreach (var a in Model.ActionTypes) { <option value="@a" selected="@(f.ActionType == a)">@a</option> }
+                </select>
+            </div>
+            <div class="jaco-form-group" style="margin:0;">
+                <label>Status</label>
+                <select name="Status" class="jaco-select">
+                    <option value="">(all)</option>
+                    @foreach (var s in new[] { "Sent", "Failed", "Skipped" }) { <option value="@s" selected="@(f.Status == s)">@s</option> }
+                </select>
+            </div>
+            <div class="jaco-form-group" style="margin:0;">
+                <label>From / To</label>
+                <div style="display:flex;gap:6px;">
+                    <input type="date" name="FromDate" value="@f.FromDate?.ToString("yyyy-MM-dd")" class="jaco-input" style="margin:0;" />
+                    <input type="date" name="ToDate" value="@f.ToDate?.ToString("yyyy-MM-dd")" class="jaco-input" style="margin:0;" />
+                </div>
+            </div>
+            <button type="submit" class="jaco-btn jaco-btn-primary">Filter</button>
+        </div>
+    </form>
+</div>
+
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" asp-controller="Home" asp-action="PpfMonitorExport"
+       asp-route-RequestNumber="@f.RequestNumber" asp-route-ApprovalTypeId="@f.ApprovalTypeId" asp-route-EventCode="@f.EventCode"
+       asp-route-ActionType="@f.ActionType" asp-route-Status="@f.Status"
+       asp-route-FromDate="@f.FromDate" asp-route-ToDate="@f.ToDate">Download CSV</a>
+</div>
+
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead>
+            <tr>
+                <th><a class="link" href="@SortUrl("Request")">Request@(Html.Raw(SortArrow("Request")))</a></th>
+                <th><a class="link" href="@SortUrl("ApprovalType")">Approval Type@(Html.Raw(SortArrow("ApprovalType")))</a></th>
+                <th><a class="link" href="@SortUrl("Event")">Event@(Html.Raw(SortArrow("Event")))</a></th>
+                <th><a class="link" href="@SortUrl("Action")">Action@(Html.Raw(SortArrow("Action")))</a></th>
+                <th><a class="link" href="@SortUrl("Target")">Target@(Html.Raw(SortArrow("Target")))</a></th>
+                <th><a class="link" href="@SortUrl("Attempt")">Attempt@(Html.Raw(SortArrow("Attempt")))</a></th>
+                <th><a class="link" href="@SortUrl("Status")">Status@(Html.Raw(SortArrow("Status")))</a></th>
+                <th>Detail</th>
+                <th><a class="link" href="@SortUrl("When")">When@(Html.Raw(SortArrow("When")))</a></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var r in Model.Rows)
+        {
+            <tr>
+                <td><a class="link" href="/Requests/Details/@r.RequestId">@r.RequestNumber</a></td>
+                <td>@r.ApprovalTypeName</td>
+                <td>@r.EventCode</td>
+                <td>@r.ActionType</td>
+                <td>@(r.Target ?? "—")</td>
+                <td>@r.AttemptNo</td>
+                <td><span class="@StatusBadge(r.Status)">@r.Status</span></td>
+                <td>@(r.ErrorMessage ?? "—")</td>
+                <td>@(r.FinishedAt?.ToString("dd MMM yyyy HH:mm") ?? r.StartedAt?.ToString("dd MMM yyyy HH:mm") ?? "—")</td>
+            </tr>
+        }
+        @if (Model.Rows.Count == 0)
+        {
+            <tr><td colspan="9" style="text-align:center;color:var(--jaco-text-muted);">No PPF activity matches this filter.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

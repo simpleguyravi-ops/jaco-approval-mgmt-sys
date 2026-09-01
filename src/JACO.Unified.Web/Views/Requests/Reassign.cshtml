@@ -1,0 +1,56 @@
+@model ReassignEditViewModel
+@{ ViewData["Title"] = "Reassign Approver — " + Model.RequestNumber; }
+<a class="jaco-back-link" href="/Requests/Details/@Model.RequestId">&larr; Back to @Model.RequestNumber</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Reassign Approver</h1>
+        <p><b>@Model.RequestNumber</b> is currently awaiting a decision at <b>Level @Model.LevelNo</b>. Replace one of the current approvers, or leave "Replace" blank to add the new person as an additional approver for this level without removing anyone.</p>
+    </div>
+</div>
+
+@if (TempData["Error"] is string err)
+{
+    <div class="jaco-alert jaco-alert-danger">@err</div>
+}
+
+<form method="post" action="/Requests/Reassign">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="RequestId" value="@Model.RequestId" />
+    <input type="hidden" name="RequestNumber" value="@Model.RequestNumber" />
+    <div class="jaco-card jaco-card-pad" style="max-width:520px;">
+        <div class="jaco-form-group">
+            <label>Current approver(s) at this level</label>
+            <p style="font-size:13px;color:var(--jaco-text-muted);margin:4px 0 0;">@(Model.CurrentApprovers.Count == 0 ? "(none configured)" : string.Join(", ", Model.CurrentApprovers.Select(a => a.Name)))</p>
+        </div>
+        <div class="jaco-form-group">
+            <label>Replace (optional)</label>
+            <select name="OldUserId" class="jaco-select">
+                <option value="">-- Add without removing anyone --</option>
+                @foreach (var a in Model.CurrentApprovers)
+                {
+                    <option value="@a.Id">@a.Name</option>
+                }
+            </select>
+        </div>
+        <div class="jaco-form-group">
+            <label>New approver</label>
+            <select name="NewUserId" class="jaco-select" required>
+                <option value="">-- Select --</option>
+                @foreach (var group in Model.Users.GroupBy(u => u.Department ?? "Other").OrderBy(g => g.Key))
+                {
+                    <optgroup label="@group.Key">
+                        @foreach (var user in group)
+                        {
+                            <option value="@user.Id">@user.Name</option>
+                        }
+                    </optgroup>
+                }
+            </select>
+        </div>
+        <div class="jaco-form-group"><label>Reason</label><textarea name="Reason" class="jaco-input" rows="3" placeholder="e.g. Employee left the company" required></textarea></div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+            <button type="submit" class="jaco-btn jaco-btn-primary">Reassign</button>
+            <a class="jaco-btn jaco-btn-outline" href="/Requests/Details/@Model.RequestId">Cancel</a>
+        </div>
+    </div>
+</form>

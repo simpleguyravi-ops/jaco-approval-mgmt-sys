@@ -1,0 +1,48 @@
+@model List<MailTemplate>
+@{
+    ViewData["Title"] = "Mail Templates";
+    var sort = (string?)ViewBag.Sort;
+    var dir = (string)ViewBag.Dir;
+    string SortUrl(string field)
+    {
+        var newDir = sort == field && dir == "asc" ? "desc" : "asc";
+        return $"/MailTemplates?sort={field}&dir={newDir}";
+    }
+    string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div><h1>Mail Templates</h1><p>Templates used by Post-Processing (PPF) rules, and for the pending approvals digest.</p></div>
+    <a class="jaco-btn jaco-btn-primary" href="/MailTemplates/Create">+ New Template</a>
+</div>
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/MailTemplates/Export">Download CSV</a>
+</div>
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("Name")">Name@(Html.Raw(SortArrow("Name")))</a></th>
+            <th><a class="link" href="@SortUrl("Subject")">Subject@(Html.Raw(SortArrow("Subject")))</a></th>
+            <th><a class="link" href="@SortUrl("Type")">Type@(Html.Raw(SortArrow("Type")))</a></th>
+            <th><a class="link" href="@SortUrl("Status")">Status@(Html.Raw(SortArrow("Status")))</a></th>
+        </tr></thead>
+        <tbody>
+        @foreach (var t in Model)
+        {
+            <tr>
+                <td><a class="link" href="/MailTemplates/Edit/@t.Id">@t.Name</a></td>
+                <td>@t.Subject</td>
+                <td>@(t.IsTableTemplate ? "Table (digest)" : "Single record")</td>
+                <td>
+                    @if (t.IsActive) { <span class="jaco-badge jaco-badge-success">ACTIVE</span> }
+                    else { <span class="jaco-badge jaco-badge-neutral">DISABLED</span> }
+                </td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="4" style="text-align:center;color:var(--jaco-text-muted);">No mail templates yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

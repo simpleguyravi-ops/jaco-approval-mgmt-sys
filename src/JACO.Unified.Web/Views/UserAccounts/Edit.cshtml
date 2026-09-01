@@ -1,0 +1,48 @@
+@model UserAccountEditViewModel
+@{ ViewData["Title"] = Model.Id == 0 ? "New User Account" : "Edit User Account"; }
+<a class="jaco-back-link" href="/UserAccounts">&larr; Back to User Accounts</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>@ViewData["Title"]</h1>
+        @if (Model.Id != 0)
+        {
+            <p>@(Model.HasPassword ? "This account can already sign in to Unified directly." : "This account has no local password yet -- it can still arrive via Portal SSO, but cannot sign in to Unified directly until you set one.")</p>
+        }
+    </div>
+</div>
+<form method="post" action="/UserAccounts/Save" class="jaco-card jaco-card-pad" style="max-width:520px;">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="Id" value="@Model.Id" />
+    <div class="jaco-form-group">
+        <label>Username</label>
+        @if (Model.Id != 0)
+        {
+            @* readonly (not disabled) -- a disabled input is excluded from form submission entirely, which
+               would blank out the username server-side on every save of an existing account. *@
+            <input class="jaco-input" name="UserName" value="@Model.UserName" readonly />
+        }
+        else
+        {
+            <input class="jaco-input" name="UserName" value="@Model.UserName" required />
+        }
+    </div>
+    <div class="jaco-form-group"><label>Display Name</label><input class="jaco-input" name="DisplayName" value="@Model.DisplayName" required /></div>
+    <div class="jaco-form-group"><label>Department</label><input class="jaco-input" name="Department" value="@Model.Department" /></div>
+    <div class="jaco-form-group"><label>Email</label><input class="jaco-input" type="email" name="Email" value="@Model.Email" /></div>
+    <div class="jaco-form-group">
+        <label>@(Model.Id == 0 ? "Password" : "Reset Password (leave blank to keep current)")</label>
+        <div class="jaco-password-wrap">
+            <input class="jaco-input" type="password" name="NewPassword" autocomplete="new-password" @(Model.Id == 0 ? "required" : "") />
+            <button type="button" class="jaco-password-toggle" onclick="var i=this.previousElementSibling;var show=i.type==='password';i.type=show?'text':'password';this.textContent=show?'Hide':'Show';">Show</button>
+        </div>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">Setting a password here forces the account to change it on next sign-in.</p>
+    </div>
+    @* checkbox-then-hidden-false pattern: unchecked posts nothing, and IsActive defaults to
+       true on the model, so unchecking it would otherwise silently fall back to true on save. *@
+    <div class="jaco-check-row"><input type="checkbox" name="IsAdmin" value="true" checked="@Model.IsAdmin" id="isAdmin" /><input type="hidden" name="IsAdmin" value="false" /><label for="isAdmin" style="margin:0;font-weight:400;">Administrator (full access to Administration)</label></div>
+    <div class="jaco-check-row"><input type="checkbox" name="IsActive" value="true" checked="@Model.IsActive" id="isActive" /><input type="hidden" name="IsActive" value="false" /><label for="isActive" style="margin:0;font-weight:400;">Active</label></div>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+        <button type="submit" class="jaco-btn jaco-btn-primary">Save</button>
+        <a class="jaco-btn jaco-btn-outline" href="/UserAccounts">Cancel</a>
+    </div>
+</form>

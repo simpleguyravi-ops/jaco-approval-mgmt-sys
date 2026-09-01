@@ -1,0 +1,51 @@
+@{
+    ViewData["Title"] = "Bulk Import Routing Rules";
+    var types = (List<ApprovalType>)ViewBag.ApprovalTypes;
+    var selectedTypeId = (int)ViewBag.SelectedTypeId;
+}
+<a class="jaco-back-link" href="/RoutingRules?approvalTypeId=@selectedTypeId">&larr; Back to Rule Builder</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Bulk Import Routing Rules</h1>
+        <p>Upload a CSV where each row is one full rule (criteria + every approval level's approver) &mdash; built for maintaining a large combination matrix in a spreadsheet instead of one screen at a time.</p>
+    </div>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="max-width:640px;">
+    <div class="jaco-form-group">
+        <label>Approval Type</label>
+        <select id="approvalTypeSelect" class="jaco-select" onchange="location.href='/RoutingRules/Import?approvalTypeId=' + this.value">
+            @foreach (var t in types)
+            {
+                <option value="@t.Id" selected="@(t.Id == selectedTypeId)">@t.Name</option>
+            }
+        </select>
+    </div>
+
+    <form method="post" action="/RoutingRules/ImportPreview" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="approvalTypeId" value="@selectedTypeId" />
+        <div class="jaco-form-group">
+            <label>CSV File</label>
+            <input class="jaco-input" type="file" name="file" accept=".csv" required />
+        </div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+            <button type="submit" class="jaco-btn jaco-btn-primary">Preview Import</button>
+            <a class="jaco-btn jaco-btn-outline" href="/RoutingRules/ImportTemplate">Download Template</a>
+        </div>
+    </form>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="max-width:640px;margin-top:16px;">
+    <h2 style="font-size:14px;margin-top:0;">Columns</h2>
+    <p style="font-size:12.5px;color:var(--jaco-text-muted);">
+        <code>RuleName, Priority, Active, Branch, Company, SalesChannel, OrderType, VehicleModel, ModelYear, VinNumber, DiscountFrom, DiscountTo, ValidFrom, ValidTo, Level1Approver..Level5Approver</code>
+    </p>
+    <ul style="font-size:13px;color:var(--jaco-text-muted);padding-left:18px;">
+        <li>Blank <b>RuleName</b> is auto-generated from Branch/Channel/Discount range, and is the key used to match existing rules when updating rather than replacing.</li>
+        <li>Blank criteria columns match anything on that dimension &mdash; only fill in what actually constrains the rule.</li>
+        <li><b>DiscountFrom/To</b> are percentage bounds; <b>ValidFrom/To</b> are optional effective dates.</li>
+        <li><b>LevelNApprover</b> columns are matched by email (or username) to an existing user &mdash; leave the rest blank once a rule's chain ends.</li>
+        <li>Nothing is written until you confirm on the preview screen, and any row with an error blocks the whole file from being applied.</li>
+    </ul>
+</div>

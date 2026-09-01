@@ -1,0 +1,28 @@
+@model RequestFormViewModel
+@{ ViewData["Title"] = $"New {Model.ApprovalType.Name}"; }
+<a class="jaco-back-link" href="/Requests">&larr; Back to My Requests</a>
+<div class="page-head">
+    <div>
+        <span class="eyebrow">@Model.ApprovalType.Name.ToUpperInvariant()</span>
+        <h1>New @Model.ApprovalType.Name</h1>
+        <p>Fill in the details below, then save as draft or submit for approval.</p>
+    </div>
+</div>
+
+<form method="post" action="/Requests/Create" enctype="multipart/form-data">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="approvalTypeId" value="@Model.ApprovalType.Id" />
+    <section class="panel">
+        <h2 style="font-size:14px;">Request Details</h2>
+        <label>
+            Subject
+            <input class="input" type="text" name="subject" placeholder="Short summary of this request" />
+        </label>
+        @await Html.PartialAsync("_RequestFormFields", Model)
+    </section>
+    <div class="actions">
+        <button type="submit" name="submitNow" value="false" class="btn">Save Draft</button>
+        <button type="submit" name="submitNow" value="true" class="btn primary">Submit for Approval</button>
+        <a class="btn" href="/Requests">Cancel</a>
+    </div>
+</form>

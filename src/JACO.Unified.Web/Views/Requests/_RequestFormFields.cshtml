@@ -1,0 +1,57 @@
+@model RequestFormViewModel
+@{
+    string InputType(string dataType) => dataType switch
+    {
+        FieldDataType.Number => "number",
+        FieldDataType.Currency => "number",
+        FieldDataType.Date => "date",
+        _ => "text"
+    };
+    var compactFields = Model.Fields.Where(f => f.DataType != FieldDataType.TextArea).ToList();
+    var longFields = Model.Fields.Where(f => f.DataType == FieldDataType.TextArea).ToList();
+}
+@if (compactFields.Count > 0)
+{
+    <div class="grid2">
+        @foreach (var f in compactFields)
+        {
+            var value = Model.Values.GetValueOrDefault(f.FieldKey);
+            <label>
+                @f.FieldLabel@(f.IsRequired ? " *" : "")
+                @if (f.DataType == FieldDataType.Dropdown)
+                {
+                    var options = f.LookupType is not null && Model.Picklists.TryGetValue(f.LookupType, out var list) ? list : [];
+                    if (f.IsReadOnly)
+                    {
+                        <select class="input" disabled>
+                            <option>@(options.FirstOrDefault(o => o.Value == value)?.DisplayText ?? value)</option>
+                        </select>
+                        <input type="hidden" name="Fields[@f.FieldKey]" value="@value" />
+                    }
+                    else
+                    {
+                        <select class="input" name="Fields[@f.FieldKey]" @(f.IsRequired ? "required" : "")>
+                            <option value="">-- Select --</option>
+                            @foreach (var o in options)
+                            {
+                                <option value="@o.Value" selected="@(o.Value == value)">@o.DisplayText</option>
+                            }
+                        </select>
+                    }
+                }
+                else
+                {
+                    <input class="input" type="@InputType(f.DataType)" step="@(f.DataType == FieldDataType.Currency ? "0.01" : null)" name="Fields[@f.FieldKey]" value="@value" @(f.IsReadOnly ? "readonly" : "") @(f.IsRequired ? "required" : "") />
+                }
+            </label>
+        }
+    </div>
+}
+@foreach (var f in longFields)
+{
+    var value = Model.Values.GetValueOrDefault(f.FieldKey);
+    <label>
+        @f.FieldLabel@(f.IsRequired ? " *" : "")
+        <textarea class="input" name="Fields[@f.FieldKey]" rows="4" @(f.IsReadOnly ? "readonly" : "") @(f.IsRequired ? "required" : "")>@value</textarea>
+    </label>
+}

@@ -1,0 +1,37 @@
+@model WorkflowField
+@{
+    ViewData["Title"] = "Edit Criteria Field";
+    int currentTypeId = Model.ApprovalTypeId ?? GenericApprovalType.Id;
+}
+<a class="jaco-back-link" href="/WorkflowFields?approvalTypeId=@currentTypeId">&larr; Back to Criteria Fields</a>
+<div class="jaco-page-header"><div><h1>Edit Field &mdash; @Model.FieldLabel</h1></div></div>
+<form method="post" action="/WorkflowFields/Edit/@Model.Id" class="jaco-card jaco-card-pad" style="max-width:560px;">
+    @Html.AntiForgeryToken()
+    <div class="jaco-form-group"><label>Scope</label><input class="jaco-input" value="@ViewBag.ScopeName" disabled /></div>
+    <div class="jaco-form-group"><label>Field Key</label><input class="jaco-input" value="@Model.FieldKey" disabled /></div>
+    <div class="jaco-form-group"><label>Label</label><input class="jaco-input" name="FieldLabel" value="@Model.FieldLabel" required /></div>
+    <div class="jaco-form-group">
+        <label>Data Type</label>
+        <select class="jaco-select" name="DataType">
+            @foreach (var dt in new[] { "Text", "TextArea", "Number", "Currency", "Date", "Dropdown" })
+            {
+                <option value="@dt" selected="@(Model.DataType == dt)">@dt</option>
+            }
+        </select>
+    </div>
+    <div class="jaco-form-group"><label>Lookup Type (Dropdown only)</label><input class="jaco-input" name="LookupType" value="@Model.LookupType" /></div>
+    <div class="jaco-form-group"><label>Display Order</label><input class="jaco-input" type="number" name="DisplayOrder" value="@Model.DisplayOrder" /></div>
+    @* A plain unchecked checkbox posts nothing at all, so IsVisible/Active (which default
+       to true on WorkflowField) would silently fall back to their class default instead of
+       saving false -- the hidden "false" sibling guarantees every checkbox always posts a
+       value either way, same pattern asp-for generates automatically for checkboxes. *@
+    <div class="jaco-check-row"><input type="checkbox" name="IsVisible" value="true" checked="@Model.IsVisible" id="v" /><input type="hidden" name="IsVisible" value="false" /><label for="v" style="margin:0;font-weight:400;">Visible on form</label></div>
+    <div class="jaco-check-row"><input type="checkbox" name="IsReadOnly" value="true" checked="@Model.IsReadOnly" id="ro" /><input type="hidden" name="IsReadOnly" value="false" /><label for="ro" style="margin:0;font-weight:400;">Read-only</label></div>
+    <div class="jaco-check-row"><input type="checkbox" name="IsRequired" value="true" checked="@Model.IsRequired" id="req" /><input type="hidden" name="IsRequired" value="false" /><label for="req" style="margin:0;font-weight:400;">Required</label></div>
+    <div class="jaco-check-row"><input type="checkbox" name="IsSensitive" value="true" checked="@Model.IsSensitive" id="sens" /><input type="hidden" name="IsSensitive" value="false" /><label for="sens" style="margin:0;font-weight:400;">Sensitive (hidden from creator once submitted)</label></div>
+    <div class="jaco-check-row"><input type="checkbox" name="Active" value="true" checked="@Model.Active" id="act" /><input type="hidden" name="Active" value="false" /><label for="act" style="margin:0;font-weight:400;">Active</label></div>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+        <button type="submit" class="jaco-btn jaco-btn-primary">Save</button>
+        <a class="jaco-btn jaco-btn-outline" href="/WorkflowFields?approvalTypeId=@currentTypeId">Cancel</a>
+    </div>
+</form>

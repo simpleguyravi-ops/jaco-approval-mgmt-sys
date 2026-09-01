@@ -1,0 +1,83 @@
+@model List<RoutingLogEntry>
+@{
+    ViewData["Title"] = "Operations Cockpit";
+    var filter = (RoutingLogFilter)ViewBag.Filter;
+    var totalCount = (int)ViewBag.TotalCount;
+    var pageSize = (int)ViewBag.PageSize;
+    var outcomeCodes = (string[])ViewBag.OutcomeCodes;
+    string BadgeClass(string outcome) => outcome switch { "Routed" => "jaco-badge-success", "NoRuleMatched" => "jaco-badge-warning", _ => "jaco-badge-danger" };
+
+    string SortUrl(string field)
+    {
+        var dir = filter.Sort == field && filter.Dir == "asc" ? "desc" : "asc";
+        var qs = new List<string>();
+        if (!string.IsNullOrWhiteSpace(filter.RequestNumber)) qs.Add($"RequestNumber={Uri.EscapeDataString(filter.RequestNumber)}");
+        if (!string.IsNullOrWhiteSpace(filter.OutcomeCode)) qs.Add($"OutcomeCode={Uri.EscapeDataString(filter.OutcomeCode)}");
+        if (filter.DateFrom is not null) qs.Add($"DateFrom={filter.DateFrom:yyyy-MM-dd}");
+        if (filter.DateTo is not null) qs.Add($"DateTo={filter.DateTo:yyyy-MM-dd}");
+        qs.Add($"Sort={field}"); qs.Add($"Dir={dir}");
+        return "/Cockpit/RoutingLog?" + string.Join("&", qs);
+    }
+    string SortArrow(string field) => filter.Sort != field ? "" : (filter.Dir == "asc" ? " &#9650;" : " &#9660;");
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div><h1>Operations Cockpit</h1><p>Every routing/determination attempt, success or failure &mdash; diagnose why a submission did or didn't route as expected.</p></div>
+</div>
+
+<div class="lookup-tabs" style="margin-bottom:16px;">
+    <a class="lookup-tab selected" asp-controller="Cockpit" asp-action="RoutingLog">Routing / Determination Log</a>
+    <a class="lookup-tab" asp-controller="Cockpit" asp-action="AuditLog">Request Audit Log</a>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="margin-bottom:16px;">
+    <form method="get" action="/Cockpit/RoutingLog" style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr auto;gap:12px;align-items:end;">
+        <div class="jaco-form-group" style="margin:0;"><label>Request No</label><input name="RequestNumber" value="@filter.RequestNumber" class="jaco-input" style="margin:0;" placeholder="CR-2026-..." /></div>
+        <div class="jaco-form-group" style="margin:0;">
+            <label>Outcome</label>
+            <select name="OutcomeCode" class="jaco-select">
+                <option value="">(all)</option>
+                @foreach (var oc in outcomeCodes) { <option value="@oc" selected="@(filter.OutcomeCode == oc)">@oc</option> }
+            </select>
+        </div>
+        <div class="jaco-form-group" style="margin:0;"><label>From</label><input type="date" name="DateFrom" value="@(filter.DateFrom?.ToString("yyyy-MM-dd"))" class="jaco-input" style="margin:0;" /></div>
+        <div class="jaco-form-group" style="margin:0;"><label>To</label><input type="date" name="DateTo" value="@(filter.DateTo?.ToString("yyyy-MM-dd"))" class="jaco-input" style="margin:0;" /></div>
+        <button type="submit" class="jaco-btn jaco-btn-primary">Filter</button>
+    </form>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <span style="font-size:12.5px;color:var(--jaco-text-muted);">Showing @Model.Count of @totalCount matching entries@(totalCount > pageSize ? $" (most recent {pageSize})" : "").</span>
+    <div style="display:flex;gap:8px;">
+        <a class="jaco-btn jaco-btn-outline jaco-btn-sm" asp-controller="Cockpit" asp-action="ExportRoutingLog" asp-all-route-data="@(new Dictionary<string,string>{ ["RequestNumber"]=filter.RequestNumber??"", ["OutcomeCode"]=filter.OutcomeCode??"", ["DateFrom"]=filter.DateFrom?.ToString("yyyy-MM-dd")??"", ["DateTo"]=filter.DateTo?.ToString("yyyy-MM-dd")??"" })">Download CSV</a>
+        <a class="jaco-btn jaco-btn-outline jaco-btn-sm" asp-controller="Cockpit" asp-action="ClearRoutingLog">Clear Old Entries&hellip;</a>
+    </div>
+</div>
+
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("CreatedAt")">Date/Time (UTC)@(Html.Raw(SortArrow("CreatedAt")))</a></th>
+            <th><a class="link" href="@SortUrl("Request")">Request@(Html.Raw(SortArrow("Request")))</a></th>
+            <th><a class="link" href="@SortUrl("Outcome")">Outcome@(Html.Raw(SortArrow("Outcome")))</a></th>
+            <th><a class="link" href="@SortUrl("MatchedRule")">Matched Rule@(Html.Raw(SortArrow("MatchedRule")))</a></th>
+            <th>Detail</th>
+        </tr></thead>
+        <tbody>
+        @foreach (var r in Model)
+        {
+            <tr>
+                <td>@r.CreatedAt.ToString("dd MMM yyyy HH:mm:ss")</td>
+                <td>@(r.RequestNumber ?? "—")</td>
+                <td><span class="jaco-badge @BadgeClass(r.OutcomeCode)">@r.OutcomeCode</span></td>
+                <td>@(r.MatchedRuleName ?? "—")</td>
+                <td style="max-width:340px;font-size:12.5px;color:var(--jaco-text-muted);">@r.Detail</td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="5" style="text-align:center;color:var(--jaco-text-muted);">No entries match this filter.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

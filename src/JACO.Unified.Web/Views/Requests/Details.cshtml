@@ -1,0 +1,203 @@
+@model RequestDetailsViewModel
+@{
+    ViewData["Title"] = Model.Request.RequestNumber;
+    string StatusClass(string status) => status switch
+    {
+        "Draft" => "status draft",
+        "Pending" => "status pending",
+        "Approved" => "status completed",
+        "Rejected" => "status rejected",
+        "Sent Back" => "status sentback",
+        "Withdrawn" => "status draft",
+        _ => "status"
+    };
+    string LevelClass(string s) => s switch
+    {
+        "Approved" => "jaco-badge jaco-badge-success",
+        "Rejected" => "jaco-badge jaco-badge-danger",
+        "SentBack" => "jaco-badge jaco-badge-warning",
+        "ActionRequired" => "jaco-badge jaco-badge-warning",
+        _ => "jaco-badge jaco-badge-neutral"
+    };
+    var compactFields = Model.Fields.Where(f => f.DataType != "TextArea").ToList();
+    var longFields = Model.Fields.Where(f => f.DataType == "TextArea").ToList();
+}
+
+<a class="jaco-back-link" href="/Requests">&larr; Back to My Requests</a>
+<div class="page-head">
+    <div>
+        <h1>@(string.IsNullOrEmpty(Model.Request.Subject) ? Model.Request.RequestNumber : Model.Request.Subject)</h1>
+    </div>
+    <div style="display:flex;gap:8px;">
+        @if (Model.CanEdit)
+        {
+            <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/Requests/Edit/@Model.Request.Id">Edit</a>
+        }
+        @if (Model.Request.Status == "Pending")
+        {
+            <form method="post" action="/Requests/Nudge/@Model.Request.Id" style="display:inline;">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="jaco-btn jaco-btn-outline jaco-btn-sm"><span class="jaco-icon jaco-icon-broadcast"></span> Nudge Approver</button>
+            </form>
+        }
+        @if (Model.CanWithdraw)
+        {
+            <form method="post" action="/Requests/Withdraw/@Model.Request.Id" style="display:inline;" data-confirm="Withdraw this request?">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="jaco-btn jaco-btn-outline jaco-btn-sm">Withdraw</button>
+            </form>
+        }
+        @if (Model.IsAdmin)
+        {
+            <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/Cockpit/AuditLog?RequestNumber=@Model.Request.RequestNumber">View History</a>
+            @if (Model.Request.Status == "Pending")
+            {
+                <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/Requests/Reassign/@Model.Request.Id">Reassign Approver</a>
+            }
+        }
+    </div>
+</div>
+
+<section class="status-panel" style="grid-template-columns:repeat(5,1fr);gap:10px;">
+    <div><span class="eyebrow">STATUS</span><span class="@StatusClass(Model.Request.Status)" style="display:block;margin-top:4px;width:fit-content;">@Model.Request.Status</span></div>
+    <div><span class="eyebrow">CURRENT LEVEL</span><strong style="white-space:nowrap;">@(Model.Request.CurrentLevelNo?.ToString() ?? "-")@(Model.Timeline.Count > 0 ? $" of {Model.Timeline.Count}" : "")</strong></div>
+    <div><span class="eyebrow">SUBMITTED ON</span><strong style="white-space:nowrap;">@Model.Request.CreatedAt.ToString("dd MMM yyyy HH:mm")</strong></div>
+    <div><span class="eyebrow">CREATED BY</span><strong style="white-space:nowrap;">@Model.Request.CreatorUserName</strong></div>
+    <div><span class="eyebrow">APPROVAL TYPE</span><strong style="white-space:nowrap;">@Model.ApprovalType.Name</strong></div>
+</section>
+
+<div class="details-grid">
+    <div>
+        <section class="panel">
+            <h2>Submitted Details</h2>
+            @if (compactFields.Count > 0)
+            {
+                <div class="grid2">
+                    @foreach (var f in compactFields)
+                    {
+                        <div><b>@f.Label</b><p>@(string.IsNullOrEmpty(f.Value) ? "-" : f.Value)</p></div>
+                    }
+                </div>
+            }
+            @foreach (var f in longFields)
+            {
+                <h3>@f.Label</h3>
+                <p>@(string.IsNullOrEmpty(f.Value) ? "-" : f.Value)</p>
+            }
+        </section>
+
+        <section class="panel">
+            <h2>Attachments</h2>
+            @if (Model.CanEdit)
+            {
+                <form method="post" action="/Requests/UploadAttachment/@Model.Request.Id" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+                    <div class="actions">
+                        <input class="input" type="file" name="file" required />
+                        <button class="btn">Upload</button>
+                    </div>
+                </form>
+            }
+            @if (Model.Attachments.Count == 0)
+            {
+                <p style="color:#65727d;font-size:13px;">No attachments yet.</p>
+            }
+            else
+            {
+                <table>
+                    <thead><tr><th>Document</th><th>Uploaded By</th><th>Uploaded</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var a in Model.Attachments)
+                    {
+                        <tr>
+                            <td>@a.OriginalFileName</td>
+                            <td>@a.UploadedByUserName</td>
+                            <td>@a.UploadedAt.ToString("dd-MMM-yyyy HH:mm")</td>
+                            <td><a class="link" href="/Requests/DownloadAttachment/@a.Id">Download</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </section>
+    </div>
+
+    <div>
+        @if (Model.Request.Status == "Pending" && Model.IsEligibleApprover)
+        {
+            <section class="panel">
+                <h2>Decision</h2>
+                @if (Model.IsAdminOverride)
+                {
+                    <div class="notice" style="background:var(--jaco-warning-bg, #fef3c7);color:var(--jaco-warning, #b45309);">
+                        You are not one of the assigned approvers for this level. Deciding here is an <b>admin override</b> and will be recorded as such in the history below.
+                    </div>
+                }
+                <form method="post" action="/Requests/Decide/@Model.Request.Id">
+                    @Html.AntiForgeryToken()
+                    <label>
+                        Comments
+                        <textarea class="input" name="comments" rows="2" placeholder="Required for Reject / Send Back"></textarea>
+                    </label>
+                    <div class="actions">
+                        <button type="submit" name="decision" value="Approve" class="btn primary">Approve</button>
+                        <button type="submit" name="decision" value="SendBack" class="btn">Send Back</button>
+                        <button type="submit" name="decision" value="Reject" class="btn" style="color:var(--jaco-danger);">Reject</button>
+                    </div>
+                </form>
+            </section>
+        }
+        else if (Model.Request.Status == "Pending")
+        {
+            <section class="panel">
+                <p style="margin:0;color:#65727d;">Waiting on the assigned approver's decision.</p>
+            </section>
+        }
+
+        <section class="panel">
+            <h2>Approval Timeline</h2>
+            @if (Model.Timeline.Count == 0)
+            {
+                <p style="color:#65727d;font-size:13px;">No approval history yet.</p>
+            }
+            else
+            {
+                <div class="timeline-vertical">
+                    @foreach (var level in Model.Timeline)
+                    {
+                        var stepClass = level.LevelStatus switch { "Approved" => "completed", "ActionRequired" => "current", "Rejected" => "rejected", "SentBack" => "sentback", _ => "" };
+                        var statusLabel = level.LevelStatus switch { "Approved" => "Approved", "ActionRequired" => "Action Required", "Rejected" => "Rejected", "SentBack" => "Sent Back", _ => "Not Started" };
+                        <div class="timeline-step-v @stepClass">
+                            <div class="timeline-v-dot"></div>
+                            <div class="timeline-v-body">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <strong style="font-size:13px;">Level @level.LevelNo</strong>
+                                    <span class="@LevelClass(level.LevelStatus)">@statusLabel</span>
+                                </div>
+                                <div class="timeline-meta">@string.Join(", ", level.ApproverNames)</div>
+                                @foreach (var d in level.Decisions)
+                                {
+                                    <div class="timeline-note">
+                                        <strong>@d.ActorName</strong> &middot; @d.AtUtc.ToString("dd MMM yyyy HH:mm")
+                                        @if (!string.IsNullOrWhiteSpace(d.Comments))
+                                        {
+                                            <div>&ldquo;@d.Comments&rdquo;</div>
+                                        }
+                                    </div>
+                                }
+                                @if (level.LevelStatus == "NotStarted")
+                                {
+                                    <div class="timeline-note">Will be notified after the previous level is completed.</div>
+                                }
+                                else if (level.LevelStatus == "ActionRequired")
+                                {
+                                    <div class="timeline-note">Waiting for a decision.</div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+</div>

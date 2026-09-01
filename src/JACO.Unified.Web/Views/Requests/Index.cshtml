@@ -1,0 +1,247 @@
+@model RequestListViewModel
+@{
+    ViewData["Title"] = Model.IsAllView ? "All Requests" : "My Requests";
+    var basePath = Model.IsAllView ? "/Requests/All" : "/Requests";
+    var exportPath = Model.IsAllView ? "/Requests/ExportAll" : "/Requests/Export";
+    string StatusClass(string status) => status switch
+    {
+        "Draft" => "status draft",
+        "Pending" => "status pending",
+        "Approved" => "status completed",
+        "Rejected" => "status rejected",
+        "Sent Back" => "status sentback",
+        "Withdrawn" => "status draft",
+        _ => "status"
+    };
+    string SortUrl(string field)
+    {
+        var dir = Model.Sort == field && Model.Dir == "asc" ? "desc" : "asc";
+        var qs = new List<string>();
+        if (!string.IsNullOrWhiteSpace(Model.Search)) qs.Add($"search={Uri.EscapeDataString(Model.Search)}");
+        if (!string.IsNullOrWhiteSpace(Model.Status)) qs.Add($"status={Uri.EscapeDataString(Model.Status)}");
+        if (Model.ApprovalTypeId is not null) qs.Add($"approvalTypeId={Model.ApprovalTypeId}");
+        if (Model.PendingWithUserId is not null) qs.Add($"pendingWithUserId={Model.PendingWithUserId}");
+        if (Model.DateFrom is not null) qs.Add($"dateFrom={Model.DateFrom:yyyy-MM-dd}");
+        if (Model.DateTo is not null) qs.Add($"dateTo={Model.DateTo:yyyy-MM-dd}");
+        foreach (var c in Model.SelectedColumns) qs.Add($"columns={Uri.EscapeDataString(c)}");
+        qs.Add($"sort={field}"); qs.Add($"dir={dir}");
+        return basePath + "?" + string.Join("&", qs);
+    }
+    string SortArrow(string field) => Model.Sort != field ? "" : (Model.Dir == "asc" ? " &#9650;" : " &#9660;");
+}
+
+<div class="jaco-page-header">
+    <div>
+        <h1>@(Model.IsAllView ? "All Requests" : "My Requests")</h1>
+        <p>@(Model.IsAllView ? "Every request you have oversight visibility into. Open any item to decide on behalf of its assigned approver(s), or select one or more to reassign." : "Requests you created or are involved in.")</p>
+    </div>
+    @if (!Model.IsAllView && Model.CreatableTypes.Count > 0)
+    {
+        <div class="jaco-dropdown">
+            <button type="button" class="jaco-btn jaco-btn-primary jaco-dropdown-toggle">+ Create Approval &#9662;</button>
+            <div class="jaco-dropdown-menu">
+                @foreach (var t in Model.CreatableTypes)
+                {
+                    <a href="/Requests/Create?approvalTypeId=@t.Id">@t.Name</a>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<div class="jaco-stat-grid">
+    <a class="jaco-card jaco-stat-card @(string.IsNullOrEmpty(Model.Status) ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=">
+        <div><div class="jaco-stat-value">@(Model.DraftCount + Model.PendingCount + Model.ApprovedCount + Model.RejectedCount)</div><div class="jaco-stat-label">Total</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Draft" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Draft">
+        <div><div class="jaco-stat-value">@Model.DraftCount</div><div class="jaco-stat-label">Draft</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Pending" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Pending">
+        <div><div class="jaco-stat-value">@Model.PendingCount</div><div class="jaco-stat-label">Pending / Sent Back</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Approved" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Approved">
+        <div><div class="jaco-stat-value">@Model.ApprovedCount</div><div class="jaco-stat-label">Approved</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Rejected" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Rejected">
+        <div><div class="jaco-stat-value">@Model.RejectedCount</div><div class="jaco-stat-label">Rejected</div></div>
+    </a>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="margin-bottom:14px;">
+    <form method="get" action="@basePath" id="filterForm">
+        <div style="display:grid;grid-template-columns:@(Model.IsAllView ? "1.1fr 1fr 1fr 1fr 1fr" : "1.4fr 1fr 1fr");gap:12px;align-items:end;">
+            <div class="jaco-form-group" style="margin:0;"><label>Search</label><input type="text" name="search" value="@Model.Search" class="jaco-input" style="margin:0;" placeholder="Request number or subject&hellip;" /></div>
+            <div class="jaco-form-group" style="margin:0;">
+                <label>Type</label>
+                <select name="approvalTypeId" class="jaco-select" onchange="this.form.requestSubmit()">
+                    <option value="">All Types</option>
+                    @foreach (var t in Model.Types)
+                    {
+                        <option value="@t.Id" selected="@(Model.ApprovalTypeId == t.Id)">@t.Name</option>
+                    }
+                </select>
+            </div>
+            @if (Model.IsAllView)
+            {
+                <div class="jaco-form-group" style="margin:0;">
+                    <label>Pending With</label>
+                    <select name="pendingWithUserId" class="jaco-select">
+                        <option value="">(anyone)</option>
+                        @foreach (var u in Model.Users)
+                        {
+                            <option value="@u.Id" selected="@(Model.PendingWithUserId == u.Id)">@u.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+            <div class="jaco-form-group" style="margin:0;">
+                <label>Created On</label>
+                <div style="display:flex;gap:6px;">
+                    <input type="date" name="dateFrom" value="@Model.DateFrom?.ToString("yyyy-MM-dd")" class="jaco-input" style="margin:0;" title="From" />
+                    <input type="date" name="dateTo" value="@Model.DateTo?.ToString("yyyy-MM-dd")" class="jaco-input" style="margin:0;" title="To" />
+                </div>
+            </div>
+            <button type="submit" class="jaco-btn jaco-btn-outline">Filter</button>
+        </div>
+        <input type="hidden" name="status" value="@Model.Status" />
+
+        @if (Model.IsAllView && Model.AvailableColumns.Count > 0)
+        {
+            <div style="margin-top:14px;">
+                <label style="font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);display:block;margin-bottom:6px;">
+                    Extra columns for @(Model.Types.FirstOrDefault(t => t.Id == Model.ApprovalTypeId)?.Name ?? "this type") &mdash; pick which fields this list should also show/export:
+                </label>
+                <div style="display:flex;flex-wrap:wrap;gap:14px;">
+                    @foreach (var col in Model.AvailableColumns)
+                    {
+                        <label style="font-size:13px;font-weight:400;display:flex;align-items:center;gap:6px;">
+                            <input type="checkbox" name="columns" value="@col.FieldKey" checked="@Model.SelectedColumns.Contains(col.FieldKey)" onchange="this.form.requestSubmit()" />
+                            @col.FieldLabel
+                        </label>
+                    }
+                </div>
+            </div>
+        }
+    </form>
+</div>
+
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;gap:8px;">
+    @if (Model.IsAllView)
+    {
+        <button type="submit" form="bulkForm" id="reassignSelectedBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm" disabled>Reassign Selected</button>
+    }
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="@exportPath?search=@Model.Search&status=@Model.Status&approvalTypeId=@Model.ApprovalTypeId">Download CSV</a>
+</div>
+
+<form method="get" action="/Requests/BulkReassign" id="bulkForm">
+    @if (Model.PendingWithUserId is not null)
+    {
+        <input type="hidden" name="oldUserId" value="@Model.PendingWithUserId" />
+    }
+    <div class="jaco-card">
+        <table class="jaco-table">
+            <thead><tr>
+                @if (Model.IsAllView)
+                {
+                    <th style="width:32px;"><input type="checkbox" id="selectAll" title="Select all pending items on this page" /></th>
+                }
+                <th><a class="link" href="@SortUrl("RequestNumber")">Request No.@(Html.Raw(SortArrow("RequestNumber")))</a></th>
+                <th><a class="link" href="@SortUrl("ApprovalType")">Type@(Html.Raw(SortArrow("ApprovalType")))</a></th>
+                <th><a class="link" href="@SortUrl("Subject")">Subject@(Html.Raw(SortArrow("Subject")))</a></th>
+                <th><a class="link" href="@SortUrl("Status")">Status@(Html.Raw(SortArrow("Status")))</a></th>
+                @if (Model.IsAllView)
+                {
+                    <th>Pending With</th>
+                    <th>Created By</th>
+                }
+                <th><a class="link" href="@SortUrl("CreatedAt")">Created On@(Html.Raw(SortArrow("CreatedAt")))</a></th>
+                @foreach (var col in Model.AvailableColumns.Where(c => Model.SelectedColumns.Contains(c.FieldKey)))
+                {
+                    <th>@col.FieldLabel</th>
+                }
+                @if (Model.IsAllView)
+                {
+                    <th></th>
+                }
+            </tr></thead>
+            <tbody>
+            @foreach (var x in Model.Rows)
+            {
+                <tr>
+                    @if (Model.IsAllView)
+                    {
+                        <td>
+                            @if (x.Request.Status == "Pending")
+                            {
+                                <input type="checkbox" class="row-check" name="ids" value="@x.Request.Id" />
+                            }
+                        </td>
+                    }
+                    <td><a class="link" href="/Requests/Details/@x.Request.Id">@x.Request.RequestNumber</a></td>
+                    <td>@x.ApprovalTypeName</td>
+                    <td>@x.Request.Subject</td>
+                    <td><span class="@StatusClass(x.Request.Status)">@x.Request.Status</span></td>
+                    @if (Model.IsAllView)
+                    {
+                        <td>@(Model.PendingWithNames.GetValueOrDefault(x.Request.Id, "—"))</td>
+                        <td>@x.Request.CreatorUserName</td>
+                    }
+                    <td>@x.Request.CreatedAt.ToString("dd MMM yyyy")</td>
+                    @foreach (var col in Model.AvailableColumns.Where(c => Model.SelectedColumns.Contains(c.FieldKey)))
+                    {
+                        <td>@(Model.ExtraColumns.GetValueOrDefault(x.Request.Id)?.GetValueOrDefault(col.FieldKey, ""))</td>
+                    }
+                    @if (Model.IsAllView)
+                    {
+                        <td>
+                            @if (x.Request.Status == "Pending")
+                            {
+                                <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/Requests/Reassign/@x.Request.Id">Reassign</a>
+                            }
+                        </td>
+                    }
+                </tr>
+            }
+            @if (Model.Rows.Count == 0)
+            {
+                <tr><td colspan="12" style="text-align:center;color:var(--jaco-text-muted);">No requests match this filter.</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</form>
+
+@if (!Model.IsAllView && Model.CreatableTypes.Count > 0)
+{
+    <script>
+    (function () {
+        var dropdown = document.querySelector('.jaco-dropdown');
+        var toggle = dropdown.querySelector('.jaco-dropdown-toggle');
+        toggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('open');
+        });
+        document.addEventListener('click', function () { dropdown.classList.remove('open'); });
+    })();
+    </script>
+}
+
+@if (Model.IsAllView)
+{
+    <script>
+    (function () {
+        var selectAll = document.getElementById('selectAll');
+        var reassignBtn = document.getElementById('reassignSelectedBtn');
+        function rowChecks() { return Array.from(document.querySelectorAll('.row-check')); }
+        function refreshButton() { reassignBtn.disabled = !rowChecks().some(function (c) { return c.checked; }); }
+        if (selectAll) {
+            selectAll.addEventListener('change', function () {
+                rowChecks().forEach(function (c) { c.checked = selectAll.checked; });
+                refreshButton();
+            });
+        }
+        rowChecks().forEach(function (c) { c.addEventListener('change', refreshButton); });
+        refreshButton();
+    })();
+    </script>
+}

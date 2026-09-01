@@ -1,0 +1,57 @@
+@model DigestViewModel
+@{ ViewData["Title"] = "Pending Approvals Digest"; }
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div><h1>Pending Approvals Digest</h1><p>Send an approver a table of everything currently awaiting their decision.</p></div>
+</div>
+
+@if (Model.ResultMessage is not null)
+{
+    <div class="jaco-alert @(Model.ResultMessage.StartsWith("Digest sent") ? "" : "jaco-alert-danger")" style="@(Model.ResultMessage.StartsWith("Digest sent") ? "background:var(--jaco-success-bg);color:var(--jaco-success);" : "")">@Model.ResultMessage</div>
+}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+    <form method="post">
+        @Html.AntiForgeryToken()
+        <div class="jaco-card jaco-card-pad">
+            <div class="jaco-form-group">
+                <label>Recipient</label>
+                <select name="recipientUserId" class="jaco-select">
+                    @foreach (var r in Model.Recipients)
+                    {
+                        <option value="@r.Id" selected="@(Model.RecipientUserId == r.Id)">@r.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="jaco-form-group">
+                <label>Template</label>
+                <select name="mailTemplateId" class="jaco-select">
+                    @foreach (var t in Model.TableTemplates)
+                    {
+                        <option value="@t.Id" selected="@(Model.MailTemplateId == t.Id)">@t.Name</option>
+                    }
+                </select>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:12px;">
+                <button type="submit" formaction="/Digest/Preview" class="jaco-btn jaco-btn-outline">Preview</button>
+                <button type="submit" formaction="/Digest/Send" class="jaco-btn jaco-btn-primary">Send Digest</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="jaco-card jaco-card-pad">
+        <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:10px;">Preview</label>
+        @if (Model.PreviewSubject is null)
+        {
+            <p style="color:var(--jaco-text-muted);font-size:13px;">Pick a recipient and template, then Preview.</p>
+        }
+        else
+        {
+            <p style="font-size:12.5px;color:var(--jaco-text-muted);">@Model.PendingCount pending item(s) for this recipient.</p>
+            <div style="border:1px solid var(--jaco-border);border-radius:var(--jaco-radius-sm);padding:14px;background:#fafbfc;">
+                <div style="font-weight:700;margin-bottom:10px;">@Model.PreviewSubject</div>
+                <div>@Html.Raw(Model.PreviewBody)</div>
+            </div>
+        }
+    </div>
+</div>

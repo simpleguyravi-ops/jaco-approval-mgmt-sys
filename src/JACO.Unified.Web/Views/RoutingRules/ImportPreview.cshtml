@@ -1,0 +1,90 @@
+@model RoutingRuleImportPreview
+@{ ViewData["Title"] = "Import Preview"; }
+<a class="jaco-back-link" href="/RoutingRules/Import?approvalTypeId=@Model.ApprovalTypeId">&larr; Back to Import</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Import Preview &mdash; @Model.ApprovalTypeName</h1>
+        <p>@Model.FileName &mdash; nothing has been saved yet. Review below, pick a mode, then confirm.</p>
+    </div>
+</div>
+
+<div class="jaco-stat-grid" style="margin-bottom:16px;">
+    <a class="jaco-card jaco-stat-card jaco-stat-active" style="text-decoration:none;" href="#" data-preview-filter="all">
+        <div><div class="jaco-stat-value">@Model.Rows.Count</div><div class="jaco-stat-label">Rows</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="#" data-preview-filter="valid">
+        <div><div class="jaco-stat-value">@Model.ValidCount</div><div class="jaco-stat-label">Valid</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="#" data-preview-filter="error">
+        <div><div class="jaco-stat-value">@Model.ErrorCount</div><div class="jaco-stat-label">Errors</div></div>
+    </a>
+</div>
+
+@if (Model.ErrorCount > 0)
+{
+    <div class="jaco-alert jaco-alert-danger" style="margin-bottom:14px;">
+        @Model.ErrorCount row(s) have errors &mdash; fix the file and re-upload. No changes have been applied.
+    </div>
+}
+else if (Model.Rows.Count > 0)
+{
+    <form method="post" action="/RoutingRules/ImportConfirm" style="margin-bottom:14px;" data-confirm="Apply this import? This writes to the live routing rules.">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="approvalTypeId" value="@Model.ApprovalTypeId" />
+        <input type="hidden" name="encodedFile" value="@Model.EncodedFile" />
+        <div class="jaco-card jaco-card-pad" style="max-width:640px;">
+            <div class="jaco-form-group">
+                <label><input type="radio" name="mode" value="upsert" checked style="width:auto;margin-right:6px;" /> Add / update &mdash; match existing rules by Rule Name, insert new ones, leave everything else untouched.</label>
+            </div>
+            <div class="jaco-form-group">
+                <label><input type="radio" name="mode" value="replace" style="width:auto;margin-right:6px;" /> Replace all &mdash; wipe every existing rule for @Model.ApprovalTypeName first, then load exactly what's in this file.</label>
+            </div>
+            <button type="submit" class="jaco-btn jaco-btn-primary">Confirm Import</button>
+        </div>
+    </form>
+}
+
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr><th>Row</th><th>Rule Name</th><th>Priority</th><th>Criteria</th><th>Approvers</th><th>Status</th></tr></thead>
+        <tbody>
+        @foreach (var r in Model.Rows)
+        {
+            <tr data-valid="@(r.IsValid ? "1" : "0")">
+                <td>@r.RowNumber</td>
+                <td>@r.RuleName</td>
+                <td>@r.Priority</td>
+                <td style="font-size:12.5px;">@r.CriteriaSummary</td>
+                <td style="font-size:12.5px;">@(r.ResolvedApprovers.Count > 0 ? string.Join(" &rarr; ", r.ResolvedApprovers.Select(a => a.Name)) : "—")</td>
+                <td>
+                    @if (r.IsValid)
+                    {
+                        <span class="jaco-badge jaco-badge-success">OK</span>
+                    }
+                    else
+                    {
+                        <span class="jaco-badge jaco-badge-danger" title="@string.Join("; ", r.Errors)">@r.Errors.Count error(s)</span>
+                        <div style="font-size:12px;color:var(--jaco-danger);margin-top:4px;">@string.Join("; ", r.Errors)</div>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.querySelectorAll('[data-preview-filter]').forEach(function (card) {
+    card.addEventListener('click', function (e) {
+        e.preventDefault();
+        var mode = card.getAttribute('data-preview-filter');
+        document.querySelectorAll('[data-preview-filter]').forEach(function (c) { c.classList.remove('jaco-stat-active'); });
+        card.classList.add('jaco-stat-active');
+        document.querySelectorAll('table.jaco-table tbody tr[data-valid]').forEach(function (row) {
+            var valid = row.getAttribute('data-valid') === '1';
+            var show = mode === 'all' || (mode === 'valid' && valid) || (mode === 'error' && !valid);
+            row.style.display = show ? '' : 'none';
+        });
+    });
+});
+</script>

@@ -1,0 +1,56 @@
+@model List<ApprovalType>
+@{
+    ViewData["Title"] = "Approval Types";
+    var sort = (string?)ViewBag.Sort;
+    var dir = (string)ViewBag.Dir;
+    string SortUrl(string field)
+    {
+        var newDir = sort == field && dir == "asc" ? "desc" : "asc";
+        return $"/ApprovalTypes?sort={field}&dir={newDir}";
+    }
+    string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Approval Types</h1>
+        <p>The kinds of requests this platform can process. <b>Code</b> is the value stored on every Request of this type and referenced by Routing Rules / Post-Processing Rules.</p>
+    </div>
+    <a class="jaco-btn jaco-btn-primary" href="/ApprovalTypes/Create">+ New Approval Type</a>
+</div>
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/ApprovalTypes/Export">Download CSV</a>
+</div>
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("Code")">Code@(Html.Raw(SortArrow("Code")))</a></th>
+            <th><a class="link" href="@SortUrl("Name")">Name@(Html.Raw(SortArrow("Name")))</a></th>
+            <th><a class="link" href="@SortUrl("Status")">Status@(Html.Raw(SortArrow("Status")))</a></th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        @foreach (var t in Model)
+        {
+            <tr>
+                <td><code>@t.Code</code></td>
+                <td><a class="link" href="/ApprovalTypes/Edit/@t.Id">@t.Name</a></td>
+                <td>
+                    @if (t.Active)
+                    {
+                        <span class="jaco-badge jaco-badge-success">ACTIVE</span>
+                    }
+                    else
+                    {
+                        <span class="jaco-badge jaco-badge-neutral">DISABLED</span>
+                    }
+                </td>
+                <td style="display:flex;gap:12px;">
+                    <a class="link" href="/WorkflowFields?approvalTypeId=@t.Id">Fields</a>
+                    <a class="link" href="/RoutingRules?approvalTypeId=@t.Id">Routing</a>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

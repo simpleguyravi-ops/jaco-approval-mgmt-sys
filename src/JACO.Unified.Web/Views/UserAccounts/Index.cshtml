@@ -1,0 +1,68 @@
+@model List<AppUser>
+@{
+    ViewData["Title"] = "User Accounts";
+    var sort = (string?)ViewBag.Sort;
+    var dir = (string)ViewBag.Dir;
+    string SortUrl(string field)
+    {
+        var newDir = sort == field && dir == "asc" ? "desc" : "asc";
+        return $"/UserAccounts?sort={field}&dir={newDir}";
+    }
+    string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>User Accounts</h1>
+        <p>Local, standalone login for Unified &mdash; independent of Portal SSO. An account with no local password can still arrive via Portal SSO as before; setting a password here lets that person sign in to Unified directly.</p>
+    </div>
+    <a class="jaco-btn jaco-btn-primary" href="/UserAccounts/Create">+ New Account</a>
+</div>
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/UserAccounts/Export">Download CSV</a>
+</div>
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("Name")">Name@(Html.Raw(SortArrow("Name")))</a></th>
+            <th><a class="link" href="@SortUrl("Username")">Username@(Html.Raw(SortArrow("Username")))</a></th>
+            <th><a class="link" href="@SortUrl("Department")">Department@(Html.Raw(SortArrow("Department")))</a></th>
+            <th>Local Login</th>
+            <th>Admin</th>
+            <th><a class="link" href="@SortUrl("Status")">Status@(Html.Raw(SortArrow("Status")))</a></th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        @foreach (var u in Model)
+        {
+            var isLocked = u.LockedUntil is not null && u.LockedUntil > DateTime.UtcNow;
+            <tr>
+                <td><a class="link" href="/UserAccounts/Edit/@u.Id">@u.DisplayName</a></td>
+                <td>@u.UserName</td>
+                <td>@(u.Department ?? "—")</td>
+                <td>@(u.PasswordHash is null ? "—" : "Yes")</td>
+                <td>@(u.IsAdmin ? "Yes" : "—")</td>
+                <td>
+                    @if (isLocked) { <span class="jaco-badge jaco-badge-danger" title="@u.FailedLoginCount failed attempt(s)">LOCKED until @u.LockedUntil!.Value.ToString("HH:mm")</span> }
+                    else if (u.IsActive) { <span class="jaco-badge jaco-badge-success">ACTIVE</span> }
+                    else { <span class="jaco-badge jaco-badge-neutral">DISABLED</span> }
+                </td>
+                <td>
+                    @if (isLocked)
+                    {
+                        <form method="post" action="/UserAccounts/Unlock" style="display:inline;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@u.Id" />
+                            <button type="submit" class="jaco-btn jaco-btn-outline jaco-btn-sm">Unlock</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="7" style="text-align:center;color:var(--jaco-text-muted);">No users yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

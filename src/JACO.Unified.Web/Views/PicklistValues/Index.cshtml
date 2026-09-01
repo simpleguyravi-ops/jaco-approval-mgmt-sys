@@ -1,0 +1,42 @@
+@model List<PicklistValue>
+@{
+    ViewData["Title"] = "Picklist Values";
+    var lookupTypes = (List<string>)ViewBag.LookupTypes;
+    var selected = (string?)ViewBag.Selected;
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div><h1>Picklist Values</h1><p>Shared dropdown options, referenced by a Dropdown field's Lookup Type.</p></div>
+    <a class="jaco-btn jaco-btn-primary" href="/PicklistValues/Create?lookupType=@selected">+ New Value</a>
+</div>
+<form method="get" action="/PicklistValues" style="display:flex;gap:10px;margin-bottom:14px;">
+    <input class="jaco-input" style="max-width:280px;" list="lookup-types" name="lookupType" value="@selected" placeholder="Lookup Type, e.g. Department" />
+    <datalist id="lookup-types">
+        @foreach (var lt in lookupTypes)
+        {
+            <option value="@lt"></option>
+        }
+    </datalist>
+    <button type="submit" class="jaco-btn jaco-btn-outline">View</button>
+</form>
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr><th>Value</th><th>Display Text</th><th>Sort Order</th><th>Active</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var p in Model)
+        {
+            <tr>
+                <td><code>@p.Value</code></td>
+                <td>@p.DisplayText</td>
+                <td>@p.SortOrder</td>
+                <td>@(p.Active ? "Yes" : "No")</td>
+                <td><a class="link" href="/PicklistValues/Edit/@p.Id">Edit</a></td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="5" style="text-align:center;color:var(--jaco-text-muted);">@(string.IsNullOrEmpty(selected) ? "Enter a Lookup Type above to view its values." : "No values yet for this Lookup Type.")</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

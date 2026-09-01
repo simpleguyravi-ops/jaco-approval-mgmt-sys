@@ -1,0 +1,38 @@
+@model EmailRejectViewModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Reject Request";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reject @Model.RequestNumber - JACO Unified</title>
+    <link rel="stylesheet" href="~/css/jaco-design-system.css" />
+</head>
+<body style="background:var(--jaco-bg);min-height:100vh;display:flex;align-items:center;justify-content:center;">
+    <div class="jaco-card jaco-card-pad" style="max-width:440px;margin:24px;">
+        <div style="text-align:center;">
+            <img src="~/img/jaco-logo-color.png" alt="JACO" style="height:32px;width:auto;margin-bottom:20px;" />
+        </div>
+        <h1 style="font-size:18px;margin:0 0 4px;">Reject @Model.RequestNumber</h1>
+        <p style="color:var(--jaco-text-muted);font-size:13px;margin:0 0 16px;">A short reason is required so the creator knows what to fix.</p>
+        @if (!string.IsNullOrEmpty(Model.Error))
+        {
+            <div class="jaco-alert jaco-alert-danger" style="margin-bottom:14px;padding:10px 14px;border-radius:8px;">@Model.Error</div>
+        }
+        <form method="post" action="/EmailAction/RejectConfirm">
+            <input type="hidden" name="token" value="@Model.Token" />
+            <div class="jaco-form-group">
+                <label for="comments">Reason for rejection</label>
+                <textarea id="comments" name="comments" class="jaco-input" rows="4" placeholder="Explain what needs to change..." autofocus></textarea>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:8px;">
+                <button type="submit" class="jaco-btn jaco-btn-primary" style="flex:1;justify-content:center;">Confirm Reject</button>
+                <a class="jaco-btn jaco-btn-outline" href="/">Cancel</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

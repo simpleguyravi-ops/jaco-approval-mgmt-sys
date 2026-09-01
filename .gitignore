@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+App_Data/
+
+# Real config (connection string, key ring path, etc.) lives here locally on each deployed
+# machine -- never committed. Copy appsettings.example.json to appsettings.json and fill in
+# real values for that environment.
+appsettings.json
+appsettings.*.json
+!appsettings.example.json

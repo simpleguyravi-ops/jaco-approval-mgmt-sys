@@ -1,0 +1,60 @@
+@model RequestFormViewModel
+@{ ViewData["Title"] = $"Edit {Model.Request.RequestNumber}"; }
+<a class="jaco-back-link" href="/Requests/Details/@Model.Request.Id">&larr; Back to @Model.Request.RequestNumber</a>
+<div class="page-head">
+    <div>
+        <span class="eyebrow">@Model.ApprovalType.Name.ToUpperInvariant()</span>
+        <h1>Edit @Model.Request.RequestNumber <span class="status">@Model.Request.Status</span></h1>
+        <p>Update the details below, then save or resubmit for approval.</p>
+    </div>
+</div>
+
+<form method="post" action="/Requests/Edit/@Model.Request.Id" enctype="multipart/form-data">
+    @Html.AntiForgeryToken()
+    <section class="panel">
+        <h2 style="font-size:14px;">Request Details</h2>
+        <label>
+            Subject
+            <input class="input" type="text" name="subject" value="@Model.Request.Subject" placeholder="Short summary of this request" />
+        </label>
+        @await Html.PartialAsync("_RequestFormFields", Model)
+    </section>
+    <div class="actions">
+        <button type="submit" name="submitNow" value="false" class="btn">Save</button>
+        <button type="submit" name="submitNow" value="true" class="btn primary">Submit for Approval</button>
+        <a class="btn" href="/Requests/Details/@Model.Request.Id">Cancel</a>
+    </div>
+</form>
+
+<section class="panel">
+    <h2 style="font-size:14px;">Attachments</h2>
+    <form method="post" action="/Requests/UploadAttachment/@Model.Request.Id" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="returnTo" value="Edit" />
+        <div class="actions">
+            <input class="input" type="file" name="file" required />
+            <button class="btn">Upload</button>
+        </div>
+    </form>
+    @if (Model.Attachments.Count == 0)
+    {
+        <p style="color:#65727d;font-size:13px;">No attachments yet.</p>
+    }
+    else
+    {
+        <table>
+            <thead><tr><th>Document</th><th>Uploaded By</th><th>Uploaded</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var a in Model.Attachments)
+            {
+                <tr>
+                    <td>@a.OriginalFileName</td>
+                    <td>@a.UploadedByUserName</td>
+                    <td>@a.UploadedAt.ToString("dd-MMM-yyyy HH:mm")</td>
+                    <td><a class="link" href="/Requests/DownloadAttachment/@a.Id">Download</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>

@@ -1,0 +1,50 @@
+@model List<PpfRuleListItem>
+@{
+    ViewData["Title"] = "Post-Processing Rules";
+    var sort = (string?)ViewBag.Sort;
+    var dir = (string)ViewBag.Dir;
+    string SortUrl(string field)
+    {
+        var newDir = sort == field && dir == "asc" ? "desc" : "asc";
+        return $"/PostProcessingRules?sort={field}&dir={newDir}";
+    }
+    string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div><h1>Post-Processing Rules</h1><p>Which mail template fires for each Approval Type + Event.</p></div>
+    <a class="jaco-btn jaco-btn-primary" href="/PostProcessingRules/Create">+ New Rule</a>
+</div>
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/PostProcessingRules/Export">Download CSV</a>
+</div>
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("ApprovalType")">Approval Type@(Html.Raw(SortArrow("ApprovalType")))</a></th>
+            <th><a class="link" href="@SortUrl("Event")">Event@(Html.Raw(SortArrow("Event")))</a></th>
+            <th><a class="link" href="@SortUrl("Template")">Template@(Html.Raw(SortArrow("Template")))</a></th>
+            <th><a class="link" href="@SortUrl("Recipient")">Recipient@(Html.Raw(SortArrow("Recipient")))</a></th>
+            <th><a class="link" href="@SortUrl("Status")">Status@(Html.Raw(SortArrow("Status")))</a></th>
+        </tr></thead>
+        <tbody>
+        @foreach (var r in Model)
+        {
+            <tr>
+                <td><a class="link" href="/PostProcessingRules/Edit/@r.Id">@r.ApprovalTypeName</a></td>
+                <td>@r.EventCode</td>
+                <td>@r.TemplateName</td>
+                <td>@r.ToMode</td>
+                <td>
+                    @if (r.Active) { <span class="jaco-badge jaco-badge-success">ACTIVE</span> }
+                    else { <span class="jaco-badge jaco-badge-neutral">DISABLED</span> }
+                </td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="5" style="text-align:center;color:var(--jaco-text-muted);">No post-processing rules yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

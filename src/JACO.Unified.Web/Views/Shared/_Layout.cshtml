@@ -1,0 +1,79 @@
+@inject IConfiguration Configuration
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    bool IsActive(string prefix) => path.Equals(prefix, StringComparison.OrdinalIgnoreCase) || path.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase);
+    var isAdmin = User.IsInRole("UNIFIED_ADMIN") || User.IsInRole("PORTAL_ADMIN") || User.IsInRole("SYSTEM_ADMIN");
+    var displayName = User.FindFirst("DisplayName")?.Value ?? User.Identity?.Name ?? "";
+    var department = User.FindFirst("Department")?.Value;
+    var initials = string.Concat(displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => w[0])).ToUpperInvariant();
+    var portalHomeUrl = Configuration["SharedAuth:PortalHomeUrl"] ?? "http://localhost:5010/";
+    // Set once, platform-wide, via Portal's Account/SetTheme (the only app that owns the
+    // Users table) -- carried here as a claim in the same shared SSO cookie every JACO app
+    // already reads, so switching it in any one app applies to all of them immediately.
+    var theme = User.FindFirst("Theme")?.Value == "fiori" ? "fiori" : "orange";
+    var themeSuffix = theme == "fiori" ? ".fiori" : "";
+    var currentUrl = $"{Context.Request.Scheme}://{Context.Request.Host}{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
+    var setThemeUrl = $"{portalHomeUrl.TrimEnd('/')}/Account/SetTheme?theme={(theme == "fiori" ? "orange" : "fiori")}&returnUrl={Uri.EscapeDataString(currentUrl)}";
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - JACO</title>
+    <link rel="stylesheet" href="~/css/jaco-design-system@(themeSuffix).css" />
+    <link rel="stylesheet" href="~/css/jaco@(themeSuffix).css" />
+</head>
+<body>
+    <div class="jaco-shell">
+        <header class="jaco-topbar">
+            <div class="jaco-topbar-brand">
+                <img src="~/img/jaco-logo-color.png" alt="JACO" />
+                <div class="divider"></div>
+                <div class="wordmark"><span class="jaco-name">JACO</span> <span class="app-name">Unified Requests</span></div>
+            </div>
+            <div class="jaco-user-chip">
+                <div class="who">
+                    <div class="name">@displayName</div>
+                    <div class="role">@(isAdmin ? "Administrator" : "Requestor")@(string.IsNullOrEmpty(department) ? "" : " · " + department)</div>
+                    <a class="jaco-theme-link" href="@setThemeUrl" title="Switch the platform theme (applies to every JACO app)">
+                        <span class="jaco-icon jaco-icon-settings"></span> @(theme == "fiori" ? "Fiori theme" : "Orange theme")
+                    </a>
+                </div>
+                <div class="jaco-avatar">@initials</div>
+            </div>
+        </header>
+        <div class="jaco-shell-body">
+            <aside class="jaco-sidebar">
+                <ul class="jaco-nav">
+                    <li><a class="@((path == "/" || IsActive("/Requests")) ? "active" : "")" href="/Requests"><span class="jaco-icon jaco-icon-check-square"></span> My Work</a></li>
+                    @if (isAdmin)
+                    {
+                        <li><a class="@(IsActive("/Admin") || IsActive("/Cockpit") || IsActive("/Home/PpfMonitor") ? "active" : "")" href="/Admin"><span class="jaco-icon jaco-icon-settings"></span> Administration</a></li>
+                    }
+                </ul>
+                <div class="jaco-sidebar-footer">
+                    <ul class="jaco-nav">
+                        <li><a href="/Account/ChangePassword"><span class="jaco-icon jaco-icon-key"></span> Change Password</a></li>
+                        <li><a href="/Account/Logout"><span class="jaco-icon jaco-icon-signout"></span> Sign Out</a></li>
+                    </ul>
+                </div>
+            </aside>
+            <div class="jaco-main">
+                <main class="jaco-content">
+                    @if (TempData["Success"] is string successMessage)
+                    {
+                        <div class="notice success">@successMessage</div>
+                    }
+                    @if (TempData["Error"] is string errorMessage)
+                    {
+                        <div class="notice error">@errorMessage</div>
+                    }
+                    @RenderBody()
+                </main>
+            </div>
+        </div>
+    </div>
+    <script src="~/js/jaco-confirm.js"></script>
+</body>
+</html>

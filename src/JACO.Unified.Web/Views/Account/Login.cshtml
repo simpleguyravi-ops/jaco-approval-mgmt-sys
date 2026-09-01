@@ -1,0 +1,67 @@
+@model LoginViewModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Sign In";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign In - JACO Unified</title>
+    <link rel="stylesheet" href="~/css/jaco-design-system.css" />
+</head>
+<body>
+    <div class="jaco-login-shell">
+        <div class="jaco-login-hero has-photo" style="--hero-photo:url('/img/juffali-showroom.png');">
+            <div>
+                <img src="~/img/jaco-logo-white.png" alt="JACO" style="height:176px;width:auto;" />
+            </div>
+            <div>
+                <div class="tagline">Driving a better tomorrow.</div>
+                <div class="sub accent" style="margin-top:10px;">PEOPLE &middot; PERFORMANCE &middot; PROGRESS</div>
+            </div>
+            <div class="sub">JACO Unified Requests</div>
+        </div>
+        <div class="jaco-login-form-side">
+            <div class="jaco-login-box">
+                <h1>Welcome to JACO</h1>
+                <div class="welcome">Sign in to Unified Requests.</div>
+
+                @if (!ViewData.ModelState.IsValid)
+                {
+                    <div class="jaco-alert jaco-alert-danger">
+                        @Html.ValidationSummary(true, "", new { })
+                    </div>
+                }
+
+                <form method="post" asp-controller="Account" asp-action="Login">
+                    <input type="hidden" asp-for="ReturnUrl" />
+                    <div class="jaco-form-group">
+                        <label asp-for="UserName">Username</label>
+                        <input asp-for="UserName" class="jaco-input" autofocus autocomplete="username" />
+                    </div>
+                    <div class="jaco-form-group">
+                        <label asp-for="Password">Password</label>
+                        <div class="jaco-password-wrap">
+                            <input asp-for="Password" type="password" class="jaco-input" autocomplete="current-password" />
+                            <button type="button" class="jaco-password-toggle" onclick="var i=this.previousElementSibling;var show=i.type==='password';i.type=show?'text':'password';this.textContent=show?'Hide':'Show';">Show</button>
+                        </div>
+                    </div>
+                    <div class="jaco-check-row">
+                        <input asp-for="RememberMe" type="checkbox" id="rememberMe" />
+                        <label for="rememberMe" style="margin:0;font-weight:400;color:var(--jaco-text);">Remember me</label>
+                    </div>
+                    <button type="submit" class="jaco-btn jaco-btn-primary" style="width:100%;justify-content:center;margin-top:8px;">Sign In &rarr;</button>
+                </form>
+                <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--jaco-text-muted);">
+                    Authorized users only. All access is logged.
+                </div>
+                <div style="text-align:center;margin-top:10px;font-size:12px;">
+                    <a href="@(ViewBag.PortalHomeUrl ?? "http://localhost:5010/")" style="color:var(--jaco-orange-600);font-weight:600;">Sign in via JACO Portal instead &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

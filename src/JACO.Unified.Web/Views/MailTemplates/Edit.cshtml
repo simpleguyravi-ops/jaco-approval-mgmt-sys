@@ -1,0 +1,54 @@
+@model MailTemplateEditViewModel
+@{ ViewData["Title"] = Model.Id == 0 ? "New Mail Template" : "Edit Mail Template"; }
+<a class="jaco-back-link" href="/MailTemplates">&larr; Back to Mail Templates</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>@ViewData["Title"]</h1>
+        <p>Merge fields: <code>{{RequestNumber}}</code> <code>{{Subject}}</code> <code>{{Status}}</code> <code>{{CurrentLevel}}</code> <code>{{CreatorName}}</code> <code>{{CreatedAt}}</code> <code>{{Data.fieldKey}}</code> (any submitted field).
+        Table (digest) templates additionally support <code>{{RecipientName}}</code>, <code>{{PendingCount}}</code> and <code>{{TableRows}}</code>.</p>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+    <form method="post" action="/MailTemplates/Save">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="Id" value="@Model.Id" />
+        <div class="jaco-card jaco-card-pad">
+            <div class="jaco-form-group">
+                <label>Name</label>
+                @if (Model.Id != 0)
+                {
+                    <input name="Name" class="jaco-input" value="@Model.Name" readonly required />
+                }
+                else
+                {
+                    <input name="Name" class="jaco-input" value="@Model.Name" required />
+                }
+            </div>
+            <div class="jaco-form-group"><label>Subject</label><input name="Subject" class="jaco-input" value="@Model.Subject" required /></div>
+            <div class="jaco-form-group"><label>Body (HTML)</label><textarea name="BodyHtml" class="jaco-input" rows="10" style="font-family:monospace;font-size:12.5px;" required>@Model.BodyHtml</textarea></div>
+            <div class="jaco-check-row"><input name="IsTableTemplate" type="checkbox" id="isTable" value="true" checked="@Model.IsTableTemplate" /><label for="isTable" style="margin:0;font-weight:400;">Table (digest) template &mdash; iterates a list of pending items instead of a single request</label></div>
+            <div class="jaco-check-row"><input name="IsActive" type="checkbox" id="isActive" value="true" checked="@Model.IsActive" /><label for="isActive" style="margin:0;font-weight:400;">Active</label></div>
+            <div style="display:flex;gap:10px;margin-top:12px;">
+                <button type="submit" formaction="/MailTemplates/Preview" class="jaco-btn jaco-btn-outline">Preview</button>
+                <button type="submit" formaction="/MailTemplates/Save" class="jaco-btn jaco-btn-primary">Save Template</button>
+                <a class="jaco-btn jaco-btn-outline" href="/MailTemplates">Cancel</a>
+            </div>
+        </div>
+    </form>
+
+    <div class="jaco-card jaco-card-pad">
+        <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:10px;">Preview (sample data)</label>
+        @if (Model.PreviewSubject is null)
+        {
+            <p style="color:var(--jaco-text-muted);font-size:13px;">Click Preview to render this template against sample request data.</p>
+        }
+        else
+        {
+            <div style="border:1px solid var(--jaco-border);border-radius:var(--jaco-radius-sm);padding:14px;background:#fafbfc;">
+                <div style="font-weight:700;margin-bottom:10px;">@Model.PreviewSubject</div>
+                <div>@Html.Raw(Model.PreviewBody)</div>
+            </div>
+        }
+    </div>
+</div>

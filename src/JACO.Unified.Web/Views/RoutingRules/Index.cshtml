@@ -1,0 +1,77 @@
+@model List<RoutingRuleListItem>
+@{
+    ViewData["Title"] = "Rule Builder";
+    var types = (List<ApprovalType>)ViewBag.Types;
+    int selectedTypeId = ViewBag.SelectedTypeId;
+    var sort = (string?)ViewBag.Sort;
+    var dir = (string)ViewBag.Dir;
+    string SortUrl(string field)
+    {
+        var newDir = sort == field && dir == "asc" ? "desc" : "asc";
+        return $"/RoutingRules?approvalTypeId={selectedTypeId}&sort={field}&dir={newDir}";
+    }
+    string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Rule Builder</h1>
+        <p>Define which approvers are required, based on the submitted criteria, per Approval Type.</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+        <a class="jaco-btn jaco-btn-outline" href="/RoutingRules/Import?approvalTypeId=@selectedTypeId">Bulk Import</a>
+        <a class="jaco-btn jaco-btn-primary" href="/RoutingRules/Create?approvalTypeId=@selectedTypeId">+ New Rule</a>
+    </div>
+</div>
+
+<div class="lookup-tabs" style="margin-bottom:18px;">
+    @foreach (var t in types)
+    {
+        <a class="lookup-tab @(t.Id == selectedTypeId ? "selected" : "")" href="/RoutingRules?approvalTypeId=@t.Id">@t.Name</a>
+    }
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="jaco-card jaco-card-pad">
+        <p style="margin:0;color:var(--jaco-text-muted);">No routing rules yet for this Approval Type. Rules are checked in priority order (lowest first); the first whose criteria all match wins.</p>
+    </div>
+}
+else
+{
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/RoutingRules/Export?approvalTypeId=@selectedTypeId">Download CSV</a>
+    </div>
+    <div class="jaco-card">
+        <table class="jaco-table">
+            <thead><tr>
+                <th><a class="link" href="@SortUrl("Priority")">Priority@(Html.Raw(SortArrow("Priority")))</a></th>
+                <th><a class="link" href="@SortUrl("Rule")">Rule@(Html.Raw(SortArrow("Rule")))</a></th>
+                <th><a class="link" href="@SortUrl("Criteria")">Criteria@(Html.Raw(SortArrow("Criteria")))</a></th>
+                <th><a class="link" href="@SortUrl("Levels")">Levels@(Html.Raw(SortArrow("Levels")))</a></th>
+                <th><a class="link" href="@SortUrl("Status")">Status@(Html.Raw(SortArrow("Status")))</a></th>
+            </tr></thead>
+            <tbody>
+            @foreach (var r in Model)
+            {
+                <tr>
+                    <td>@r.Priority</td>
+                    <td><a class="link" href="/RoutingRules/Edit/@r.Id">@r.RuleName</a></td>
+                    <td>@r.CriteriaSummary</td>
+                    <td>@r.LevelCount</td>
+                    <td>
+                        @if (r.Active)
+                        {
+                            <span class="jaco-badge jaco-badge-success">ACTIVE</span>
+                        }
+                        else
+                        {
+                            <span class="jaco-badge jaco-badge-neutral">DISABLED</span>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

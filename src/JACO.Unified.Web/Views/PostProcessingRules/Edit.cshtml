@@ -1,0 +1,62 @@
+@model PpfRuleEditViewModel
+@{ ViewData["Title"] = Model.Id == 0 ? "New Post-Processing Rule" : "Edit Post-Processing Rule"; }
+<a class="jaco-back-link" href="/PostProcessingRules">&larr; Back to Post-Processing Rules</a>
+<div class="jaco-page-header">
+    <div><h1>@ViewData["Title"]</h1><p>When the event fires for the selected Approval Type, the chosen template is rendered and emailed.</p></div>
+</div>
+<form method="post" action="/PostProcessingRules/Save">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="Id" value="@Model.Id" />
+    <div class="jaco-card jaco-card-pad" style="max-width:560px;">
+        <div class="jaco-form-group">
+            <label>Approval Type</label>
+            <select name="ApprovalTypeId" class="jaco-select" required>
+                <option value="0" disabled selected="@(Model.ApprovalTypeId == 0)">-- Select Approval Type --</option>
+                @foreach (var t in Model.ApprovalTypes)
+                {
+                    <option value="@t.Id" selected="@(t.Id == Model.ApprovalTypeId)">@t.Name</option>
+                }
+            </select>
+        </div>
+        <div class="jaco-form-group">
+            <label>Event</label>
+            <select name="EventCode" class="jaco-select">
+                @foreach (var e in PostProcessingRulesController.EventCodes)
+                {
+                    <option value="@e" selected="@(e == Model.EventCode)">@e</option>
+                }
+            </select>
+        </div>
+        <div class="jaco-form-group">
+            <label>Mail Template</label>
+            <select name="MailTemplateId" class="jaco-select" required>
+                <option value="0" disabled selected="@(Model.MailTemplateId == 0)">-- Select Mail Template --</option>
+                @foreach (var t in Model.MailTemplates)
+                {
+                    <option value="@t.Id" selected="@(t.Id == Model.MailTemplateId)">@t.Name</option>
+                }
+            </select>
+        </div>
+        <div class="jaco-form-group">
+            <label>Recipient</label>
+            <select name="ToMode" class="jaco-select">
+                <option value="Creator" selected="@(Model.ToMode == "Creator")">Creator (of the request)</option>
+                <option value="Fixed" selected="@(Model.ToMode == "Fixed")">Fixed address</option>
+                <option value="Field" selected="@(Model.ToMode == "Field")">From a submitted field</option>
+                <option value="CurrentApprover" selected="@(Model.ToMode == "CurrentApprover")">Whoever's currently eligible to decide</option>
+            </select>
+        </div>
+        <div class="jaco-form-group"><label>Fixed Address (if Recipient = Fixed)</label><input name="ToAddress" class="jaco-input" value="@Model.ToAddress" /></div>
+        <div class="jaco-form-group">
+            <label>Field Key (if Recipient = From a submitted field)</label>
+            <input name="ToFieldKey" class="jaco-input" value="@Model.ToFieldKey" placeholder="e.g. accountEmail" />
+            <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">Must match a Field Key this Approval Type actually has (see Criteria Fields).</p>
+        </div>
+        <div class="jaco-form-group"><label>Sequence</label><input name="SequenceNo" type="number" class="jaco-input" value="@Model.SequenceNo" /></div>
+        <div class="jaco-check-row"><input name="Active" type="checkbox" value="true" checked="@Model.Active" id="active" /><label for="active" style="margin:0;font-weight:400;">Active</label></div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+            <button type="submit" class="jaco-btn jaco-btn-primary">Save Rule</button>
+            <a class="jaco-btn jaco-btn-outline" href="/PostProcessingRules">Cancel</a>
+        </div>
+    </div>
+</form>

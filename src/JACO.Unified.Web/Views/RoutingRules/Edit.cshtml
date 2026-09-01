@@ -1,0 +1,127 @@
+@model RuleFormViewModel
+@{ ViewData["Title"] = Model.Rule is null ? "New Routing Rule" : "Edit Routing Rule"; }
+<a class="jaco-back-link" href="/RoutingRules?approvalTypeId=@Model.ApprovalTypeId">&larr; Back to Rule Builder</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>@ViewData["Title"]</h1>
+        <p>Rules are checked in priority order (lowest first). Leave a criteria row's field blank to skip it; a rule with no criteria matches anything. Leave a level with no approvers checked to skip that level.</p>
+    </div>
+</div>
+
+<form method="post" action="@(Model.Rule is null ? "/RoutingRules/Create" : $"/RoutingRules/Edit/{Model.Rule.Id}")">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="approvalTypeId" value="@Model.ApprovalTypeId" />
+
+    <div class="jaco-card jaco-card-pad" style="max-width:760px;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;">
+            <div class="jaco-form-group">
+                <label>Rule Name</label>
+                <input name="ruleName" class="jaco-input" value="@Model.Rule?.RuleName" required />
+            </div>
+            <div class="jaco-form-group">
+                <label>Priority</label>
+                <input name="priority" type="number" class="jaco-input" value="@(Model.Rule?.Priority ?? Model.DefaultPriority)" />
+            </div>
+        </div>
+        <div class="jaco-check-row">
+            <input type="checkbox" name="active" value="true" checked="@(Model.Rule?.Active ?? true)" id="active" />
+            <label for="active" style="margin:0;font-weight:400;">Active</label>
+        </div>
+    </div>
+
+    <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;">
+        <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:10px;">Criteria (all must match)</label>
+        <datalist id="fieldKeyOptions">
+            @foreach (var f in Model.AvailableFields)
+            {
+                <option value="@f.FieldKey">@f.FieldLabel</option>
+            }
+        </datalist>
+        <div class="jaco-criteria-header"><div>FIELD</div><div>OPERATOR</div><div>VALUE</div></div>
+        @for (var i = 0; i < Model.Criteria.Count; i++)
+        {
+            <div class="criteria-row jaco-criteria-row" data-row="@i">
+                <input name="criteriaFieldKey" class="jaco-input" style="margin:0;" list="fieldKeyOptions" value="@Model.Criteria[i].FieldKey" placeholder="e.g. department" />
+                <select name="criteriaOperator" class="jaco-select">
+                    @foreach (var op in RoutingRulesController.Operators)
+                    {
+                        <option value="@op" selected="@(Model.Criteria[i].Operator == op)">@op</option>
+                    }
+                </select>
+                <input name="criteriaValue" class="jaco-input" style="margin:0;" value="@Model.Criteria[i].ComparisonValue" placeholder="e.g. IT" />
+            </div>
+        }
+        <button type="button" id="addCriteriaBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm" style="margin-top:4px;">+ Add Condition</button>
+    </div>
+
+    <div class="jaco-card jaco-card-pad">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+            <label style="font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin:0;">Levels &amp; Approvers</label>
+            <label style="font-size:12.5px;color:var(--jaco-text-muted);margin:0;">Number of Approval Levels:
+                <input type="number" id="levelCountInput" min="1" max="@Model.Levels.Count" value="@Math.Max(1, Model.Levels.Count(l => l.ApproverUserIds.Count > 0))" class="jaco-input" style="width:70px;display:inline-block;margin-left:6px;" />
+            </label>
+        </div>
+        @for (var i = 0; i < Model.Levels.Count; i++)
+        {
+            <div class="level-row" data-row="@i" style="border:1px solid var(--jaco-border);border-radius:var(--jaco-radius-sm);padding:14px;margin-bottom:12px;">
+                <div style="display:flex;gap:16px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+                    <strong style="font-size:13px;">Level @(i + 1)</strong>
+                    <select name="levelMode" class="jaco-select" style="width:auto;">
+                        @foreach (var m in RoutingRulesController.Modes)
+                        {
+                            <option value="@m" selected="@(Model.Levels[i].Mode == m)">@m</option>
+                        }
+                    </select>
+                    <span style="font-size:12.5px;color:var(--jaco-text-muted);">Required count (MINIMUM_COUNT only):</span>
+                    <input name="levelRequiredCount" type="number" class="jaco-input" style="width:70px;margin:0;" value="@Model.Levels[i].RequiredCount" />
+                </div>
+                <label style="display:block;font-size:12px;color:var(--jaco-text-muted);margin-bottom:4px;">Approvers &mdash; grouped by department. Ctrl/Cmd+click (or Shift+click for a range) to select more than one.</label>
+                <select name="levelApprovers[@(i + 1)]" multiple size="8" class="jaco-select" style="height:auto;">
+                    @foreach (var group in Model.Users.GroupBy(u => u.Department ?? "Other").OrderBy(g => g.Key))
+                    {
+                        <optgroup label="@group.Key">
+                            @foreach (var user in group)
+                            {
+                                <option value="@user.Id" selected="@Model.Levels[i].ApproverUserIds.Contains(user.Id)">@user.DisplayName</option>
+                            }
+                        </optgroup>
+                    }
+                </select>
+            </div>
+        }
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px;">
+        <button type="submit" class="jaco-btn jaco-btn-primary">Save Rule</button>
+        <a class="jaco-btn jaco-btn-outline" href="/RoutingRules?approvalTypeId=@Model.ApprovalTypeId">Cancel</a>
+    </div>
+</form>
+
+<script>
+(function () {
+    var criteriaRows = Array.from(document.querySelectorAll('.criteria-row'));
+    var levelRows = Array.from(document.querySelectorAll('.level-row'));
+
+    function setRowVisible(row, visible) {
+        row.style.display = visible ? '' : 'none';
+        row.querySelectorAll('input, select').forEach(function (el) { el.disabled = !visible; });
+    }
+    function showCriteriaCount(n) { criteriaRows.forEach(function (row, i) { setRowVisible(row, i < n); }); }
+    function showLevelCount(n) { levelRows.forEach(function (row, i) { setRowVisible(row, i < n); }); }
+
+    var criteriaVisible = Math.max(1, @Model.Criteria.Count(c => !string.IsNullOrWhiteSpace(c.FieldKey)));
+    showCriteriaCount(criteriaVisible);
+    document.getElementById('addCriteriaBtn').addEventListener('click', function () {
+        if (criteriaVisible >= criteriaRows.length) return;
+        criteriaVisible++;
+        showCriteriaCount(criteriaVisible);
+    });
+
+    var levelInput = document.getElementById('levelCountInput');
+    showLevelCount(parseInt(levelInput.value, 10) || 1);
+    levelInput.addEventListener('input', function () {
+        var n = Math.max(1, Math.min(levelRows.length, parseInt(levelInput.value, 10) || 1));
+        showLevelCount(n);
+    });
+})();
+</script>

@@ -1,0 +1,28 @@
+@model EmailActionResultViewModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Decision Recorded";
+    var icon = Model.Ok ? (Model.Decision == "Approve" ? "&#10003;" : "&#8226;") : "&#33;";
+    var accent = Model.Ok ? (Model.Decision == "Approve" ? "var(--jaco-success)" : "var(--jaco-warning)") : "var(--jaco-danger)";
+    var accentBg = Model.Ok ? (Model.Decision == "Approve" ? "var(--jaco-success-bg)" : "var(--jaco-warning-bg)") : "var(--jaco-danger-bg)";
+    var heading = !Model.Ok ? "Something went wrong" : Model.Decision == "Approve" ? "Approved" : "Rejected";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@heading - JACO Unified</title>
+    <link rel="stylesheet" href="~/css/jaco-design-system.css" />
+</head>
+<body style="background:var(--jaco-bg);min-height:100vh;display:flex;align-items:center;justify-content:center;">
+    <div class="jaco-card jaco-card-pad" style="max-width:440px;margin:24px;text-align:center;">
+        <img src="~/img/jaco-logo-color.png" alt="JACO" style="height:32px;width:auto;margin-bottom:20px;" />
+        <div style="width:56px;height:56px;border-radius:50%;background:@accentBg;color:@accent;font-size:26px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">@Html.Raw(icon)</div>
+        <h1 style="font-size:18px;margin:0 0 8px;">@heading</h1>
+        <p style="color:var(--jaco-text);font-size:13.5px;margin:0 0 4px;font-weight:600;">@Model.RequestNumber</p>
+        <p style="color:var(--jaco-text-muted);font-size:13.5px;margin:0 0 24px;">@Model.Message</p>
+        <a class="jaco-btn jaco-btn-primary" href="/">Open JACO Unified</a>
+    </div>
+</body>
+</html>
