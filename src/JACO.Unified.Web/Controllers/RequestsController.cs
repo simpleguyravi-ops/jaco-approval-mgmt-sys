@@ -86,7 +86,7 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
     {
         var user = await CurrentUserAsync();
         List<int> viewableTypeIds;
-        if (IsAdmin)
+        if (IsAdmin || IsAuditor)
         {
             viewableTypeIds = await db.ApprovalTypes.Select(t => t.Id).ToListAsync();
         }
@@ -325,7 +325,7 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
         var isCreator = reqRow.CreatorUserId == user.Id;
         var isParticipant = await requests.IsParticipantAsync(id, user.Id);
         var hasViewAll = await requests.HasViewPermissionAsync(user.Id, reqRow.ApprovalTypeId);
-        if (!isCreator && !isParticipant && !hasViewAll && !IsAdmin) return Forbid();
+        if (!isCreator && !isParticipant && !hasViewAll && !IsAdmin && !IsAuditor) return Forbid();
 
         var type = await db.ApprovalTypes.FindAsync(reqRow.ApprovalTypeId);
         var fields = await requests.GetSubmittedFieldsAsync(reqRow);
@@ -437,7 +437,7 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
         var isCreator = reqRow.CreatorUserId == user.Id;
         var isParticipant = await requests.IsParticipantAsync(att.RequestId, user.Id);
         var hasViewAll = await requests.HasViewPermissionAsync(user.Id, reqRow.ApprovalTypeId);
-        if (!isCreator && !isParticipant && !hasViewAll && !IsAdmin) return Forbid();
+        if (!isCreator && !isParticipant && !hasViewAll && !IsAdmin && !IsAuditor) return Forbid();
 
         var path = attachments.GetPath(att.RequestId, att.StoredFileName);
         if (!System.IO.File.Exists(path)) return NotFound();

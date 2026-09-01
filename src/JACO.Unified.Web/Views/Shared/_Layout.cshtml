@@ -3,6 +3,7 @@
     var path = Context.Request.Path.Value ?? "/";
     bool IsActive(string prefix) => path.Equals(prefix, StringComparison.OrdinalIgnoreCase) || path.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase);
     var isAdmin = User.IsInRole("UNIFIED_ADMIN") || User.IsInRole("PORTAL_ADMIN") || User.IsInRole("SYSTEM_ADMIN");
+    var isAuditor = isAdmin || User.IsInRole("UNIFIED_AUDITOR");
     var displayName = User.FindFirst("DisplayName")?.Value ?? User.Identity?.Name ?? "";
     var department = User.FindFirst("Department")?.Value;
     var initials = string.Concat(displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => w[0])).ToUpperInvariant();
@@ -47,6 +48,10 @@
             <aside class="jaco-sidebar">
                 <ul class="jaco-nav">
                     <li><a class="@((path == "/" || IsActive("/Requests")) ? "active" : "")" href="~/Requests"><span class="jaco-icon jaco-icon-check-square"></span> My Work</a></li>
+                    @if (isAuditor)
+                    {
+                        <li><a class="@(IsActive("/Reports") ? "active" : "")" href="~/Reports"><span class="jaco-icon jaco-icon-chart"></span> Reports</a></li>
+                    }
                     @if (isAdmin)
                     {
                         <li><a class="@(IsActive("/Admin") || IsActive("/Cockpit") || IsActive("/Home/PpfMonitor") ? "active" : "")" href="~/Admin"><span class="jaco-icon jaco-icon-settings"></span> Administration</a></li>

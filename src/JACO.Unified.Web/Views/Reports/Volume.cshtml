@@ -1,0 +1,108 @@
+@using JACO.Unified.Infrastructure
+@model VolumeReport
+@{
+    ViewData["Title"] = "Volume & Status Report";
+    var sort = (string?)ViewBag.Sort;
+    var dir = (string)ViewBag.Dir;
+    int? selectedTypeId = ViewBag.SelectedTypeId;
+    DateTime from = ViewBag.From, to = ViewBag.To;
+    string SortUrl(string field)
+    {
+        var newDir = sort == field && dir == "asc" ? "desc" : "asc";
+        return $"{Context.Request.PathBase}/Reports/Volume?approvalTypeId={selectedTypeId}&from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&sort={field}&dir={newDir}";
+    }
+    string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
+    var maxWeekly = Model.Trend.Count == 0 ? 1 : Math.Max(1, Model.Trend.Max(t => Math.Max(t.Created, Math.Max(t.Approved, t.Rejected))));
+}
+<a class="jaco-back-link" href="~/Reports">&larr; Back to Reports</a>
+<div class="jaco-page-header">
+    <div><h1>Volume &amp; Status</h1><p>Requests raised and decided, @from.ToString("dd MMM yyyy") &ndash; @to.ToString("dd MMM yyyy").</p></div>
+</div>
+
+@await Html.PartialAsync("_ReportFilterBar")
+
+<div class="jaco-stat-grid">
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="~/Requests/All?status=&approvalTypeId=@selectedTypeId">
+        <div><div class="jaco-stat-value">@Model.Total</div><div class="jaco-stat-label">Total</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="~/Requests/All?status=Draft&approvalTypeId=@selectedTypeId">
+        <div><div class="jaco-stat-value">@Model.Draft</div><div class="jaco-stat-label">Draft</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="~/Requests/All?status=Pending&approvalTypeId=@selectedTypeId">
+        <div><div class="jaco-stat-value">@Model.Pending</div><div class="jaco-stat-label">Pending / Sent Back</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="~/Requests/All?status=Approved&approvalTypeId=@selectedTypeId">
+        <div><div class="jaco-stat-value">@Model.Approved</div><div class="jaco-stat-label">Approved</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="~/Requests/All?status=Rejected&approvalTypeId=@selectedTypeId">
+        <div><div class="jaco-stat-value">@Model.Rejected</div><div class="jaco-stat-label">Rejected</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="~/Requests/All?status=Withdrawn&approvalTypeId=@selectedTypeId">
+        <div><div class="jaco-stat-value">@Model.Withdrawn</div><div class="jaco-stat-label">Withdrawn</div></div>
+    </a>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="margin:16px 0;">
+    <h2 style="font-size:14px;margin:0 0 4px;">Weekly Trend</h2>
+    <p style="font-size:12.5px;color:var(--jaco-text-muted);margin:0 0 14px;">Raised vs. decided, by the week each event actually happened.</p>
+    @if (Model.Trend.Count == 0)
+    {
+        <p style="color:var(--jaco-text-muted);">No activity in this range.</p>
+    }
+    else
+    {
+        <div style="display:flex;align-items:flex-end;gap:10px;height:160px;overflow-x:auto;padding-bottom:4px;">
+            @foreach (var pt in Model.Trend)
+            {
+                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:46px;">
+                    <div style="display:flex;align-items:flex-end;gap:3px;height:120px;">
+                        <div title="Raised: @pt.Created" style="width:12px;background:var(--jaco-info);border-radius:2px 2px 0 0;height:@(pt.Created * 120 / maxWeekly)px;min-height:@(pt.Created > 0 ? 2 : 0)px;"></div>
+                        <div title="Approved: @pt.Approved" style="width:12px;background:var(--jaco-success);border-radius:2px 2px 0 0;height:@(pt.Approved * 120 / maxWeekly)px;min-height:@(pt.Approved > 0 ? 2 : 0)px;"></div>
+                        <div title="Rejected: @pt.Rejected" style="width:12px;background:var(--jaco-danger);border-radius:2px 2px 0 0;height:@(pt.Rejected * 120 / maxWeekly)px;min-height:@(pt.Rejected > 0 ? 2 : 0)px;"></div>
+                    </div>
+                    <div style="font-size:10.5px;color:var(--jaco-text-muted);white-space:nowrap;">@pt.WeekStart.ToString("dd MMM")</div>
+                </div>
+            }
+        </div>
+        <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--jaco-text-muted);">
+            <span><span style="display:inline-block;width:10px;height:10px;background:var(--jaco-info);border-radius:2px;vertical-align:-1px;"></span> Raised</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:var(--jaco-success);border-radius:2px;vertical-align:-1px;"></span> Approved</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:var(--jaco-danger);border-radius:2px;vertical-align:-1px;"></span> Rejected</span>
+        </div>
+    }
+</div>
+
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/Reports/VolumeExport?approvalTypeId=@selectedTypeId&from=@from.ToString("yyyy-MM-dd")&to=@to.ToString("yyyy-MM-dd")">Download CSV</a>
+</div>
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("Type")">Approval Type@(Html.Raw(SortArrow("Type")))</a></th>
+            <th><a class="link" href="@SortUrl("Total")">Total@(Html.Raw(SortArrow("Total")))</a></th>
+            <th><a class="link" href="@SortUrl("Draft")">Draft@(Html.Raw(SortArrow("Draft")))</a></th>
+            <th><a class="link" href="@SortUrl("Pending")">Pending / Sent Back@(Html.Raw(SortArrow("Pending")))</a></th>
+            <th><a class="link" href="@SortUrl("Approved")">Approved@(Html.Raw(SortArrow("Approved")))</a></th>
+            <th><a class="link" href="@SortUrl("Rejected")">Rejected@(Html.Raw(SortArrow("Rejected")))</a></th>
+            <th><a class="link" href="@SortUrl("Withdrawn")">Withdrawn@(Html.Raw(SortArrow("Withdrawn")))</a></th>
+        </tr></thead>
+        <tbody>
+        @foreach (var r in Model.ByType)
+        {
+            <tr>
+                <td><a class="link" href="~/Requests/All?approvalTypeId=@r.ApprovalTypeId">@r.TypeName</a></td>
+                <td>@r.Total</td>
+                <td>@r.Draft</td>
+                <td>@r.Pending</td>
+                <td>@r.Approved</td>
+                <td>@r.Rejected</td>
+                <td>@r.Withdrawn</td>
+            </tr>
+        }
+        @if (Model.ByType.Count == 0)
+        {
+            <tr><td colspan="7" style="text-align:center;color:var(--jaco-text-muted);">No requests raised in this range.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

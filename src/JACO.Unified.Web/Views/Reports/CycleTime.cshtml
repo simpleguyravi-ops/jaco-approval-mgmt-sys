@@ -1,0 +1,80 @@
+@using JACO.Unified.Infrastructure
+@model CycleTimeReport
+@{
+    ViewData["Title"] = "Cycle Time Report";
+    var sort = (string?)ViewBag.Sort;
+    var dir = (string)ViewBag.Dir;
+    int? selectedTypeId = ViewBag.SelectedTypeId;
+    DateTime from = ViewBag.From, to = ViewBag.To;
+    string SortUrl(string field)
+    {
+        var newDir = sort == field && dir == "asc" ? "desc" : "asc";
+        return $"{Context.Request.PathBase}/Reports/CycleTime?approvalTypeId={selectedTypeId}&from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&sort={field}&dir={newDir}";
+    }
+    string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
+    string FormatHours(double h) => h < 1 ? $"{Math.Round(h * 60)}m" : h < 48 ? $"{h:F1}h" : $"{h / 24:F1}d";
+    var maxLevelHours = Model.ByLevel.Count == 0 ? 1 : Math.Max(1, Model.ByLevel.Max(l => l.AvgHours));
+}
+<a class="jaco-back-link" href="~/Reports">&larr; Back to Reports</a>
+<div class="jaco-page-header">
+    <div><h1>Cycle Time</h1><p>How long approval takes for requests DECIDED @from.ToString("dd MMM yyyy") &ndash; @to.ToString("dd MMM yyyy"). Measured from the most recent submit/resubmit to the final decision &mdash; time spent being edited before that doesn't count.</p></div>
+</div>
+
+@await Html.PartialAsync("_ReportFilterBar")
+
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/Reports/CycleTimeExport?approvalTypeId=@selectedTypeId&from=@from.ToString("yyyy-MM-dd")&to=@to.ToString("yyyy-MM-dd")">Download CSV</a>
+</div>
+<div class="jaco-card" style="margin-bottom:16px;">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("Type")">Approval Type@(Html.Raw(SortArrow("Type")))</a></th>
+            <th><a class="link" href="@SortUrl("Completed")">Completed@(Html.Raw(SortArrow("Completed")))</a></th>
+            <th><a class="link" href="@SortUrl("Avg")">Avg@(Html.Raw(SortArrow("Avg")))</a></th>
+            <th><a class="link" href="@SortUrl("Median")">Median@(Html.Raw(SortArrow("Median")))</a></th>
+            <th><a class="link" href="@SortUrl("Min")">Fastest@(Html.Raw(SortArrow("Min")))</a></th>
+            <th><a class="link" href="@SortUrl("Max")">Slowest@(Html.Raw(SortArrow("Max")))</a></th>
+        </tr></thead>
+        <tbody>
+        @foreach (var r in Model.ByType)
+        {
+            <tr>
+                <td><a class="link" href="~/Requests/All?approvalTypeId=@r.ApprovalTypeId&status=Approved">@r.TypeName</a></td>
+                <td>@r.CompletedCount</td>
+                <td>@FormatHours(r.AvgHours)</td>
+                <td>@FormatHours(r.MedianHours)</td>
+                <td>@FormatHours(r.MinHours)</td>
+                <td>@FormatHours(r.MaxHours)</td>
+            </tr>
+        }
+        @if (Model.ByType.Count == 0)
+        {
+            <tr><td colspan="6" style="text-align:center;color:var(--jaco-text-muted);">No requests were decided in this range.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+<div class="jaco-card jaco-card-pad">
+    <h2 style="font-size:14px;margin:0 0 4px;">Average Time per Level</h2>
+    <p style="font-size:12.5px;color:var(--jaco-text-muted);margin:0 0 14px;">From the previous level's decision (or submission, for Level 1) to this level's decision &mdash; across every Approval Type in range. The longest bar is where requests actually sit waiting.</p>
+    @if (Model.ByLevel.Count == 0)
+    {
+        <p style="color:var(--jaco-text-muted);">No completed levels in this range.</p>
+    }
+    else
+    {
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            @foreach (var l in Model.ByLevel)
+            {
+                <div style="display:grid;grid-template-columns:90px 1fr 110px;align-items:center;gap:10px;">
+                    <div style="font-size:13px;font-weight:600;">Level @l.LevelNo</div>
+                    <div style="background:var(--jaco-bg);border-radius:4px;overflow:hidden;height:18px;">
+                        <div style="background:var(--jaco-orange-600);height:100%;width:@(l.AvgHours * 100 / maxLevelHours)%;min-width:@(l.AvgHours > 0 ? 2 : 0)px;"></div>
+                    </div>
+                    <div style="font-size:12.5px;color:var(--jaco-text-muted);">@FormatHours(l.AvgHours) &middot; @l.Count decision@(l.Count == 1 ? "" : "s")</div>
+                </div>
+            }
+        </div>
+    }
+</div>

@@ -33,7 +33,7 @@
         {
             <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/Requests/Edit/@Model.Request.Id">Edit</a>
         }
-        @if (Model.Request.Status == "Pending")
+        @if (Model.Request.Status == "Pending" && (Model.IsCreator || Model.IsAdmin))
         {
             <form method="post" action="~/Requests/Nudge/@Model.Request.Id" style="display:inline;">
                 @Html.AntiForgeryToken()

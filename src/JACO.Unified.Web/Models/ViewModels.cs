@@ -29,6 +29,7 @@ public sealed class UserAccountEditViewModel
     public string? Email { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsAdmin { get; set; }
+    public bool IsAuditor { get; set; }
     public bool HasPassword { get; set; }
     // Only used on Create (required there) or to reset an existing user's password.
     public string? NewPassword { get; set; }

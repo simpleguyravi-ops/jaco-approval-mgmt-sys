@@ -10,6 +10,11 @@ namespace JACO.Unified.Web.Controllers;
 public abstract class UnifiedControllerBase(RequestService requests) : Controller
 {
     protected bool IsAdmin => User.IsInRole("UNIFIED_ADMIN") || User.IsInRole("PORTAL_ADMIN") || User.IsInRole("SYSTEM_ADMIN");
+    // An Auditor sees across every Approval Type in Reports (aggregate counts/timings only,
+    // no field values) -- so their drill-through to All Requests needs the same breadth,
+    // same carve-out IsAdmin already gets there, rather than falling back to CanView grants
+    // that a report-only account was never meant to need.
+    protected bool IsAuditor => IsAdmin || User.IsInRole("UNIFIED_AUDITOR");
 
     // Cached per-request so a controller action can call this repeatedly without re-querying.
     AppUser? _currentUser;

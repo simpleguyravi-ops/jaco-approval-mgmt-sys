@@ -1,0 +1,38 @@
+@using JACO.Unified.Infrastructure
+@{
+    ViewData["Title"] = "Reports";
+    var v = (VolumeReport)ViewBag.Volume;
+    DateTime from = ViewBag.From;
+    DateTime to = ViewBag.To;
+    var qs = $"from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}";
+}
+<div class="jaco-page-header">
+    <div>
+        <h1>Reports</h1>
+        <p>Last 90 days across every Approval Type. Open a report to filter by type or date range, or drill into the underlying requests.</p>
+    </div>
+</div>
+
+<div class="jaco-stat-grid">
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="~/Requests/All?status=">
+        <div><div class="jaco-stat-value">@v.Total</div><div class="jaco-stat-label">Total Raised</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="~/Requests/All?status=Pending">
+        <div><div class="jaco-stat-value">@v.Pending</div><div class="jaco-stat-label">Pending / Sent Back</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="~/Requests/All?status=Approved">
+        <div><div class="jaco-stat-value">@v.Approved</div><div class="jaco-stat-label">Approved</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="~/Requests/All?status=Rejected">
+        <div><div class="jaco-stat-value">@v.Rejected</div><div class="jaco-stat-label">Rejected</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="~/Requests/All?status=Withdrawn">
+        <div><div class="jaco-stat-value">@v.Withdrawn</div><div class="jaco-stat-label">Withdrawn</div></div>
+    </a>
+</div>
+
+<div class="cards" style="margin-top:20px;">
+    <a class="metric metric-link" href="~/Reports/Volume?@qs"><b>Volume &amp; Status</b><span>Requests raised and decided over time, broken down by Approval Type</span><small>Open &rarr;</small></a>
+    <a class="metric metric-link" href="~/Reports/CycleTime?@qs"><b>Cycle Time</b><span>How long approval actually takes, overall and level by level</span><small>Open &rarr;</small></a>
+    <a class="metric metric-link" href="~/Reports/Approvers?@qs"><b>Approver Workload</b><span>Decisions made, average response time, and current pending load per approver</span><small>Open &rarr;</small></a>
+</div>

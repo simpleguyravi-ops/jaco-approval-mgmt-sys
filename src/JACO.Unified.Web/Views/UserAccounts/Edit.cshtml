@@ -40,6 +40,7 @@
     @* checkbox-then-hidden-false pattern: unchecked posts nothing, and IsActive defaults to
        true on the model, so unchecking it would otherwise silently fall back to true on save. *@
     <div class="jaco-check-row"><input type="checkbox" name="IsAdmin" value="true" checked="@Model.IsAdmin" id="isAdmin" /><input type="hidden" name="IsAdmin" value="false" /><label for="isAdmin" style="margin:0;font-weight:400;">Administrator (full access to Administration)</label></div>
+    <div class="jaco-check-row"><input type="checkbox" name="IsAuditor" value="true" checked="@Model.IsAuditor" id="isAuditor" /><input type="hidden" name="IsAuditor" value="false" /><label for="isAuditor" style="margin:0;font-weight:400;">Auditor (read-only access to Reports, nothing else in Administration)</label></div>
     <div class="jaco-check-row"><input type="checkbox" name="IsActive" value="true" checked="@Model.IsActive" id="isActive" /><input type="hidden" name="IsActive" value="false" /><label for="isActive" style="margin:0;font-weight:400;">Active</label></div>
     <div style="display:flex;gap:10px;margin-top:12px;">
         <button type="submit" class="jaco-btn jaco-btn-primary">Save</button>

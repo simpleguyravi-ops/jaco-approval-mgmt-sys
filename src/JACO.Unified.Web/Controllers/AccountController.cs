@@ -104,6 +104,7 @@ public sealed class AccountController(UnifiedDbContext db, IConfiguration config
             new("Department", user.Department ?? ""),
         };
         if (user.IsAdmin) claims.Add(new Claim(ClaimTypes.Role, "UNIFIED_ADMIN"));
+        if (user.IsAuditor) claims.Add(new Claim(ClaimTypes.Role, "UNIFIED_AUDITOR"));
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity),

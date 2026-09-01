@@ -52,6 +52,7 @@ builder.Services.AddScoped<MailSender>();
 builder.Services.AddScoped<TimelineService>();
 builder.Services.AddScoped<PpfExecutor>();
 builder.Services.AddScoped<RequestService>();
+builder.Services.AddScoped<ReportsService>();
 builder.Services.AddSingleton(sp =>
 {
     var root = builder.Configuration["Attachments:RootPath"] ?? @"C:\JACO\_shared\unified-attachments";
@@ -90,6 +91,10 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("UnifiedAdmin", p => p.RequireRole("UNIFIED_ADMIN", "PORTAL_ADMIN", "SYSTEM_ADMIN"));
+    // Reports live outside Administration on purpose -- an auditor can be granted exactly
+    // this and nothing else. Any admin role also satisfies it, since an admin can already
+    // see everything Reports shows.
+    options.AddPolicy("UnifiedReports", p => p.RequireRole("UNIFIED_ADMIN", "PORTAL_ADMIN", "SYSTEM_ADMIN", "UNIFIED_AUDITOR"));
 });
 
 // Throttles the actions that change state or move a file -- partitioned per signed-in user

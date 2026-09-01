@@ -35,8 +35,8 @@ public sealed class UserAccountsController(UnifiedDbContext db) : Controller
     {
         var users = await db.AppUsers.OrderBy(u => u.DisplayName).ToListAsync();
         var bytes = CsvHelper.ToCsvBytes(users,
-            ["Name", "Username", "Department", "Email", "Local Login", "Admin", "Status"],
-            u => [u.DisplayName, u.UserName, u.Department ?? "", u.Email ?? "", u.PasswordHash is null ? "No" : "Yes", u.IsAdmin ? "Yes" : "No", u.IsActive ? "Active" : "Disabled"]);
+            ["Name", "Username", "Department", "Email", "Local Login", "Admin", "Auditor", "Status"],
+            u => [u.DisplayName, u.UserName, u.Department ?? "", u.Email ?? "", u.PasswordHash is null ? "No" : "Yes", u.IsAdmin ? "Yes" : "No", u.IsAuditor ? "Yes" : "No", u.IsActive ? "Active" : "Disabled"]);
         return File(bytes, "text/csv", $"user-accounts-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
     }
 
@@ -57,6 +57,7 @@ public sealed class UserAccountsController(UnifiedDbContext db) : Controller
             Email = user.Email,
             IsActive = user.IsActive,
             IsAdmin = user.IsAdmin,
+            IsAuditor = user.IsAuditor,
             HasPassword = user.PasswordHash is not null
         });
     }
@@ -120,6 +121,7 @@ public sealed class UserAccountsController(UnifiedDbContext db) : Controller
         user.Email = model.Email;
         user.IsActive = model.IsActive;
         user.IsAdmin = model.IsAdmin;
+        user.IsAuditor = model.IsAuditor;
 
         db.AuditLogs.Add(new AuditLog { ActionCode = model.Id == 0 ? "UserAccountCreated" : "UserAccountUpdated", DetailsJson = model.UserName, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();

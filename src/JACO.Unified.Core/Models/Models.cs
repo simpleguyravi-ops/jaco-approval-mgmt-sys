@@ -23,6 +23,10 @@ public sealed class AppUser
     // local login. A Portal-SSO login is still separately recognized as admin via its own
     // PORTAL_ADMIN/SYSTEM_ADMIN claims (see UnifiedAdmin policy), independent of this flag.
     public bool IsAdmin { get; set; }
+    // Read-only access to /Reports without any of the rest of Administration -- a distinct
+    // grant from IsAdmin so a compliance/audit user can be given exactly that and nothing
+    // more (can't touch routing, fields, users, or PPF config).
+    public bool IsAuditor { get; set; }
 
     // Account lockout: only tracked/enforced for local login attempts (see
     // AccountController.Login) -- resets to 0/null on any successful local sign-in.

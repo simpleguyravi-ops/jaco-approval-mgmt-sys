@@ -1,0 +1,66 @@
+@using JACO.Unified.Infrastructure
+@model ApproverWorkloadReport
+@{
+    ViewData["Title"] = "Approver Workload Report";
+    var sort = (string?)ViewBag.Sort;
+    var dir = (string)ViewBag.Dir;
+    int? selectedTypeId = ViewBag.SelectedTypeId;
+    DateTime from = ViewBag.From, to = ViewBag.To;
+    string SortUrl(string field)
+    {
+        var newDir = sort == field && dir == "asc" ? "desc" : "asc";
+        return $"{Context.Request.PathBase}/Reports/Approvers?approvalTypeId={selectedTypeId}&from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&sort={field}&dir={newDir}";
+    }
+    string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
+    string FormatHours(double h) => h < 1 ? $"{Math.Round(h * 60)}m" : h < 48 ? $"{h:F1}h" : $"{h / 24:F1}d";
+}
+<a class="jaco-back-link" href="~/Reports">&larr; Back to Reports</a>
+<div class="jaco-page-header">
+    <div><h1>Approver Workload</h1><p>Decisions made @from.ToString("dd MMM yyyy") &ndash; @to.ToString("dd MMM yyyy"), how long each took to respond, and what's on their plate right now.</p></div>
+</div>
+
+@await Html.PartialAsync("_ReportFilterBar")
+
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/Reports/ApproversExport?approvalTypeId=@selectedTypeId&from=@from.ToString("yyyy-MM-dd")&to=@to.ToString("yyyy-MM-dd")">Download CSV</a>
+</div>
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("Approver")">Approver@(Html.Raw(SortArrow("Approver")))</a></th>
+            <th><a class="link" href="@SortUrl("Department")">Department@(Html.Raw(SortArrow("Department")))</a></th>
+            <th><a class="link" href="@SortUrl("Approved")">Approved@(Html.Raw(SortArrow("Approved")))</a></th>
+            <th><a class="link" href="@SortUrl("Rejected")">Rejected@(Html.Raw(SortArrow("Rejected")))</a></th>
+            <th><a class="link" href="@SortUrl("SentBack")">Sent Back@(Html.Raw(SortArrow("SentBack")))</a></th>
+            <th><a class="link" href="@SortUrl("AvgHours")">Avg Response Time@(Html.Raw(SortArrow("AvgHours")))</a></th>
+            <th><a class="link" href="@SortUrl("Pending")">Pending Now@(Html.Raw(SortArrow("Pending")))</a></th>
+        </tr></thead>
+        <tbody>
+        @foreach (var a in Model.Approvers)
+        {
+            <tr>
+                <td>@a.DisplayName</td>
+                <td>@(a.Department ?? "—")</td>
+                <td>@a.ApprovedCount</td>
+                <td>@a.RejectedCount</td>
+                <td>@a.SentBackCount</td>
+                <td>@FormatHours(a.AvgDecisionHours)</td>
+                <td>
+                    @if (a.CurrentPendingCount > 0)
+                    {
+                        <a class="link" href="~/Requests/All?status=Pending&pendingWithUserId=@a.UserId&approvalTypeId=@selectedTypeId">@a.CurrentPendingCount</a>
+                    }
+                    else
+                    {
+                        <text>0</text>
+                    }
+                </td>
+            </tr>
+        }
+        @if (Model.Approvers.Count == 0)
+        {
+            <tr><td colspan="7" style="text-align:center;color:var(--jaco-text-muted);">No decisions recorded in this range.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>
