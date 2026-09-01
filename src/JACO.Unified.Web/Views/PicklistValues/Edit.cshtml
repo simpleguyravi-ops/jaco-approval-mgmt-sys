@@ -8,6 +8,7 @@
     <div class="jaco-form-field" style="margin-bottom:14px;"><label>Value (stored)</label><input class="jaco-input" value="@Model.Value" disabled /></div>
     <div class="jaco-form-field" style="margin-bottom:14px;"><label>Display Text</label><input class="jaco-input" name="DisplayText" value="@Model.DisplayText" /></div>
     <div class="jaco-form-field" style="margin-bottom:14px;"><label>Sort Order</label><input class="jaco-input" type="number" name="SortOrder" value="@Model.SortOrder" /></div>
+    <div class="jaco-form-field" style="margin-bottom:14px;"><label>Extra Data <span style="font-weight:400;color:var(--jaco-text-muted);">(optional -- e.g. a Branch value's account-team email)</span></label><input class="jaco-input" name="ExtraData" value="@Model.ExtraData" placeholder="e.g. jeddah-accounts@mbjaco.com" /></div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><input type="checkbox" name="Active" value="true" checked="@Model.Active" /> Active</label>
     <button type="submit" class="jaco-btn jaco-btn-primary">Save</button>
     <a class="jaco-btn jaco-btn-outline" href="~/PicklistValues?lookupType=@Model.LookupType">Cancel</a>

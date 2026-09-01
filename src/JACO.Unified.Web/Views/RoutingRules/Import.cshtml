@@ -44,7 +44,8 @@
     <ul style="font-size:13px;color:var(--jaco-text-muted);padding-left:18px;">
         <li>Blank <b>RuleName</b> is auto-generated from Branch/Channel/Discount range, and is the key used to match existing rules when updating rather than replacing.</li>
         <li>Blank criteria columns match anything on that dimension &mdash; only fill in what actually constrains the rule.</li>
-        <li><b>DiscountFrom/To</b> are percentage bounds; <b>ValidFrom/To</b> are optional effective dates.</li>
+        <li>For Sales Discount, leave <b>Company</b> blank &mdash; it's derived from Branch, not a separately submitted field, so a Company criteria would never match.</li>
+        <li><b>DiscountFrom/To</b> are percentage bounds; <b>ValidFrom/To</b> are optional effective dates, checked against the day the request is submitted.</li>
         <li><b>LevelNApprover</b> columns are matched by email (or username) to an existing user &mdash; leave the rest blank once a rule's chain ends.</li>
         <li>Nothing is written until you confirm on the preview screen, and any row with an error blocks the whole file from being applied.</li>
     </ul>

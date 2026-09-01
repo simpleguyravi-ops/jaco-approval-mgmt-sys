@@ -57,6 +57,7 @@ public sealed class PicklistValuesController(UnifiedDbContext db) : Controller
         value.DisplayText = model.DisplayText;
         value.SortOrder = model.SortOrder;
         value.Active = model.Active;
+        value.ExtraData = model.ExtraData;
         await db.SaveChangesAsync();
 
         TempData["Success"] = "Saved.";

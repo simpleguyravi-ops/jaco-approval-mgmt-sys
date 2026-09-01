@@ -201,9 +201,20 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         var isResubmit = request.Status == "Sent Back";
         var fieldValues = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(request.DataJson) ?? new();
 
+        if (await InjectAccountEmailAsync(request.ApprovalTypeId, fieldValues))
+            request.DataJson = JsonSerializer.Serialize(fieldValues);
+
         if (!isResubmit)
         {
-            var route = await routing.ResolveAsync(request.ApprovalTypeId, fieldValues);
+            // A copy, not a DataJson mutation -- requestDate is routing-criteria-only
+            // (drives ValidFrom/ValidTo-style date-range rules, e.g. Sales Discount's bulk
+            // import), not a business field the form ever asks for or the Details page
+            // should show.
+            var routingContext = new Dictionary<string, JsonElement>(fieldValues);
+            using var requestDateDoc = JsonDocument.Parse(JsonSerializer.Serialize(DateTime.UtcNow.ToString("yyyy-MM-dd")));
+            routingContext["requestDate"] = requestDateDoc.RootElement.Clone();
+
+            var route = await routing.ResolveAsync(request.ApprovalTypeId, routingContext);
 
             db.RoutingLog.Add(new RoutingLogEntry
             {
@@ -213,7 +224,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
                 Success = route.Ok,
                 MatchedRuleName = route.MatchedRuleName,
                 Detail = route.Detail,
-                RoutingContextJson = request.DataJson,
+                RoutingContextJson = JsonSerializer.Serialize(routingContext),
                 CreatedAt = DateTime.UtcNow
             });
 
@@ -245,6 +256,27 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         await ppf.RaiseEventAsync(request.Id, "LevelPending");
 
         return (true, request.Status);
+    }
+
+    // Sales Discount specific: the submitted Branch resolves to that branch's account-team
+    // email (stored in PicklistValues.ExtraData), injected as an extra field so PPF's
+    // existing generic "Field" recipient mode can send the completion notice there --
+    // avoids a dedicated Branches table/service for what's otherwise a one-off lookup.
+    // Runs on every submit/resubmit so a branch change after Send Back stays in sync.
+    async Task<bool> InjectAccountEmailAsync(int approvalTypeId, Dictionary<string, JsonElement> fieldValues)
+    {
+        var type = await db.ApprovalTypes.FindAsync(approvalTypeId);
+        if (type?.Code != "SALES_DISCOUNT") return false;
+        if (!fieldValues.TryGetValue("branch", out var branchEl) || branchEl.ValueKind != JsonValueKind.String) return false;
+        var branchValue = branchEl.GetString();
+        if (string.IsNullOrWhiteSpace(branchValue)) return false;
+
+        var branch = await db.PicklistValues.SingleOrDefaultAsync(p => p.LookupType == "Branch" && p.Value == branchValue && p.Active);
+        if (string.IsNullOrWhiteSpace(branch?.ExtraData)) return false;
+
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(branch.ExtraData));
+        fieldValues["accountEmail"] = doc.RootElement.Clone();
+        return true;
     }
 
     // ---------- Decisions ----------

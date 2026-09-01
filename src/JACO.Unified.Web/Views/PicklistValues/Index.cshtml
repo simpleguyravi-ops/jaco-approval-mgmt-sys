@@ -21,13 +21,14 @@
 </form>
 <div class="jaco-card">
     <table class="jaco-table">
-        <thead><tr><th>Value</th><th>Display Text</th><th>Sort Order</th><th>Active</th><th></th></tr></thead>
+        <thead><tr><th>Value</th><th>Display Text</th><th>Extra Data</th><th>Sort Order</th><th>Active</th><th></th></tr></thead>
         <tbody>
         @foreach (var p in Model)
         {
             <tr>
                 <td><code>@p.Value</code></td>
                 <td>@p.DisplayText</td>
+                <td>@p.ExtraData</td>
                 <td>@p.SortOrder</td>
                 <td>@(p.Active ? "Yes" : "No")</td>
                 <td><a class="link" href="~/PicklistValues/Edit/@p.Id">Edit</a></td>
@@ -35,7 +36,7 @@
         }
         @if (Model.Count == 0)
         {
-            <tr><td colspan="5" style="text-align:center;color:var(--jaco-text-muted);">@(string.IsNullOrEmpty(selected) ? "Enter a Lookup Type above to view its values." : "No values yet for this Lookup Type.")</td></tr>
+            <tr><td colspan="6" style="text-align:center;color:var(--jaco-text-muted);">@(string.IsNullOrEmpty(selected) ? "Enter a Lookup Type above to view its values." : "No values yet for this Lookup Type.")</td></tr>
         }
         </tbody>
     </table>

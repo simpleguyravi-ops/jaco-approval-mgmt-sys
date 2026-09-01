@@ -115,6 +115,11 @@ public sealed class PicklistValue
     public string DisplayText { get; set; } = "";
     public int SortOrder { get; set; } = 10;
     public bool Active { get; set; } = true;
+    // Optional per-value metadata -- e.g. a Branch lookup value's associated account-team
+    // email, so a submitted branch can resolve a PPF notification recipient (via the
+    // Field ToMode reading a value injected into DataJson at submit time) without a
+    // dedicated Branches table/admin screen just for this one lookup.
+    public string? ExtraData { get; set; }
 }
 
 // ============================================================
