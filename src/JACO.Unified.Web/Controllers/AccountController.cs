@@ -37,7 +37,10 @@ public sealed class AccountController(UnifiedDbContext db, IConfiguration config
     public IActionResult Login(string? returnUrl = null)
     {
         if (User.Identity?.IsAuthenticated == true) return RedirectToAction("Index", "Requests");
-        ViewBag.PortalHomeUrl = configuration["SharedAuth:PortalHomeUrl"] ?? "http://localhost:5010/";
+        // No fallback on purpose -- a standalone deployment (no other JACO app reachable to
+        // SSO with) simply omits this config key, and the view hides the link entirely
+        // rather than pointing at a Portal that doesn't exist for that environment.
+        ViewBag.PortalHomeUrl = configuration["SharedAuth:PortalHomeUrl"];
         return View(new LoginViewModel { ReturnUrl = returnUrl });
     }
 

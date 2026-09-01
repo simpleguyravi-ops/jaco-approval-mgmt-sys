@@ -54,7 +54,6 @@ public sealed class DigestController(UnifiedDbContext db, RequestService request
 
     async Task<DigestViewModel> BuildModel(int? recipientUserId, int? mailTemplateId)
     {
-        await requests.SyncUsersFromPortalAsync();
         var users = await db.AppUsers.Where(u => u.IsActive).OrderBy(u => u.DisplayName).ToListAsync();
         var templates = await db.MailTemplates.Where(t => t.IsTableTemplate && t.IsActive).ToListAsync();
 

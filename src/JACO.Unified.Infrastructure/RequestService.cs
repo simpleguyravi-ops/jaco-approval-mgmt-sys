@@ -13,7 +13,7 @@ public sealed record TimelineLevel(int LevelNo, string Mode, IReadOnlyList<strin
 // ChangeRequestController (create/edit/submit) used to split across two apps and two
 // database rows, now operating on ONE Request row for its entire lifecycle. No snapshot,
 // no resync -- editing IS updating the same row Submit will route again.
-public sealed class RequestService(UnifiedDbContext db, RoutingService routing, PpfExecutor ppf, PortalApiClient portalApi, TimelineService timeline)
+public sealed class RequestService(UnifiedDbContext db, RoutingService routing, PpfExecutor ppf, TimelineService timeline)
 {
     public const string AdminOverrideMarker = "[Admin override";
 
@@ -75,29 +75,6 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         db.AppUsers.Add(created);
         await db.SaveChangesAsync();
         return created;
-    }
-
-    public async Task SyncUsersFromPortalAsync(string appCode = "UNIFIED")
-    {
-        var roster = await portalApi.GetUsersWithAccessAsync(appCode);
-        if (roster.Count == 0) return;
-
-        foreach (var entry in roster)
-        {
-            var existing = await db.AppUsers.SingleOrDefaultAsync(u => u.UserName == entry.UserName);
-            if (existing is null)
-            {
-                db.AppUsers.Add(new AppUser { UserName = entry.UserName, DisplayName = entry.DisplayName, Email = entry.Email, Department = entry.Department, IsActive = true });
-            }
-            else
-            {
-                existing.DisplayName = entry.DisplayName;
-                existing.Email = entry.Email;
-                existing.Department = entry.Department;
-                existing.IsActive = true;
-            }
-        }
-        await db.SaveChangesAsync();
     }
 
     // ---------- Access ----------

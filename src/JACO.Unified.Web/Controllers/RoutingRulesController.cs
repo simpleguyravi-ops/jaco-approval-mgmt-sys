@@ -12,7 +12,7 @@ namespace JACO.Unified.Web.Controllers;
 // Criteria field keys are drawn from the same WorkflowFields catalog the Create/Edit form
 // itself renders from -- one config screen feeds both.
 [Authorize(Policy = "UnifiedAdmin")]
-public sealed class RoutingRulesController(UnifiedDbContext db, RequestService requests) : Controller
+public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
 {
     public static readonly string[] Operators = ["=", "!=", "CONTAINS", "STARTSWITH", "ENDSWITH", "IN", ">", ">=", "<", "<="];
     public static readonly string[] Modes = ["ANY_ONE", "ALL", "MAJORITY", "MINIMUM_COUNT"];
@@ -89,8 +89,6 @@ public sealed class RoutingRulesController(UnifiedDbContext db, RequestService r
 
     async Task<RuleFormViewModel> BuildFormModelAsync(int approvalTypeId, int? ruleId)
     {
-        await requests.SyncUsersFromPortalAsync();
-
         var criteriaRows = Enumerable.Range(0, RuleFormViewModel.MaxCriteriaRows).Select(_ => new CriteriaFormRow()).ToList();
         var levelRows = Enumerable.Range(1, RuleFormViewModel.MaxLevels).Select(n => new LevelFormRow { LevelNo = n }).ToList();
         RoutingRule? rule = null;

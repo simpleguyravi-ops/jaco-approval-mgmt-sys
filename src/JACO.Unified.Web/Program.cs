@@ -38,7 +38,6 @@ builder.Services.AddSingleton(sp =>
     Directory.CreateDirectory(root);
     return new RequestAttachmentStorage(root);
 });
-builder.Services.AddHttpClient<PortalApiClient>();
 
 // Shared SSO: trusts the login cookie issued by JACO Portal -- same key ring + same
 // cookie name as every other JACO app, so a Portal login carries straight through here.

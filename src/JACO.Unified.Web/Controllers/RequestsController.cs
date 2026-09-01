@@ -462,7 +462,6 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
         var step = await db.WorkflowSteps.SingleOrDefaultAsync(s => s.WorkflowVersionId == reqRow.WorkflowVersionId && s.RoutingRuleId == reqRow.RoutingRuleId && s.LevelNo == reqRow.CurrentLevelNo);
         if (step is null) return NotFound();
 
-        await requests.SyncUsersFromPortalAsync();
         var currentApproverIds = await db.WorkflowStepApprovers.Where(a => a.WorkflowStepId == step.Id).Select(a => a.UserId).ToListAsync();
         var users = await db.AppUsers.Where(u => u.IsActive).OrderBy(u => u.DisplayName).ToListAsync();
 
@@ -505,7 +504,6 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
             return RedirectToAction(nameof(All));
         }
 
-        await requests.SyncUsersFromPortalAsync();
         var users = await db.AppUsers.Where(u => u.IsActive).OrderBy(u => u.DisplayName).ToListAsync();
 
         var approverIds = new HashSet<int>();

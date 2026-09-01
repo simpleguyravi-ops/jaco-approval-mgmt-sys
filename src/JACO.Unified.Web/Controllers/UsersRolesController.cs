@@ -17,10 +17,6 @@ public sealed class UsersRolesController(UnifiedDbContext db, RequestService req
 {
     public async Task<IActionResult> Index(int approvalTypeId)
     {
-        // Kept in sync on every visit -- same as Rule Builder/Digest -- so a person who
-        // signed in for the first time recently shows up here without a manual step.
-        await requests.SyncUsersFromPortalAsync();
-
         var types = await db.ApprovalTypes.Where(t => t.Active).OrderBy(t => t.Name).ToListAsync();
         if (approvalTypeId == 0 && types.Count > 0) approvalTypeId = types[0].Id;
 
@@ -91,15 +87,6 @@ public sealed class UsersRolesController(UnifiedDbContext db, RequestService req
         await db.SaveChangesAsync();
 
         TempData["Success"] = "Permissions saved.";
-        return RedirectToAction(nameof(Index), new { approvalTypeId });
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SyncFromPortal(int approvalTypeId)
-    {
-        await requests.SyncUsersFromPortalAsync();
-        TempData["Success"] = "User roster synced from Portal.";
         return RedirectToAction(nameof(Index), new { approvalTypeId });
     }
 }
