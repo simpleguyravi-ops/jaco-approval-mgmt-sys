@@ -1,7 +1,9 @@
+using System.Net;
 using System.Threading.RateLimiting;
 using JACO.Unified.Infrastructure;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -21,6 +23,24 @@ if (Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindows
 }
 
 builder.Services.AddControllersWithViews();
+
+// Reachable through a reverse proxy in real deployments (mbjaco.com's front door is nginx,
+// terminating TLS and forwarding plain HTTP to this app) -- without this, the app never
+// finds out the original request was HTTPS, so UseHttpsRedirection loops and the auth
+// cookie's SameAsRequest policy wrongly treats every request as insecure. Harmless locally:
+// with no proxy in front, these headers simply never arrive.
+// ReverseProxy:TrustedProxyIp -- the ONE address the forwarded headers are accepted from, so
+// a request can't just claim "X-Forwarded-Proto: https" to itself. Leave unset locally.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    var trustedProxyIp = builder.Configuration["ReverseProxy:TrustedProxyIp"];
+    if (!string.IsNullOrWhiteSpace(trustedProxyIp))
+    {
+        options.KnownProxies.Clear();
+        options.KnownProxies.Add(IPAddress.Parse(trustedProxyIp));
+    }
+});
 builder.Services.AddDbContext<UnifiedDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -98,6 +118,11 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+// Must run before anything that inspects Request.Scheme/Host (HTTPS redirection, HSTS, the
+// auth cookie's Secure policy) -- otherwise those see the plain-HTTP hop from the proxy
+// instead of the client's original HTTPS request.
+app.UseForwardedHeaders();
 
 if (!app.Environment.IsDevelopment())
 {
