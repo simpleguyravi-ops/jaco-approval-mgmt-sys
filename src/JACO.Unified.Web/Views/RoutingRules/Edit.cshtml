@@ -1,6 +1,6 @@
 @model RuleFormViewModel
 @{ ViewData["Title"] = Model.Rule is null ? "New Routing Rule" : "Edit Routing Rule"; }
-<a class="jaco-back-link" href="/RoutingRules?approvalTypeId=@Model.ApprovalTypeId">&larr; Back to Rule Builder</a>
+<a class="jaco-back-link" href="~/RoutingRules?approvalTypeId=@Model.ApprovalTypeId">&larr; Back to Rule Builder</a>
 <div class="jaco-page-header">
     <div>
         <h1>@ViewData["Title"]</h1>
@@ -8,7 +8,7 @@
     </div>
 </div>
 
-<form method="post" action="@(Model.Rule is null ? "/RoutingRules/Create" : $"/RoutingRules/Edit/{Model.Rule.Id}")">
+<form method="post" action="@(Model.Rule is null ? Context.Request.PathBase + "/RoutingRules/Create" : $"{Context.Request.PathBase}/RoutingRules/Edit/{Model.Rule.Id}")">
     @Html.AntiForgeryToken()
     <input type="hidden" name="approvalTypeId" value="@Model.ApprovalTypeId" />
 
@@ -93,7 +93,7 @@
 
     <div style="display:flex;gap:10px;margin-top:16px;">
         <button type="submit" class="jaco-btn jaco-btn-primary">Save Rule</button>
-        <a class="jaco-btn jaco-btn-outline" href="/RoutingRules?approvalTypeId=@Model.ApprovalTypeId">Cancel</a>
+        <a class="jaco-btn jaco-btn-outline" href="~/RoutingRules?approvalTypeId=@Model.ApprovalTypeId">Cancel</a>
     </div>
 </form>
 

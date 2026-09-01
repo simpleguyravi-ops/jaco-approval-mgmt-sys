@@ -6,17 +6,17 @@
     string SortUrl(string field)
     {
         var newDir = sort == field && dir == "asc" ? "desc" : "asc";
-        return $"/MailTemplates?sort={field}&dir={newDir}";
+        return $"{Context.Request.PathBase}/MailTemplates?sort={field}&dir={newDir}";
     }
     string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
 }
 <a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
 <div class="jaco-page-header">
     <div><h1>Mail Templates</h1><p>Templates used by Post-Processing (PPF) rules, and for the pending approvals digest.</p></div>
-    <a class="jaco-btn jaco-btn-primary" href="/MailTemplates/Create">+ New Template</a>
+    <a class="jaco-btn jaco-btn-primary" href="~/MailTemplates/Create">+ New Template</a>
 </div>
 <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/MailTemplates/Export">Download CSV</a>
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/MailTemplates/Export">Download CSV</a>
 </div>
 <div class="jaco-card">
     <table class="jaco-table">
@@ -30,7 +30,7 @@
         @foreach (var t in Model)
         {
             <tr>
-                <td><a class="link" href="/MailTemplates/Edit/@t.Id">@t.Name</a></td>
+                <td><a class="link" href="~/MailTemplates/Edit/@t.Id">@t.Name</a></td>
                 <td>@t.Subject</td>
                 <td>@(t.IsTableTemplate ? "Table (digest)" : "Single record")</td>
                 <td>

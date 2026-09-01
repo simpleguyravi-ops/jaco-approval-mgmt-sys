@@ -1,8 +1,8 @@
 @model ApprovalType
 @{ ViewData["Title"] = "New Approval Type"; }
-<a class="jaco-back-link" href="/ApprovalTypes">&larr; Back to Approval Types</a>
+<a class="jaco-back-link" href="~/ApprovalTypes">&larr; Back to Approval Types</a>
 <div class="jaco-page-header"><div><h1>New Approval Type</h1></div></div>
-<form method="post" action="/ApprovalTypes/Create" class="jaco-card jaco-card-pad" style="max-width:560px;">
+<form method="post" action="~/ApprovalTypes/Create" class="jaco-card jaco-card-pad" style="max-width:560px;">
     @Html.AntiForgeryToken()
     <div class="jaco-form-group"><label>Code</label><input class="jaco-input" name="Code" value="@Model.Code" placeholder="e.g. CR, SALES_DISCOUNT" style="text-transform:uppercase;" required /></div>
     <div class="jaco-form-group"><label>Name</label><input class="jaco-input" name="Name" value="@Model.Name" placeholder="e.g. Change Request" required /></div>
@@ -10,6 +10,6 @@
     <div class="jaco-check-row"><input type="checkbox" name="Active" value="true" checked="@Model.Active" id="active" /><label for="active" style="margin:0;font-weight:400;">Active</label></div>
     <div style="display:flex;gap:10px;margin-top:12px;">
         <button type="submit" class="jaco-btn jaco-btn-primary">Create</button>
-        <a class="jaco-btn jaco-btn-outline" href="/ApprovalTypes">Cancel</a>
+        <a class="jaco-btn jaco-btn-outline" href="~/ApprovalTypes">Cancel</a>
     </div>
 </form>

@@ -1,6 +1,6 @@
 @model RequestFormViewModel
 @{ ViewData["Title"] = $"Edit {Model.Request.RequestNumber}"; }
-<a class="jaco-back-link" href="/Requests/Details/@Model.Request.Id">&larr; Back to @Model.Request.RequestNumber</a>
+<a class="jaco-back-link" href="~/Requests/Details/@Model.Request.Id">&larr; Back to @Model.Request.RequestNumber</a>
 <div class="page-head">
     <div>
         <span class="eyebrow">@Model.ApprovalType.Name.ToUpperInvariant()</span>
@@ -9,7 +9,7 @@
     </div>
 </div>
 
-<form method="post" action="/Requests/Edit/@Model.Request.Id" enctype="multipart/form-data">
+<form method="post" action="~/Requests/Edit/@Model.Request.Id" enctype="multipart/form-data">
     @Html.AntiForgeryToken()
     <section class="panel">
         <h2 style="font-size:14px;">Request Details</h2>
@@ -22,13 +22,13 @@
     <div class="actions">
         <button type="submit" name="submitNow" value="false" class="btn">Save</button>
         <button type="submit" name="submitNow" value="true" class="btn primary">Submit for Approval</button>
-        <a class="btn" href="/Requests/Details/@Model.Request.Id">Cancel</a>
+        <a class="btn" href="~/Requests/Details/@Model.Request.Id">Cancel</a>
     </div>
 </form>
 
 <section class="panel">
     <h2 style="font-size:14px;">Attachments</h2>
-    <form method="post" action="/Requests/UploadAttachment/@Model.Request.Id" enctype="multipart/form-data">
+    <form method="post" action="~/Requests/UploadAttachment/@Model.Request.Id" enctype="multipart/form-data">
         @Html.AntiForgeryToken()
         <input type="hidden" name="returnTo" value="Edit" />
         <div class="actions">
@@ -51,7 +51,7 @@
                     <td>@a.OriginalFileName</td>
                     <td>@a.UploadedByUserName</td>
                     <td>@a.UploadedAt.ToString("dd-MMM-yyyy HH:mm")</td>
-                    <td><a class="link" href="/Requests/DownloadAttachment/@a.Id">Download</a></td>
+                    <td><a class="link" href="~/Requests/DownloadAttachment/@a.Id">Download</a></td>
                 </tr>
             }
             </tbody>

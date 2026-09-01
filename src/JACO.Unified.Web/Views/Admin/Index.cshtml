@@ -6,43 +6,43 @@
 <h2 style="font-size:15px;">Oversight &mdash; every request, across every requestor and approver</h2>
 <p style="color:#65727d;margin-top:-8px;">Status counts, decide on behalf of an assigned approver, reassign approvers (e.g. an employee leaving), and download items to CSV.</p>
 <div class="cards">
-    <a class="metric metric-link" href="/Requests/All"><b>All Requests</b><span>Every item, filterable, with a quick status dashboard</span><small>Open &rarr;</small></a>
+    <a class="metric metric-link" href="~/Requests/All"><b>All Requests</b><span>Every item, filterable, with a quick status dashboard</span><small>Open &rarr;</small></a>
 </div>
 
 <h2 style="font-size:15px;margin-top:24px;">Request Types &amp; Fields &mdash; what gets asked, per type</h2>
 <p style="color:#65727d;margin-top:-8px;">The dynamic form/config layer: add a type, add a field, and it's live on the Create/Edit form, Details panel, and Rule Builder &mdash; no code change.</p>
 <div class="cards">
-    <a class="metric metric-link" href="/ApprovalTypes"><b>Approval Types</b><span>The kinds of requests this platform can process</span><small>Manage &rarr;</small></a>
-    <a class="metric metric-link" href="/WorkflowFields"><b>Criteria Fields</b><span>Which fields the form/Rule Builder offers, per type or generic to all</span><small>Manage &rarr;</small></a>
-    <a class="metric metric-link" href="/PicklistValues"><b>Picklist Values</b><span>Shared dropdown options for Dropdown-type fields</span><small>Manage &rarr;</small></a>
+    <a class="metric metric-link" href="~/ApprovalTypes"><b>Approval Types</b><span>The kinds of requests this platform can process</span><small>Manage &rarr;</small></a>
+    <a class="metric metric-link" href="~/WorkflowFields"><b>Criteria Fields</b><span>Which fields the form/Rule Builder offers, per type or generic to all</span><small>Manage &rarr;</small></a>
+    <a class="metric metric-link" href="~/PicklistValues"><b>Picklist Values</b><span>Shared dropdown options for Dropdown-type fields</span><small>Manage &rarr;</small></a>
 </div>
 
 <h2 style="font-size:15px;margin-top:24px;">Rule Builder &amp; Access &mdash; who approves what, who can create/view</h2>
 <p style="color:#65727d;margin-top:-8px;">Defines the approvers for each Approval Type, based on the criteria submitted, and which users can create or "Display All" for each type.</p>
 <div class="cards">
-    <a class="metric metric-link" href="/RoutingRules"><b>Routing Rules &amp; Approvers</b><span>Criteria, levels and approvers per Approval Type</span><small>Open Rule Builder &rarr;</small></a>
-    <a class="metric metric-link" href="/UsersRoles"><b>Users &amp; Roles</b><span>Per-type Create / Display All permissions</span><small>Manage &rarr;</small></a>
+    <a class="metric metric-link" href="~/RoutingRules"><b>Routing Rules &amp; Approvers</b><span>Criteria, levels and approvers per Approval Type</span><small>Open Rule Builder &rarr;</small></a>
+    <a class="metric metric-link" href="~/UsersRoles"><b>Users &amp; Roles</b><span>Per-type Create / Display All permissions</span><small>Manage &rarr;</small></a>
 </div>
 
 <h2 style="font-size:15px;margin-top:24px;">User Accounts &mdash; standalone sign-in</h2>
 <p style="color:#65727d;margin-top:-8px;">Local login for Unified, independent of Portal SSO. Create an account or set a password here to let someone sign in directly, without going through Portal first.</p>
 <div class="cards">
-    <a class="metric metric-link" href="/UserAccounts"><b>User Accounts</b><span>Create accounts, set/reset passwords, grant admin</span><small>Manage &rarr;</small></a>
+    <a class="metric metric-link" href="~/UserAccounts"><b>User Accounts</b><span>Create accounts, set/reset passwords, grant admin</span><small>Manage &rarr;</small></a>
 </div>
 
 <h2 style="font-size:15px;margin-top:24px;">PPF Framework &mdash; what happens after a decision</h2>
 <p style="color:#65727d;margin-top:-8px;">Triggers actions (currently: email) when a request changes state &mdash; e.g. on final approval, email the creator and a fixed department address with full details.</p>
 <div class="cards">
-    <a class="metric metric-link" href="/PostProcessingRules"><b>Post-Processing Rules</b><span>Which mail template fires per event</span><small>Manage rules &rarr;</small></a>
-    <a class="metric metric-link" href="/MailTemplates"><b>Mail Templates</b><span>Maintain the mail forms used by PPF</span><small>Manage templates &rarr;</small></a>
-    <a class="metric metric-link" href="/Digest"><b>Pending Approvals Digest</b><span>Send an approver a table of what's pending</span><small>Send digest &rarr;</small></a>
-    <a class="metric metric-link" href="/EmailSettings"><b>Email Configuration</b><span>SMTP host, credentials, and a test-send button</span><small>Configure &rarr;</small></a>
+    <a class="metric metric-link" href="~/PostProcessingRules"><b>Post-Processing Rules</b><span>Which mail template fires per event</span><small>Manage rules &rarr;</small></a>
+    <a class="metric metric-link" href="~/MailTemplates"><b>Mail Templates</b><span>Maintain the mail forms used by PPF</span><small>Manage templates &rarr;</small></a>
+    <a class="metric metric-link" href="~/Digest"><b>Pending Approvals Digest</b><span>Send an approver a table of what's pending</span><small>Send digest &rarr;</small></a>
+    <a class="metric metric-link" href="~/EmailSettings"><b>Email Configuration</b><span>SMTP host, credentials, and a test-send button</span><small>Configure &rarr;</small></a>
 </div>
 
 <h2 style="font-size:15px;margin-top:24px;">Operations Cockpit &mdash; monitoring &amp; diagnostics</h2>
 <p style="color:#65727d;margin-top:-8px;">Every routing determination attempt, every request action, and every PPF action triggered, filterable by request/date, with provision to clear old entries.</p>
 <div class="cards">
-    <a class="metric metric-link" href="/Cockpit/RoutingLog"><b>Routing / Determination Log</b><span>Every routing attempt, incl. failures to route</span><small>Open Cockpit &rarr;</small></a>
-    <a class="metric metric-link" href="/Cockpit/AuditLog"><b>Request Audit Log</b><span>Every decision/action, who and when</span><small>Open Cockpit &rarr;</small></a>
-    <a class="metric metric-link" href="/Home/PpfMonitor"><b>PPF Monitor</b><span>Every action triggered, to whom, sent/failed/skipped</span><small>Open monitor &rarr;</small></a>
+    <a class="metric metric-link" href="~/Cockpit/RoutingLog"><b>Routing / Determination Log</b><span>Every routing attempt, incl. failures to route</span><small>Open Cockpit &rarr;</small></a>
+    <a class="metric metric-link" href="~/Cockpit/AuditLog"><b>Request Audit Log</b><span>Every decision/action, who and when</span><small>Open Cockpit &rarr;</small></a>
+    <a class="metric metric-link" href="~/Home/PpfMonitor"><b>PPF Monitor</b><span>Every action triggered, to whom, sent/failed/skipped</span><small>Open monitor &rarr;</small></a>
 </div>

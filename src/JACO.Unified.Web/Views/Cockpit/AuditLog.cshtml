@@ -18,7 +18,7 @@
         if (filter.DateTo is not null) qs.Add($"DateTo={filter.DateTo:yyyy-MM-dd}");
         if (filter.AdminOverrideOnly) qs.Add("AdminOverrideOnly=true");
         qs.Add($"Sort={field}"); qs.Add($"Dir={dir}");
-        return "/Cockpit/AuditLog?" + string.Join("&", qs);
+        return $"{Context.Request.PathBase}/Cockpit/AuditLog?" + string.Join("&", qs);
     }
     string SortArrow(string field) => filter.Sort != field ? "" : (filter.Dir == "asc" ? " &#9650;" : " &#9660;");
 }
@@ -33,7 +33,7 @@
 </div>
 
 <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;">
-    <form method="get" action="/Cockpit/AuditLog" style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr auto auto;gap:12px;align-items:end;">
+    <form method="get" action="~/Cockpit/AuditLog" style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr auto auto;gap:12px;align-items:end;">
         <div class="jaco-form-group" style="margin:0;"><label>Request No</label><input name="RequestNumber" value="@filter.RequestNumber" class="jaco-input" style="margin:0;" placeholder="CR-2026-..." /></div>
         <div class="jaco-form-group" style="margin:0;">
             <label>Action</label>

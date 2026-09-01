@@ -1,6 +1,6 @@
 @model ReassignEditViewModel
 @{ ViewData["Title"] = "Reassign Approver — " + Model.RequestNumber; }
-<a class="jaco-back-link" href="/Requests/Details/@Model.RequestId">&larr; Back to @Model.RequestNumber</a>
+<a class="jaco-back-link" href="~/Requests/Details/@Model.RequestId">&larr; Back to @Model.RequestNumber</a>
 <div class="jaco-page-header">
     <div>
         <h1>Reassign Approver</h1>
@@ -13,7 +13,7 @@
     <div class="jaco-alert jaco-alert-danger">@err</div>
 }
 
-<form method="post" action="/Requests/Reassign">
+<form method="post" action="~/Requests/Reassign">
     @Html.AntiForgeryToken()
     <input type="hidden" name="RequestId" value="@Model.RequestId" />
     <input type="hidden" name="RequestNumber" value="@Model.RequestNumber" />
@@ -50,7 +50,7 @@
         <div class="jaco-form-group"><label>Reason</label><textarea name="Reason" class="jaco-input" rows="3" placeholder="e.g. Employee left the company" required></textarea></div>
         <div style="display:flex;gap:10px;margin-top:12px;">
             <button type="submit" class="jaco-btn jaco-btn-primary">Reassign</button>
-            <a class="jaco-btn jaco-btn-outline" href="/Requests/Details/@Model.RequestId">Cancel</a>
+            <a class="jaco-btn jaco-btn-outline" href="~/Requests/Details/@Model.RequestId">Cancel</a>
         </div>
     </div>
 </form>

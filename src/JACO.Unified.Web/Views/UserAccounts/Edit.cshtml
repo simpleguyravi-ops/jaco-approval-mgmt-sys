@@ -1,6 +1,6 @@
 @model UserAccountEditViewModel
 @{ ViewData["Title"] = Model.Id == 0 ? "New User Account" : "Edit User Account"; }
-<a class="jaco-back-link" href="/UserAccounts">&larr; Back to User Accounts</a>
+<a class="jaco-back-link" href="~/UserAccounts">&larr; Back to User Accounts</a>
 <div class="jaco-page-header">
     <div>
         <h1>@ViewData["Title"]</h1>
@@ -10,7 +10,7 @@
         }
     </div>
 </div>
-<form method="post" action="/UserAccounts/Save" class="jaco-card jaco-card-pad" style="max-width:520px;">
+<form method="post" action="~/UserAccounts/Save" class="jaco-card jaco-card-pad" style="max-width:520px;">
     @Html.AntiForgeryToken()
     <input type="hidden" name="Id" value="@Model.Id" />
     <div class="jaco-form-group">
@@ -43,6 +43,6 @@
     <div class="jaco-check-row"><input type="checkbox" name="IsActive" value="true" checked="@Model.IsActive" id="isActive" /><input type="hidden" name="IsActive" value="false" /><label for="isActive" style="margin:0;font-weight:400;">Active</label></div>
     <div style="display:flex;gap:10px;margin-top:12px;">
         <button type="submit" class="jaco-btn jaco-btn-primary">Save</button>
-        <a class="jaco-btn jaco-btn-outline" href="/UserAccounts">Cancel</a>
+        <a class="jaco-btn jaco-btn-outline" href="~/UserAccounts">Cancel</a>
     </div>
 </form>

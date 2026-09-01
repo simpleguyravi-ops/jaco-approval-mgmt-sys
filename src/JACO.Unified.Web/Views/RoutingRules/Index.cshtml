@@ -8,7 +8,7 @@
     string SortUrl(string field)
     {
         var newDir = sort == field && dir == "asc" ? "desc" : "asc";
-        return $"/RoutingRules?approvalTypeId={selectedTypeId}&sort={field}&dir={newDir}";
+        return $"{Context.Request.PathBase}/RoutingRules?approvalTypeId={selectedTypeId}&sort={field}&dir={newDir}";
     }
     string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
 }
@@ -19,15 +19,15 @@
         <p>Define which approvers are required, based on the submitted criteria, per Approval Type.</p>
     </div>
     <div style="display:flex;gap:8px;">
-        <a class="jaco-btn jaco-btn-outline" href="/RoutingRules/Import?approvalTypeId=@selectedTypeId">Bulk Import</a>
-        <a class="jaco-btn jaco-btn-primary" href="/RoutingRules/Create?approvalTypeId=@selectedTypeId">+ New Rule</a>
+        <a class="jaco-btn jaco-btn-outline" href="~/RoutingRules/Import?approvalTypeId=@selectedTypeId">Bulk Import</a>
+        <a class="jaco-btn jaco-btn-primary" href="~/RoutingRules/Create?approvalTypeId=@selectedTypeId">+ New Rule</a>
     </div>
 </div>
 
 <div class="lookup-tabs" style="margin-bottom:18px;">
     @foreach (var t in types)
     {
-        <a class="lookup-tab @(t.Id == selectedTypeId ? "selected" : "")" href="/RoutingRules?approvalTypeId=@t.Id">@t.Name</a>
+        <a class="lookup-tab @(t.Id == selectedTypeId ? "selected" : "")" href="~/RoutingRules?approvalTypeId=@t.Id">@t.Name</a>
     }
 </div>
 
@@ -40,7 +40,7 @@
 else
 {
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-        <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/RoutingRules/Export?approvalTypeId=@selectedTypeId">Download CSV</a>
+        <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/RoutingRules/Export?approvalTypeId=@selectedTypeId">Download CSV</a>
     </div>
     <div class="jaco-card">
         <table class="jaco-table">
@@ -56,7 +56,7 @@ else
             {
                 <tr>
                     <td>@r.Priority</td>
-                    <td><a class="link" href="/RoutingRules/Edit/@r.Id">@r.RuleName</a></td>
+                    <td><a class="link" href="~/RoutingRules/Edit/@r.Id">@r.RuleName</a></td>
                     <td>@r.CriteriaSummary</td>
                     <td>@r.LevelCount</td>
                     <td>

@@ -6,7 +6,7 @@
     string SortUrl(string field)
     {
         var newDir = sort == field && dir == "asc" ? "desc" : "asc";
-        return $"/ApprovalTypes?sort={field}&dir={newDir}";
+        return $"{Context.Request.PathBase}/ApprovalTypes?sort={field}&dir={newDir}";
     }
     string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
 }
@@ -16,10 +16,10 @@
         <h1>Approval Types</h1>
         <p>The kinds of requests this platform can process. <b>Code</b> is the value stored on every Request of this type and referenced by Routing Rules / Post-Processing Rules.</p>
     </div>
-    <a class="jaco-btn jaco-btn-primary" href="/ApprovalTypes/Create">+ New Approval Type</a>
+    <a class="jaco-btn jaco-btn-primary" href="~/ApprovalTypes/Create">+ New Approval Type</a>
 </div>
 <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/ApprovalTypes/Export">Download CSV</a>
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/ApprovalTypes/Export">Download CSV</a>
 </div>
 <div class="jaco-card">
     <table class="jaco-table">
@@ -34,7 +34,7 @@
         {
             <tr>
                 <td><code>@t.Code</code></td>
-                <td><a class="link" href="/ApprovalTypes/Edit/@t.Id">@t.Name</a></td>
+                <td><a class="link" href="~/ApprovalTypes/Edit/@t.Id">@t.Name</a></td>
                 <td>
                     @if (t.Active)
                     {
@@ -46,8 +46,8 @@
                     }
                 </td>
                 <td style="display:flex;gap:12px;">
-                    <a class="link" href="/WorkflowFields?approvalTypeId=@t.Id">Fields</a>
-                    <a class="link" href="/RoutingRules?approvalTypeId=@t.Id">Routing</a>
+                    <a class="link" href="~/WorkflowFields?approvalTypeId=@t.Id">Fields</a>
+                    <a class="link" href="~/RoutingRules?approvalTypeId=@t.Id">Routing</a>
                 </td>
             </tr>
         }

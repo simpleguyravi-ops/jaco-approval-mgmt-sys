@@ -12,13 +12,13 @@
 <div class="lookup-tabs" style="margin-bottom:18px;">
     @foreach (var t in types)
     {
-        <a class="lookup-tab @(t.Id == approvalTypeId ? "selected" : "")" href="/UsersRoles?approvalTypeId=@t.Id">@t.Name</a>
+        <a class="lookup-tab @(t.Id == approvalTypeId ? "selected" : "")" href="~/UsersRoles?approvalTypeId=@t.Id">@t.Name</a>
     }
 </div>
 <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/UsersRoles/Export">Download CSV</a>
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/UsersRoles/Export">Download CSV</a>
 </div>
-<form method="post" action="/UsersRoles/Save">
+<form method="post" action="~/UsersRoles/Save">
     @Html.AntiForgeryToken()
     <input type="hidden" name="approvalTypeId" value="@approvalTypeId" />
     <div class="jaco-card">

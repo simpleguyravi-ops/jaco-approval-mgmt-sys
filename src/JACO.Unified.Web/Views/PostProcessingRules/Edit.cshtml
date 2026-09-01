@@ -1,10 +1,10 @@
 @model PpfRuleEditViewModel
 @{ ViewData["Title"] = Model.Id == 0 ? "New Post-Processing Rule" : "Edit Post-Processing Rule"; }
-<a class="jaco-back-link" href="/PostProcessingRules">&larr; Back to Post-Processing Rules</a>
+<a class="jaco-back-link" href="~/PostProcessingRules">&larr; Back to Post-Processing Rules</a>
 <div class="jaco-page-header">
     <div><h1>@ViewData["Title"]</h1><p>When the event fires for the selected Approval Type, the chosen template is rendered and emailed.</p></div>
 </div>
-<form method="post" action="/PostProcessingRules/Save">
+<form method="post" action="~/PostProcessingRules/Save">
     @Html.AntiForgeryToken()
     <input type="hidden" name="Id" value="@Model.Id" />
     <div class="jaco-card jaco-card-pad" style="max-width:560px;">
@@ -56,7 +56,7 @@
         <div class="jaco-check-row"><input name="Active" type="checkbox" value="true" checked="@Model.Active" id="active" /><label for="active" style="margin:0;font-weight:400;">Active</label></div>
         <div style="display:flex;gap:10px;margin-top:12px;">
             <button type="submit" class="jaco-btn jaco-btn-primary">Save Rule</button>
-            <a class="jaco-btn jaco-btn-outline" href="/PostProcessingRules">Cancel</a>
+            <a class="jaco-btn jaco-btn-outline" href="~/PostProcessingRules">Cancel</a>
         </div>
     </div>
 </form>

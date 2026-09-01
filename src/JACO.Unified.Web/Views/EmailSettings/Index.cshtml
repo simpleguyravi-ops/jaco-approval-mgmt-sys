@@ -8,7 +8,7 @@
     </div>
 </div>
 
-<form method="post" action="/EmailSettings/Save" class="jaco-card jaco-card-pad" style="max-width:560px;">
+<form method="post" action="~/EmailSettings/Save" class="jaco-card jaco-card-pad" style="max-width:560px;">
     @Html.AntiForgeryToken()
     <div class="jaco-check-row"><input type="checkbox" name="Enabled" value="true" checked="@Model.Enabled" id="enabled" /><label for="enabled" style="margin:0;font-weight:400;">Enabled &mdash; while off, every send is skipped and logged as "Skipped" in PPF Monitor</label></div>
     <div class="jaco-form-group"><label>SMTP Host</label><input class="jaco-input" name="Host" value="@Model.Host" placeholder="e.g. smtp.office365.com" /></div>
@@ -33,7 +33,7 @@
 
 <div class="jaco-card jaco-card-pad" style="max-width:560px;margin-top:16px;">
     <h2 style="font-size:14px;margin-top:0;">Send a Test Email</h2>
-    <form method="post" action="/EmailSettings/SendTest" style="display:flex;gap:10px;">
+    <form method="post" action="~/EmailSettings/SendTest" style="display:flex;gap:10px;">
         @Html.AntiForgeryToken()
         <input class="jaco-input" style="margin:0;" type="email" name="testAddress" placeholder="you@yourcompany.com" required />
         <button type="submit" class="jaco-btn jaco-btn-outline">Send Test</button>

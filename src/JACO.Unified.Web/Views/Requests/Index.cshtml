@@ -42,7 +42,7 @@
             <div class="jaco-dropdown-menu">
                 @foreach (var t in Model.CreatableTypes)
                 {
-                    <a href="/Requests/Create?approvalTypeId=@t.Id">@t.Name</a>
+                    <a href="~/Requests/Create?approvalTypeId=@t.Id">@t.Name</a>
                 }
             </div>
         </div>
@@ -133,7 +133,7 @@
     <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="@exportPath?search=@Model.Search&status=@Model.Status&approvalTypeId=@Model.ApprovalTypeId">Download CSV</a>
 </div>
 
-<form method="get" action="/Requests/BulkReassign" id="bulkForm">
+<form method="get" action="~/Requests/BulkReassign" id="bulkForm">
     @if (Model.PendingWithUserId is not null)
     {
         <input type="hidden" name="oldUserId" value="@Model.PendingWithUserId" />
@@ -177,7 +177,7 @@
                             }
                         </td>
                     }
-                    <td><a class="link" href="/Requests/Details/@x.Request.Id">@x.Request.RequestNumber</a></td>
+                    <td><a class="link" href="~/Requests/Details/@x.Request.Id">@x.Request.RequestNumber</a></td>
                     <td>@x.ApprovalTypeName</td>
                     <td>@x.Request.Subject</td>
                     <td><span class="@StatusClass(x.Request.Status)">@x.Request.Status</span></td>
@@ -196,7 +196,7 @@
                         <td>
                             @if (x.Request.Status == "Pending")
                             {
-                                <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/Requests/Reassign/@x.Request.Id">Reassign</a>
+                                <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/Requests/Reassign/@x.Request.Id">Reassign</a>
                             }
                         </td>
                     }

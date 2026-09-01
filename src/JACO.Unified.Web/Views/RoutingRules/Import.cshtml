@@ -3,7 +3,7 @@
     var types = (List<ApprovalType>)ViewBag.ApprovalTypes;
     var selectedTypeId = (int)ViewBag.SelectedTypeId;
 }
-<a class="jaco-back-link" href="/RoutingRules?approvalTypeId=@selectedTypeId">&larr; Back to Rule Builder</a>
+<a class="jaco-back-link" href="~/RoutingRules?approvalTypeId=@selectedTypeId">&larr; Back to Rule Builder</a>
 <div class="jaco-page-header">
     <div>
         <h1>Bulk Import Routing Rules</h1>
@@ -22,7 +22,7 @@
         </select>
     </div>
 
-    <form method="post" action="/RoutingRules/ImportPreview" enctype="multipart/form-data">
+    <form method="post" action="~/RoutingRules/ImportPreview" enctype="multipart/form-data">
         @Html.AntiForgeryToken()
         <input type="hidden" name="approvalTypeId" value="@selectedTypeId" />
         <div class="jaco-form-group">
@@ -31,7 +31,7 @@
         </div>
         <div style="display:flex;gap:10px;margin-top:12px;">
             <button type="submit" class="jaco-btn jaco-btn-primary">Preview Import</button>
-            <a class="jaco-btn jaco-btn-outline" href="/RoutingRules/ImportTemplate">Download Template</a>
+            <a class="jaco-btn jaco-btn-outline" href="~/RoutingRules/ImportTemplate">Download Template</a>
         </div>
     </form>
 </div>

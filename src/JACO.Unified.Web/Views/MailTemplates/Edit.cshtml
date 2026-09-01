@@ -1,6 +1,6 @@
 @model MailTemplateEditViewModel
 @{ ViewData["Title"] = Model.Id == 0 ? "New Mail Template" : "Edit Mail Template"; }
-<a class="jaco-back-link" href="/MailTemplates">&larr; Back to Mail Templates</a>
+<a class="jaco-back-link" href="~/MailTemplates">&larr; Back to Mail Templates</a>
 <div class="jaco-page-header">
     <div>
         <h1>@ViewData["Title"]</h1>
@@ -10,7 +10,7 @@
 </div>
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
-    <form method="post" action="/MailTemplates/Save">
+    <form method="post" action="~/MailTemplates/Save">
         @Html.AntiForgeryToken()
         <input type="hidden" name="Id" value="@Model.Id" />
         <div class="jaco-card jaco-card-pad">
@@ -30,9 +30,9 @@
             <div class="jaco-check-row"><input name="IsTableTemplate" type="checkbox" id="isTable" value="true" checked="@Model.IsTableTemplate" /><label for="isTable" style="margin:0;font-weight:400;">Table (digest) template &mdash; iterates a list of pending items instead of a single request</label></div>
             <div class="jaco-check-row"><input name="IsActive" type="checkbox" id="isActive" value="true" checked="@Model.IsActive" /><label for="isActive" style="margin:0;font-weight:400;">Active</label></div>
             <div style="display:flex;gap:10px;margin-top:12px;">
-                <button type="submit" formaction="/MailTemplates/Preview" class="jaco-btn jaco-btn-outline">Preview</button>
-                <button type="submit" formaction="/MailTemplates/Save" class="jaco-btn jaco-btn-primary">Save Template</button>
-                <a class="jaco-btn jaco-btn-outline" href="/MailTemplates">Cancel</a>
+                <button type="submit" formaction="~/MailTemplates/Preview" class="jaco-btn jaco-btn-outline">Preview</button>
+                <button type="submit" formaction="~/MailTemplates/Save" class="jaco-btn jaco-btn-primary">Save Template</button>
+                <a class="jaco-btn jaco-btn-outline" href="~/MailTemplates">Cancel</a>
             </div>
         </div>
     </form>

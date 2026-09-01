@@ -8,7 +8,7 @@
     string SortUrl(string field)
     {
         var newDir = sort == field && dir == "asc" ? "desc" : "asc";
-        return $"/WorkflowFields?approvalTypeId={selectedTypeId}&sort={field}&dir={newDir}";
+        return $"{Context.Request.PathBase}/WorkflowFields?approvalTypeId={selectedTypeId}&sort={field}&dir={newDir}";
     }
     string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
 }
@@ -18,14 +18,14 @@
         <h1>Criteria Fields</h1>
         <p>Adding a field here makes it available on the Create/Edit form, the Details panel, and Rule Builder's criteria &mdash; no code change needed. A field added under <b>@GenericApprovalType.Name</b> shows up for every type.</p>
     </div>
-    <a class="jaco-btn jaco-btn-primary" href="/WorkflowFields/Create?approvalTypeId=@selectedTypeId">+ New Field</a>
+    <a class="jaco-btn jaco-btn-primary" href="~/WorkflowFields/Create?approvalTypeId=@selectedTypeId">+ New Field</a>
 </div>
 
 <div class="lookup-tabs" style="margin-bottom:18px;">
-    <a class="lookup-tab @(selectedTypeId == GenericApprovalType.Id ? "selected" : "")" href="/WorkflowFields?approvalTypeId=@GenericApprovalType.Id">@GenericApprovalType.Name</a>
+    <a class="lookup-tab @(selectedTypeId == GenericApprovalType.Id ? "selected" : "")" href="~/WorkflowFields?approvalTypeId=@GenericApprovalType.Id">@GenericApprovalType.Name</a>
     @foreach (var t in types)
     {
-        <a class="lookup-tab @(t.Id == selectedTypeId ? "selected" : "")" href="/WorkflowFields?approvalTypeId=@t.Id">@t.Name</a>
+        <a class="lookup-tab @(t.Id == selectedTypeId ? "selected" : "")" href="~/WorkflowFields?approvalTypeId=@t.Id">@t.Name</a>
     }
 </div>
 
@@ -37,7 +37,7 @@
 }
 else
 {
-    <form method="post" action="/WorkflowFields/BulkDelete" id="fieldsForm">
+    <form method="post" action="~/WorkflowFields/BulkDelete" id="fieldsForm">
         @Html.AntiForgeryToken()
         <input type="hidden" name="approvalTypeId" value="@selectedTypeId" />
 
@@ -62,7 +62,7 @@ else
                     <tr>
                         <td>@f.DisplayOrder</td>
                         <td><code>@f.FieldKey</code></td>
-                        <td><a class="link" href="/WorkflowFields/Edit/@f.Id">@f.FieldLabel</a></td>
+                        <td><a class="link" href="~/WorkflowFields/Edit/@f.Id">@f.FieldLabel</a></td>
                         <td>@f.DataType</td>
                         <td>@(f.IsVisible ? "Yes" : "—")</td>
                         <td>@(f.IsReadOnly ? "Yes" : "—")</td>

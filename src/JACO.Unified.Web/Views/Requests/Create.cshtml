@@ -1,6 +1,6 @@
 @model RequestFormViewModel
 @{ ViewData["Title"] = $"New {Model.ApprovalType.Name}"; }
-<a class="jaco-back-link" href="/Requests">&larr; Back to My Requests</a>
+<a class="jaco-back-link" href="~/Requests">&larr; Back to My Requests</a>
 <div class="page-head">
     <div>
         <span class="eyebrow">@Model.ApprovalType.Name.ToUpperInvariant()</span>
@@ -9,7 +9,7 @@
     </div>
 </div>
 
-<form method="post" action="/Requests/Create" enctype="multipart/form-data">
+<form method="post" action="~/Requests/Create" enctype="multipart/form-data">
     @Html.AntiForgeryToken()
     <input type="hidden" name="approvalTypeId" value="@Model.ApprovalType.Id" />
     <section class="panel">
@@ -23,6 +23,6 @@
     <div class="actions">
         <button type="submit" name="submitNow" value="false" class="btn">Save Draft</button>
         <button type="submit" name="submitNow" value="true" class="btn primary">Submit for Approval</button>
-        <a class="btn" href="/Requests">Cancel</a>
+        <a class="btn" href="~/Requests">Cancel</a>
     </div>
 </form>

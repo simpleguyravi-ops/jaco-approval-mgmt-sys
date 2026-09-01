@@ -23,7 +23,7 @@
     var longFields = Model.Fields.Where(f => f.DataType == "TextArea").ToList();
 }
 
-<a class="jaco-back-link" href="/Requests">&larr; Back to My Requests</a>
+<a class="jaco-back-link" href="~/Requests">&larr; Back to My Requests</a>
 <div class="page-head">
     <div>
         <h1>@(string.IsNullOrEmpty(Model.Request.Subject) ? Model.Request.RequestNumber : Model.Request.Subject)</h1>
@@ -31,28 +31,28 @@
     <div style="display:flex;gap:8px;">
         @if (Model.CanEdit)
         {
-            <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/Requests/Edit/@Model.Request.Id">Edit</a>
+            <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/Requests/Edit/@Model.Request.Id">Edit</a>
         }
         @if (Model.Request.Status == "Pending")
         {
-            <form method="post" action="/Requests/Nudge/@Model.Request.Id" style="display:inline;">
+            <form method="post" action="~/Requests/Nudge/@Model.Request.Id" style="display:inline;">
                 @Html.AntiForgeryToken()
                 <button type="submit" class="jaco-btn jaco-btn-outline jaco-btn-sm"><span class="jaco-icon jaco-icon-broadcast"></span> Nudge Approver</button>
             </form>
         }
         @if (Model.CanWithdraw)
         {
-            <form method="post" action="/Requests/Withdraw/@Model.Request.Id" style="display:inline;" data-confirm="Withdraw this request?">
+            <form method="post" action="~/Requests/Withdraw/@Model.Request.Id" style="display:inline;" data-confirm="Withdraw this request?">
                 @Html.AntiForgeryToken()
                 <button type="submit" class="jaco-btn jaco-btn-outline jaco-btn-sm">Withdraw</button>
             </form>
         }
         @if (Model.IsAdmin)
         {
-            <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/Cockpit/AuditLog?RequestNumber=@Model.Request.RequestNumber">View History</a>
+            <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/Cockpit/AuditLog?RequestNumber=@Model.Request.RequestNumber">View History</a>
             @if (Model.Request.Status == "Pending")
             {
-                <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/Requests/Reassign/@Model.Request.Id">Reassign Approver</a>
+                <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/Requests/Reassign/@Model.Request.Id">Reassign Approver</a>
             }
         }
     </div>
@@ -90,7 +90,7 @@
             <h2>Attachments</h2>
             @if (Model.CanEdit)
             {
-                <form method="post" action="/Requests/UploadAttachment/@Model.Request.Id" enctype="multipart/form-data">
+                <form method="post" action="~/Requests/UploadAttachment/@Model.Request.Id" enctype="multipart/form-data">
                     @Html.AntiForgeryToken()
                     <div class="actions">
                         <input class="input" type="file" name="file" required />
@@ -113,7 +113,7 @@
                             <td>@a.OriginalFileName</td>
                             <td>@a.UploadedByUserName</td>
                             <td>@a.UploadedAt.ToString("dd-MMM-yyyy HH:mm")</td>
-                            <td><a class="link" href="/Requests/DownloadAttachment/@a.Id">Download</a></td>
+                            <td><a class="link" href="~/Requests/DownloadAttachment/@a.Id">Download</a></td>
                         </tr>
                     }
                     </tbody>
@@ -133,7 +133,7 @@
                         You are not one of the assigned approvers for this level. Deciding here is an <b>admin override</b> and will be recorded as such in the history below.
                     </div>
                 }
-                <form method="post" action="/Requests/Decide/@Model.Request.Id">
+                <form method="post" action="~/Requests/Decide/@Model.Request.Id">
                     @Html.AntiForgeryToken()
                     <label>
                         Comments

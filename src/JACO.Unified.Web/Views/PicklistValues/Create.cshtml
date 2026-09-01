@@ -1,8 +1,8 @@
 @model PicklistValue
 @{ ViewData["Title"] = "New Picklist Value"; }
-<a class="jaco-back-link" href="/PicklistValues?lookupType=@Model.LookupType">&larr; Back to Picklist Values</a>
+<a class="jaco-back-link" href="~/PicklistValues?lookupType=@Model.LookupType">&larr; Back to Picklist Values</a>
 <div class="jaco-page-header"><div><h1>New Picklist Value</h1></div></div>
-<form method="post" action="/PicklistValues/Create" class="jaco-card jaco-card-pad" style="max-width:520px;">
+<form method="post" action="~/PicklistValues/Create" class="jaco-card jaco-card-pad" style="max-width:520px;">
     @Html.AntiForgeryToken()
     <div class="jaco-form-field" style="margin-bottom:14px;"><label>Lookup Type</label><input class="jaco-input" name="LookupType" value="@Model.LookupType" placeholder="e.g. Department" /></div>
     <div class="jaco-form-field" style="margin-bottom:14px;"><label>Value (stored)</label><input class="jaco-input" name="Value" placeholder="e.g. FIN" /></div>
@@ -10,5 +10,5 @@
     <div class="jaco-form-field" style="margin-bottom:14px;"><label>Sort Order</label><input class="jaco-input" type="number" name="SortOrder" value="10" /></div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><input type="checkbox" name="Active" value="true" checked /> Active</label>
     <button type="submit" class="jaco-btn jaco-btn-primary">Create</button>
-    <a class="jaco-btn jaco-btn-outline" href="/PicklistValues?lookupType=@Model.LookupType">Cancel</a>
+    <a class="jaco-btn jaco-btn-outline" href="~/PicklistValues?lookupType=@Model.LookupType">Cancel</a>
 </form>

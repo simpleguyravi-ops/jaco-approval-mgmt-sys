@@ -1,6 +1,6 @@
 @model RoutingRuleImportPreview
 @{ ViewData["Title"] = "Import Preview"; }
-<a class="jaco-back-link" href="/RoutingRules/Import?approvalTypeId=@Model.ApprovalTypeId">&larr; Back to Import</a>
+<a class="jaco-back-link" href="~/RoutingRules/Import?approvalTypeId=@Model.ApprovalTypeId">&larr; Back to Import</a>
 <div class="jaco-page-header">
     <div>
         <h1>Import Preview &mdash; @Model.ApprovalTypeName</h1>
@@ -28,7 +28,7 @@
 }
 else if (Model.Rows.Count > 0)
 {
-    <form method="post" action="/RoutingRules/ImportConfirm" style="margin-bottom:14px;" data-confirm="Apply this import? This writes to the live routing rules.">
+    <form method="post" action="~/RoutingRules/ImportConfirm" style="margin-bottom:14px;" data-confirm="Apply this import? This writes to the live routing rules.">
         @Html.AntiForgeryToken()
         <input type="hidden" name="approvalTypeId" value="@Model.ApprovalTypeId" />
         <input type="hidden" name="encodedFile" value="@Model.EncodedFile" />

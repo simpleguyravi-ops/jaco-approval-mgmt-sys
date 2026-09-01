@@ -124,6 +124,16 @@ var app = builder.Build();
 // instead of the client's original HTTPS request.
 app.UseForwardedHeaders();
 
+// Hosted at a path (mbjaco.com/JAMS), not a domain root -- derived from AppBaseUrl so
+// there's only one place that ever needs to know the path, instead of a second config key
+// that could drift out of sync with it. Without this, every generated link (CSS/JS, form
+// actions, redirects) comes out missing "/JAMS" and 404s once actually behind the proxy,
+// even though it looks fine hitting the app directly. Requires nginx to forward the FULL
+// path unmodified (no "proxy_pass .../;" prefix-stripping) -- see the deployment runbook.
+var appBasePath = new Uri(builder.Configuration["AppBaseUrl"] ?? "http://localhost:5004").AbsolutePath.TrimEnd('/');
+if (!string.IsNullOrEmpty(appBasePath))
+    app.UsePathBase(appBasePath);
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");

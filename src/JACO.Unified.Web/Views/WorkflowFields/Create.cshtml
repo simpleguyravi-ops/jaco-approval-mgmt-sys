@@ -4,14 +4,14 @@
     var types = (List<ApprovalType>?)ViewBag.Types ?? new List<ApprovalType>();
     int currentTypeId = Model.ApprovalTypeId ?? GenericApprovalType.Id;
 }
-<a class="jaco-back-link" href="/WorkflowFields?approvalTypeId=@currentTypeId">&larr; Back to Criteria Fields</a>
+<a class="jaco-back-link" href="~/WorkflowFields?approvalTypeId=@currentTypeId">&larr; Back to Criteria Fields</a>
 <div class="jaco-page-header">
     <div>
         <h1>New Criteria Field</h1>
         <p>Field Key is what appears in the DataJson, the Create/Edit form, and Rule Builder's criteria dropdown.</p>
     </div>
 </div>
-<form method="post" action="/WorkflowFields/Create" class="jaco-card jaco-card-pad" style="max-width:560px;">
+<form method="post" action="~/WorkflowFields/Create" class="jaco-card jaco-card-pad" style="max-width:560px;">
     @Html.AntiForgeryToken()
     <div class="jaco-form-group">
         <label>Scope</label>
@@ -48,6 +48,6 @@
     <div class="jaco-check-row"><input type="checkbox" name="Active" value="true" checked id="act" /><input type="hidden" name="Active" value="false" /><label for="act" style="margin:0;font-weight:400;">Active</label></div>
     <div style="display:flex;gap:10px;margin-top:12px;">
         <button type="submit" class="jaco-btn jaco-btn-primary">Create</button>
-        <a class="jaco-btn jaco-btn-outline" href="/WorkflowFields?approvalTypeId=@currentTypeId">Cancel</a>
+        <a class="jaco-btn jaco-btn-outline" href="~/WorkflowFields?approvalTypeId=@currentTypeId">Cancel</a>
     </div>
 </form>

@@ -22,7 +22,7 @@
         if (f.FromDate is not null) qs.Add($"FromDate={f.FromDate:yyyy-MM-dd}");
         if (f.ToDate is not null) qs.Add($"ToDate={f.ToDate:yyyy-MM-dd}");
         qs.Add($"Sort={field}"); qs.Add($"Dir={dir}");
-        return "/Home/PpfMonitor?" + string.Join("&", qs);
+        return $"{Context.Request.PathBase}/Home/PpfMonitor?" + string.Join("&", qs);
     }
     string SortArrow(string field) => f.Sort != field ? "" : (f.Dir == "asc" ? " &#9650;" : " &#9660;");
 
@@ -36,7 +36,7 @@
         if (f.FromDate is not null) qs.Add($"FromDate={f.FromDate:yyyy-MM-dd}");
         if (f.ToDate is not null) qs.Add($"ToDate={f.ToDate:yyyy-MM-dd}");
         qs.Add($"Status={Uri.EscapeDataString(status ?? "")}");
-        return "/Home/PpfMonitor?" + string.Join("&", qs);
+        return $"{Context.Request.PathBase}/Home/PpfMonitor?" + string.Join("&", qs);
     }
 }
 <a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
@@ -64,7 +64,7 @@
 </div>
 
 <div class="jaco-card jaco-card-pad" style="margin:16px 0;">
-    <form method="get" action="/Home/PpfMonitor">
+    <form method="get" action="~/Home/PpfMonitor">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr auto;gap:12px;align-items:end;">
             <div class="jaco-form-group" style="margin:0;"><label>Request No</label><input name="RequestNumber" value="@f.RequestNumber" class="jaco-input" style="margin:0;" placeholder="CR-2026-..." /></div>
             <div class="jaco-form-group" style="margin:0;">
@@ -133,7 +133,7 @@
         @foreach (var r in Model.Rows)
         {
             <tr>
-                <td><a class="link" href="/Requests/Details/@r.RequestId">@r.RequestNumber</a></td>
+                <td><a class="link" href="~/Requests/Details/@r.RequestId">@r.RequestNumber</a></td>
                 <td>@r.ApprovalTypeName</td>
                 <td>@r.EventCode</td>
                 <td>@r.ActionType</td>

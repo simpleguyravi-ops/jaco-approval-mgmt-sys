@@ -46,16 +46,16 @@
         <div class="jaco-shell-body">
             <aside class="jaco-sidebar">
                 <ul class="jaco-nav">
-                    <li><a class="@((path == "/" || IsActive("/Requests")) ? "active" : "")" href="/Requests"><span class="jaco-icon jaco-icon-check-square"></span> My Work</a></li>
+                    <li><a class="@((path == "/" || IsActive("/Requests")) ? "active" : "")" href="~/Requests"><span class="jaco-icon jaco-icon-check-square"></span> My Work</a></li>
                     @if (isAdmin)
                     {
-                        <li><a class="@(IsActive("/Admin") || IsActive("/Cockpit") || IsActive("/Home/PpfMonitor") ? "active" : "")" href="/Admin"><span class="jaco-icon jaco-icon-settings"></span> Administration</a></li>
+                        <li><a class="@(IsActive("/Admin") || IsActive("/Cockpit") || IsActive("/Home/PpfMonitor") ? "active" : "")" href="~/Admin"><span class="jaco-icon jaco-icon-settings"></span> Administration</a></li>
                     }
                 </ul>
                 <div class="jaco-sidebar-footer">
                     <ul class="jaco-nav">
-                        <li><a href="/Account/ChangePassword"><span class="jaco-icon jaco-icon-key"></span> Change Password</a></li>
-                        <li><a href="/Account/Logout"><span class="jaco-icon jaco-icon-signout"></span> Sign Out</a></li>
+                        <li><a href="~/Account/ChangePassword"><span class="jaco-icon jaco-icon-key"></span> Change Password</a></li>
+                        <li><a href="~/Account/Logout"><span class="jaco-icon jaco-icon-signout"></span> Sign Out</a></li>
                     </ul>
                 </div>
             </aside>

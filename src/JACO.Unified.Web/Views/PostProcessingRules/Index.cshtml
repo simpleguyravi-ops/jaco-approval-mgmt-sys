@@ -6,17 +6,17 @@
     string SortUrl(string field)
     {
         var newDir = sort == field && dir == "asc" ? "desc" : "asc";
-        return $"/PostProcessingRules?sort={field}&dir={newDir}";
+        return $"{Context.Request.PathBase}/PostProcessingRules?sort={field}&dir={newDir}";
     }
     string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
 }
 <a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
 <div class="jaco-page-header">
     <div><h1>Post-Processing Rules</h1><p>Which mail template fires for each Approval Type + Event.</p></div>
-    <a class="jaco-btn jaco-btn-primary" href="/PostProcessingRules/Create">+ New Rule</a>
+    <a class="jaco-btn jaco-btn-primary" href="~/PostProcessingRules/Create">+ New Rule</a>
 </div>
 <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/PostProcessingRules/Export">Download CSV</a>
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/PostProcessingRules/Export">Download CSV</a>
 </div>
 <div class="jaco-card">
     <table class="jaco-table">
@@ -31,7 +31,7 @@
         @foreach (var r in Model)
         {
             <tr>
-                <td><a class="link" href="/PostProcessingRules/Edit/@r.Id">@r.ApprovalTypeName</a></td>
+                <td><a class="link" href="~/PostProcessingRules/Edit/@r.Id">@r.ApprovalTypeName</a></td>
                 <td>@r.EventCode</td>
                 <td>@r.TemplateName</td>
                 <td>@r.ToMode</td>

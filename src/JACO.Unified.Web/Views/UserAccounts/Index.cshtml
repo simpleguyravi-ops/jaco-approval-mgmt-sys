@@ -6,7 +6,7 @@
     string SortUrl(string field)
     {
         var newDir = sort == field && dir == "asc" ? "desc" : "asc";
-        return $"/UserAccounts?sort={field}&dir={newDir}";
+        return $"{Context.Request.PathBase}/UserAccounts?sort={field}&dir={newDir}";
     }
     string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
 }
@@ -16,10 +16,10 @@
         <h1>User Accounts</h1>
         <p>Local, standalone login for Unified &mdash; independent of Portal SSO. An account with no local password can still arrive via Portal SSO as before; setting a password here lets that person sign in to Unified directly.</p>
     </div>
-    <a class="jaco-btn jaco-btn-primary" href="/UserAccounts/Create">+ New Account</a>
+    <a class="jaco-btn jaco-btn-primary" href="~/UserAccounts/Create">+ New Account</a>
 </div>
 <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="/UserAccounts/Export">Download CSV</a>
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/UserAccounts/Export">Download CSV</a>
 </div>
 <div class="jaco-card">
     <table class="jaco-table">
@@ -37,7 +37,7 @@
         {
             var isLocked = u.LockedUntil is not null && u.LockedUntil > DateTime.UtcNow;
             <tr>
-                <td><a class="link" href="/UserAccounts/Edit/@u.Id">@u.DisplayName</a></td>
+                <td><a class="link" href="~/UserAccounts/Edit/@u.Id">@u.DisplayName</a></td>
                 <td>@u.UserName</td>
                 <td>@(u.Department ?? "—")</td>
                 <td>@(u.PasswordHash is null ? "—" : "Yes")</td>
@@ -50,7 +50,7 @@
                 <td>
                     @if (isLocked)
                     {
-                        <form method="post" action="/UserAccounts/Unlock" style="display:inline;">
+                        <form method="post" action="~/UserAccounts/Unlock" style="display:inline;">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@u.Id" />
                             <button type="submit" class="jaco-btn jaco-btn-outline jaco-btn-sm">Unlock</button>

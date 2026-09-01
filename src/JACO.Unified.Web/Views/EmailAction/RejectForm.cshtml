@@ -22,7 +22,7 @@
         {
             <div class="jaco-alert jaco-alert-danger" style="margin-bottom:14px;padding:10px 14px;border-radius:8px;">@Model.Error</div>
         }
-        <form method="post" action="/EmailAction/RejectConfirm">
+        <form method="post" action="~/EmailAction/RejectConfirm">
             <input type="hidden" name="token" value="@Model.Token" />
             <div class="jaco-form-group">
                 <label for="comments">Reason for rejection</label>
@@ -30,7 +30,7 @@
             </div>
             <div style="display:flex;gap:10px;margin-top:8px;">
                 <button type="submit" class="jaco-btn jaco-btn-primary" style="flex:1;justify-content:center;">Confirm Reject</button>
-                <a class="jaco-btn jaco-btn-outline" href="/">Cancel</a>
+                <a class="jaco-btn jaco-btn-outline" href="~/">Cancel</a>
             </div>
         </form>
     </div>
