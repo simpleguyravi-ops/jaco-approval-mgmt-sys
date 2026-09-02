@@ -54,7 +54,7 @@ else
                     <th><a class="link" href="@SortUrl("DataType")">Type@(Html.Raw(SortArrow("DataType")))</a></th>
                     <th>Visible</th><th>Read-only</th>
                     <th><a class="link" href="@SortUrl("IsRequired")">Required@(Html.Raw(SortArrow("IsRequired")))</a></th>
-                    <th>Sensitive</th><th>Lookup</th><th>Remove?</th>
+                    <th>Sensitive</th><th>API</th><th>Lookup</th><th>Remove?</th>
                 </tr></thead>
                 <tbody>
                 @foreach (var f in Model)
@@ -68,6 +68,7 @@ else
                         <td>@(f.IsReadOnly ? "Yes" : "—")</td>
                         <td>@(f.IsRequired ? "Yes" : "—")</td>
                         <td>@(f.IsSensitive ? "Yes" : "—")</td>
+                        <td>@(f.IncludeInApi ? "Yes" : "—")</td>
                         <td>@f.LookupType</td>
                         <td style="text-align:center;"><input type="checkbox" name="ids" value="@f.Id" class="remove-check" onchange="updateRemoveWarning()" /></td>
                     </tr>

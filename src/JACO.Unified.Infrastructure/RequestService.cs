@@ -63,11 +63,12 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         await db.PicklistValues.Where(p => p.LookupType == lookupType && p.Active).OrderBy(p => p.SortOrder).ThenBy(p => p.DisplayText).ToListAsync();
 
     // Exactly the field set Create/SaveFieldsAsync will accept and Get/GetSubmittedFieldsAsync
-    // will return for this type -- same source (GetFormFieldsAsync), so "what does the API
-    // expose" never needs to be answered by reading code or guessing from the UI form.
+    // will return for this type -- same source (GetFormFieldsAsync) filtered to
+    // IncludeInApi, so "what does the API expose" never needs to be answered by reading
+    // code or guessing from the UI form.
     public async Task<List<ApprovalFieldSchema>> GetFieldSchemaAsync(int approvalTypeId)
     {
-        var fields = await GetFormFieldsAsync(approvalTypeId);
+        var fields = (await GetFormFieldsAsync(approvalTypeId)).Where(f => f.IncludeInApi).ToList();
         var result = new List<ApprovalFieldSchema>();
         foreach (var f in fields)
         {
@@ -195,15 +196,21 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
     public static bool IsEditable(string status) => status is "Draft" or "Sent Back";
 
     // Saves field values without changing workflow state -- used both for a plain Draft
-    // save and for editing after Send Back (Submit is a separate, explicit step).
-    public async Task<(bool ok, string message)> SaveFieldsAsync(long requestId, int userId, string? subject, Dictionary<string, JsonElement> fieldValues)
+    // save and for editing after Send Back (Submit is a separate, explicit step), and by
+    // the external API's Create (viaApi: true). When viaApi, a field an admin excluded
+    // from the API (WorkflowField.IncludeInApi = false) is neither required of the caller
+    // (they have no way to supply it) nor saved even if the caller sends one anyway --
+    // "excluded from the API" means excluded in both directions, not just undocumented.
+    public async Task<(bool ok, string message)> SaveFieldsAsync(long requestId, int userId, string? subject, Dictionary<string, JsonElement> fieldValues, bool viaApi = false)
     {
         var request = await db.Requests.FindAsync(requestId);
         if (request is null) return (false, "Request not found.");
         if (request.CreatorUserId != userId) return (false, "Only the creator can edit this request.");
         if (!IsEditable(request.Status)) return (false, "Only Draft or Sent Back requests can be edited.");
 
-        var fields = await GetFormFieldsAsync(request.ApprovalTypeId);
+        var allFields = await GetFormFieldsAsync(request.ApprovalTypeId);
+        var fields = viaApi ? allFields.Where(f => f.IncludeInApi).ToList() : allFields;
+
         foreach (var f in fields.Where(f => f.IsRequired && !f.IsReadOnly))
         {
             if (!fieldValues.TryGetValue(f.FieldKey, out var v) || v.ValueKind == JsonValueKind.Null ||
@@ -221,6 +228,12 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
                     if (!allowed) return (false, $"'{val}' is not a valid {f.FieldLabel}.");
                 }
             }
+        }
+
+        if (viaApi)
+        {
+            var excludedKeys = allFields.Where(f => !f.IncludeInApi).Select(f => f.FieldKey).ToHashSet();
+            fieldValues = fieldValues.Where(kv => !excludedKeys.Contains(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value);
         }
 
         request.Subject = subject;

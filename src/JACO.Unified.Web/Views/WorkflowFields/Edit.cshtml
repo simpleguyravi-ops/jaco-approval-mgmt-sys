@@ -29,6 +29,11 @@
     <div class="jaco-check-row"><input type="checkbox" name="IsReadOnly" value="true" checked="@Model.IsReadOnly" id="ro" /><input type="hidden" name="IsReadOnly" value="false" /><label for="ro" style="margin:0;font-weight:400;">Read-only</label></div>
     <div class="jaco-check-row"><input type="checkbox" name="IsRequired" value="true" checked="@Model.IsRequired" id="req" /><input type="hidden" name="IsRequired" value="false" /><label for="req" style="margin:0;font-weight:400;">Required</label></div>
     <div class="jaco-check-row"><input type="checkbox" name="IsSensitive" value="true" checked="@Model.IsSensitive" id="sens" /><input type="hidden" name="IsSensitive" value="false" /><label for="sens" style="margin:0;font-weight:400;">Sensitive (hidden from creator once submitted)</label></div>
+    <div class="jaco-check-row"><input type="checkbox" name="IncludeInApi" value="true" checked="@Model.IncludeInApi" id="api" /><input type="hidden" name="IncludeInApi" value="false" /><label for="api" style="margin:0;font-weight:400;">Include in API (accepted on Create, returned on Get)</label></div>
+    @if (Model.IsRequired && !Model.IncludeInApi)
+    {
+        <p style="margin:-8px 0 14px;font-size:12px;color:var(--jaco-warning);">This field is Required but excluded from the API &mdash; an API-created request skips it entirely, whether or not one is sent.</p>
+    }
     <div class="jaco-check-row"><input type="checkbox" name="Active" value="true" checked="@Model.Active" id="act" /><input type="hidden" name="Active" value="false" /><label for="act" style="margin:0;font-weight:400;">Active</label></div>
     <div style="display:flex;gap:10px;margin-top:12px;">
         <button type="submit" class="jaco-btn jaco-btn-primary">Save</button>

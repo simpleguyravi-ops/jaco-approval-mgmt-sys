@@ -70,7 +70,7 @@ else
     </div>
 
     <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;background:var(--jaco-info-bg);">
-        <p style="margin:0;font-size:13px;color:var(--jaco-text);"><b>This list is live, not documentation someone has to remember to update.</b> Add, rename, or remove a field under <a class="link" href="~/WorkflowFields?approvalTypeId=@selectedTypeId">Criteria Fields</a> and it takes effect here (and in the API itself) immediately &mdash; no code change, no redeploy, no version bump.</p>
+        <p style="margin:0;font-size:13px;color:var(--jaco-text);"><b>This list is live, not documentation someone has to remember to update.</b> Add, rename, or remove a field under <a class="link" href="~/WorkflowFields?approvalTypeId=@selectedTypeId">Criteria Fields</a> and it takes effect here (and in the API itself) immediately &mdash; no code change, no redeploy, no version bump. Only fields with <b>Include in API</b> checked appear here at all &mdash; uncheck it on a field to keep it UI/human-only without touching Visible, Required, or Active.</p>
     </div>
     <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;background:var(--jaco-warning-bg);">
         <p style="margin:0;font-size:13px;color:var(--jaco-warning);"><b>Sensitive fields are included here.</b> A field marked Sensitive is hidden from the request's own creator in the browser UI, but the API returns it on every <code>GET</code> &mdash; the caller is a trusted system credential, not an end user, so that human-facing rule doesn't apply.</p>

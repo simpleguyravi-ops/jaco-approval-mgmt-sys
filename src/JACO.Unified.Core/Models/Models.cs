@@ -100,6 +100,12 @@ public sealed class WorkflowField
     // Hides the VALUE from the request's own creator once it's in front of an approver --
     // a viewing-time rule, unrelated to whether the creator could edit it at submission.
     public bool IsSensitive { get; set; }
+    // Whether the external API (see ApprovalsApiController) accepts this field on Create
+    // and returns it on Get -- independent of IsVisible, which only controls the browser
+    // form. Defaults true so every existing field keeps working through the API exactly as
+    // it does today; an admin unchecks this for a field that should stay UI/human-only
+    // (e.g. an internal note) without touching IsVisible or Active at all.
+    public bool IncludeInApi { get; set; } = true;
 
     // Only meaningful when DataType == Dropdown -- the PicklistValues.LookupType this
     // field's options are pulled from (e.g. "Department", "DiscountReason").

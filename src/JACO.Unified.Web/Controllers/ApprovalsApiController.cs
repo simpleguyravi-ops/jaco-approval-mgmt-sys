@@ -43,7 +43,7 @@ public sealed class ApprovalsApiController(UnifiedDbContext db, RequestService r
             fieldValues["externalReference"] = doc.RootElement.Clone();
         }
 
-        var (saveOk, saveMessage) = await requests.SaveFieldsAsync(request.Id, user.Id, body.Subject, fieldValues);
+        var (saveOk, saveMessage) = await requests.SaveFieldsAsync(request.Id, user.Id, body.Subject, fieldValues, viaApi: true);
         if (!saveOk)
         {
             // Create is meant to be atomic from the caller's point of view -- don't leave a
@@ -133,6 +133,10 @@ public sealed class ApprovalsApiController(UnifiedDbContext db, RequestService r
         var request = await db.Requests.SingleAsync(r => r.Id == requestId);
         var type = await db.ApprovalTypes.FindAsync(request.ApprovalTypeId);
         var fields = await requests.GetSubmittedFieldsAsync(request);
+        // GetSubmittedFieldsAsync also drives the human Details page, so it can't filter by
+        // IncludeInApi itself -- narrow to the API's own contract here instead, using the
+        // same schema the admin's API Reference page and /schema endpoint show.
+        var apiFieldKeys = (await requests.GetFieldSchemaAsync(request.ApprovalTypeId)).Select(f => f.FieldKey).ToHashSet();
 
         return new ApprovalApiResponse
         {
@@ -145,7 +149,7 @@ public sealed class ApprovalsApiController(UnifiedDbContext db, RequestService r
             CreatedBy = request.CreatorUserName,
             CreatedAtUtc = request.CreatedAt,
             UpdatedAtUtc = request.UpdatedAt,
-            Data = fields.ToDictionary(f => f.FieldKey, f => f.Value)
+            Data = fields.Where(f => apiFieldKeys.Contains(f.FieldKey)).ToDictionary(f => f.FieldKey, f => f.Value)
         };
     }
 }

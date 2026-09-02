@@ -48,7 +48,7 @@ public sealed class WorkflowFieldsController(UnifiedDbContext db) : Controller
     public async Task<IActionResult> Create(int approvalTypeId)
     {
         ViewBag.Types = await db.ApprovalTypes.OrderBy(t => t.Name).ToListAsync();
-        return View(new WorkflowField { ApprovalTypeId = approvalTypeId == GenericApprovalType.Id ? null : approvalTypeId, IsVisible = true, Active = true, DataType = FieldDataType.Text });
+        return View(new WorkflowField { ApprovalTypeId = approvalTypeId == GenericApprovalType.Id ? null : approvalTypeId, IsVisible = true, IncludeInApi = true, Active = true, DataType = FieldDataType.Text });
     }
 
     [HttpPost]
@@ -109,6 +109,7 @@ public sealed class WorkflowFieldsController(UnifiedDbContext db) : Controller
         field.IsReadOnly = model.IsReadOnly;
         field.IsRequired = model.IsRequired;
         field.IsSensitive = model.IsSensitive;
+        field.IncludeInApi = model.IncludeInApi;
         field.LookupType = model.LookupType;
         field.Active = model.Active;
         await db.SaveChangesAsync();
