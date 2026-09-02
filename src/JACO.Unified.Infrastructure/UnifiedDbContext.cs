@@ -26,11 +26,15 @@ public sealed class UnifiedDbContext(DbContextOptions<UnifiedDbContext> options)
     public DbSet<PostProcessingRule> PostProcessingRules => Set<PostProcessingRule>();
     public DbSet<PostProcessingExecution> PostProcessingExecutions => Set<PostProcessingExecution>();
     public DbSet<EmailSettings> EmailSettings => Set<EmailSettings>();
+    public DbSet<ApiClient> ApiClients => Set<ApiClient>();
+    public DbSet<ApiSettings> ApiSettings => Set<ApiSettings>();
+    public DbSet<ApiRequestLog> ApiRequestLog => Set<ApiRequestLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Request>().HasIndex(r => r.RequestNumber).IsUnique();
         modelBuilder.Entity<WorkflowField>().HasIndex(f => new { f.ApprovalTypeId, f.FieldKey });
         modelBuilder.Entity<PicklistValue>().HasIndex(p => new { p.LookupType, p.Value });
+        modelBuilder.Entity<ApiClient>().HasIndex(c => c.KeyPrefix);
     }
 }

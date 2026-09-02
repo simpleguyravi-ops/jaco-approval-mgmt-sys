@@ -1,0 +1,96 @@
+@using JACO.Unified.Core.Models
+@model List<ApiClient>
+@{
+    ViewData["Title"] = "API Access";
+    var settings = (ApiSettings)ViewBag.Settings;
+    var newKey = (string?)ViewBag.NewApiKey;
+    var newKeyClientName = (string?)ViewBag.NewApiKeyClientName;
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>API Access</h1>
+        <p>Lets an external system (SAP, etc.) create approvals and read their status over HTTP. See <code>/api/v1/approvals</code>.</p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(newKey))
+{
+    <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;border:1px solid var(--jaco-warning);background:var(--jaco-warning-bg);">
+        <div style="font-weight:700;color:var(--jaco-warning);margin-bottom:6px;">New key for '@newKeyClientName' -- copy it now, it won't be shown again</div>
+        <code style="display:block;background:#fff;border:1px solid var(--jaco-border);border-radius:6px;padding:10px 12px;font-size:13px;word-break:break-all;user-select:all;">@newKey</code>
+        <p style="margin:8px 0 0;font-size:12.5px;color:var(--jaco-text-muted);">Send this to the external system as the <code>X-Api-Key</code> header on every call. If it's lost, use Regenerate below -- there's no way to retrieve it again.</p>
+    </div>
+}
+
+<div class="jaco-card jaco-card-pad" style="margin-bottom:16px;max-width:640px;">
+    <h2 style="font-size:14px;margin:0 0 12px;">Authentication Control</h2>
+    <form method="post" action="~/ApiClients/SaveSettings">
+        @Html.AntiForgeryToken()
+        <div class="jaco-check-row"><input type="checkbox" name="enabled" value="true" checked="@settings.Enabled" id="enabled" /><input type="hidden" name="enabled" value="false" /><label for="enabled" style="margin:0;font-weight:400;">External API enabled &mdash; when off, every call is rejected regardless of key validity</label></div>
+        <div class="jaco-check-row"><input type="checkbox" name="logRequests" value="true" checked="@settings.LogRequests" id="logRequests" /><input type="hidden" name="logRequests" value="false" /><label for="logRequests" style="margin:0;font-weight:400;">Log every request and response (Cockpit &rarr; API Request Log)</label></div>
+        @if (settings.UpdatedAt != default)
+        {
+            <p style="margin:8px 0 0;font-size:12px;color:var(--jaco-text-muted);">Last changed @settings.UpdatedAt.ToString("dd MMM yyyy HH:mm") UTC@(settings.UpdatedByUserName is null ? "" : $" by {settings.UpdatedByUserName}").</p>
+        }
+        <button type="submit" class="jaco-btn jaco-btn-primary" style="margin-top:12px;">Save</button>
+    </form>
+</div>
+
+<div class="jaco-page-header" style="margin-bottom:12px;">
+    <div><h2 style="font-size:15px;margin:0;">API Clients</h2></div>
+    <button type="button" class="jaco-btn jaco-btn-primary jaco-btn-sm" onclick="document.getElementById('newClientForm').hidden = !document.getElementById('newClientForm').hidden;">+ New Client</button>
+</div>
+
+<div id="newClientForm" hidden class="jaco-card jaco-card-pad" style="margin-bottom:16px;max-width:640px;">
+    <form method="post" action="~/ApiClients/Create">
+        @Html.AntiForgeryToken()
+        <div class="jaco-form-group"><label>Name</label><input class="jaco-input" name="name" placeholder="e.g. SAP Production" required /></div>
+        <div class="jaco-form-group"><label>Description (optional)</label><input class="jaco-input" name="description" placeholder="What this key is for" /></div>
+        <button type="submit" class="jaco-btn jaco-btn-primary">Create &amp; Generate Key</button>
+    </form>
+</div>
+
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th>Name</th>
+            <th>Key</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Last Used</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        @foreach (var c in Model)
+        {
+            <tr>
+                <td><b>@c.Name</b>@(string.IsNullOrEmpty(c.Description) ? "" : Html.Raw($"<div style=\"font-size:12px;color:var(--jaco-text-muted);\">{c.Description}</div>"))</td>
+                <td><code>@(c.KeyPrefix)&hellip;</code></td>
+                <td>
+                    @if (c.Active) { <span class="jaco-badge jaco-badge-success">ACTIVE</span> }
+                    else { <span class="jaco-badge jaco-badge-neutral">DISABLED</span> }
+                </td>
+                <td>@c.CreatedAt.ToString("dd MMM yyyy")@(c.CreatedByUserName is null ? "" : $" by {c.CreatedByUserName}")</td>
+                <td>@(c.LastUsedAt?.ToString("dd MMM yyyy HH:mm") ?? "Never")</td>
+                <td style="display:flex;gap:6px;justify-content:flex-end;">
+                    <form method="post" action="~/ApiClients/Regenerate" data-confirm="Generate a new key for '@c.Name'? The current key will stop working immediately.">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@c.Id" />
+                        <button type="submit" class="jaco-btn jaco-btn-outline jaco-btn-sm">Regenerate</button>
+                    </form>
+                    <form method="post" action="~/ApiClients/ToggleActive" data-confirm="@(c.Active ? $"Deactivate '{c.Name}'? It will immediately stop being able to call the API." : $"Reactivate '{c.Name}'?")">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@c.Id" />
+                        <button type="submit" class="jaco-btn jaco-btn-outline jaco-btn-sm">@(c.Active ? "Deactivate" : "Activate")</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="6" style="text-align:center;color:var(--jaco-text-muted);">No API clients yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

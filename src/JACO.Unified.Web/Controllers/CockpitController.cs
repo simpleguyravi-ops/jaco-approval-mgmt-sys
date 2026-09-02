@@ -71,11 +71,12 @@ public sealed class CockpitController(UnifiedDbContext db) : Controller
             select new AuditLogRow
             {
                 Id = a.Id, CreatedAt = a.CreatedAt, RequestNumber = r != null ? r.RequestNumber : null,
-                UserName = u != null ? u.DisplayName : null, ActionCode = a.ActionCode, DetailsJson = a.DetailsJson
+                UserName = u != null ? u.DisplayName : null, ActionCode = a.ActionCode, DetailsJson = a.DetailsJson, Source = a.Source
             };
 
         if (!string.IsNullOrWhiteSpace(filter.RequestNumber)) query = query.Where(x => x.RequestNumber != null && x.RequestNumber.Contains(filter.RequestNumber));
         if (!string.IsNullOrWhiteSpace(filter.ActionCode)) query = query.Where(x => x.ActionCode == filter.ActionCode);
+        if (!string.IsNullOrWhiteSpace(filter.Source)) query = query.Where(x => x.Source == filter.Source);
         if (filter.DateFrom is not null) query = query.Where(x => x.CreatedAt >= filter.DateFrom.Value);
         if (filter.DateTo is not null) query = query.Where(x => x.CreatedAt < filter.DateTo.Value.AddDays(1));
         if (filter.AdminOverrideOnly) query = query.Where(x => x.DetailsJson != null && x.DetailsJson.StartsWith(RequestService.AdminOverrideMarker));
@@ -107,8 +108,8 @@ public sealed class CockpitController(UnifiedDbContext db) : Controller
     {
         var rows = await AuditLogQuery(filter).Take(ExportCap).ToListAsync();
         var bytes = CsvHelper.ToCsvBytes(rows,
-            ["Date/Time (UTC)", "Request No.", "User", "Action", "Detail"],
-            r => [r.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"), r.RequestNumber ?? "", r.UserName ?? "", r.ActionCode, r.DetailsJson ?? ""]);
+            ["Date/Time (UTC)", "Request No.", "User", "Action", "Source", "Detail"],
+            r => [r.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"), r.RequestNumber ?? "", r.UserName ?? "", r.ActionCode, r.Source, r.DetailsJson ?? ""]);
         return File(bytes, "text/csv", $"audit-log-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
     }
 
@@ -152,5 +153,69 @@ public sealed class CockpitController(UnifiedDbContext db) : Controller
         await db.SaveChangesAsync();
         TempData["Success"] = $"Cleared {count} audit log entries older than {beforeDate:dd MMM yyyy}.";
         return RedirectToAction(nameof(AuditLog));
+    }
+
+    // ---------- API Request Log (external API's raw HTTP audit trail -- see ApiGatewayMiddleware) ----------
+
+    IQueryable<ApiRequestLog> ApiRequestLogQuery(ApiRequestLogFilter filter)
+    {
+        var query = db.ApiRequestLog.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(filter.ClientName)) query = query.Where(x => x.ClientName != null && x.ClientName.Contains(filter.ClientName));
+        if (!string.IsNullOrWhiteSpace(filter.Path)) query = query.Where(x => x.Path.Contains(filter.Path));
+        if (filter.StatusCode is not null) query = query.Where(x => x.StatusCode == filter.StatusCode);
+        if (filter.DateFrom is not null) query = query.Where(x => x.CreatedAt >= filter.DateFrom.Value);
+        if (filter.DateTo is not null) query = query.Where(x => x.CreatedAt < filter.DateTo.Value.AddDays(1));
+
+        var desc = filter.Dir == "desc";
+        return filter.Sort switch
+        {
+            "Client" => desc ? query.OrderByDescending(x => x.ClientName) : query.OrderBy(x => x.ClientName),
+            "Path" => desc ? query.OrderByDescending(x => x.Path) : query.OrderBy(x => x.Path),
+            "Status" => desc ? query.OrderByDescending(x => x.StatusCode) : query.OrderBy(x => x.StatusCode),
+            "Duration" => desc ? query.OrderByDescending(x => x.DurationMs) : query.OrderBy(x => x.DurationMs),
+            "CreatedAt" => desc ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt),
+            _ => query.OrderByDescending(x => x.CreatedAt)
+        };
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ApiRequestLog(ApiRequestLogFilter filter)
+    {
+        var query = ApiRequestLogQuery(filter);
+        ViewBag.Filter = filter;
+        ViewBag.TotalCount = await query.CountAsync();
+        ViewBag.PageSize = PageSize;
+        return View(await query.Take(PageSize).ToListAsync());
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportApiRequestLog(ApiRequestLogFilter filter)
+    {
+        var rows = await ApiRequestLogQuery(filter).Take(ExportCap).ToListAsync();
+        var bytes = CsvHelper.ToCsvBytes(rows,
+            ["Date/Time (UTC)", "Client", "Method", "Path", "Status", "Duration (ms)", "Remote IP"],
+            r => [r.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"), r.ClientName ?? "(unauthenticated)", r.Method, r.Path, r.StatusCode.ToString(), r.DurationMs.ToString(), r.RemoteIp ?? ""]);
+        return File(bytes, "text/csv", $"api-request-log-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ClearApiRequestLog(DateTime? beforeDate)
+    {
+        if (beforeDate is null) return View(new ClearLogsResult { LogType = "API Request Log" });
+        var count = await db.ApiRequestLog.CountAsync(r => r.CreatedAt < beforeDate.Value);
+        return View(new ClearLogsResult { LogType = "API Request Log", BeforeDate = beforeDate.Value, MatchingCount = count });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ClearApiRequestLogConfirmed(DateTime beforeDate)
+    {
+        var toDelete = db.ApiRequestLog.Where(r => r.CreatedAt < beforeDate);
+        var count = await toDelete.CountAsync();
+        db.ApiRequestLog.RemoveRange(toDelete);
+        db.AuditLogs.Add(new AuditLog { ActionCode = "ApiRequestLogCleared", DetailsJson = $"{{\"beforeDate\":\"{beforeDate:O}\",\"rowsDeleted\":{count}}}", CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+        TempData["Success"] = $"Cleared {count} API request log entries older than {beforeDate:dd MMM yyyy}.";
+        return RedirectToAction(nameof(ApiRequestLog));
     }
 }

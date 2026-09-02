@@ -77,6 +77,22 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         return created;
     }
 
+    // A request created through the API needs a CreatorUserId/CreatorUserName like any
+    // other -- shows up in My Work/Reports/audit exactly like a human creator, just
+    // attributed to "<Client Name> (API)" instead of a person, so it's obvious at a glance
+    // where it came from.
+    public async Task<AppUser> ResolveApiClientUserAsync(ApiClient client)
+    {
+        var userName = $"api:{client.Id}";
+        var existing = await db.AppUsers.SingleOrDefaultAsync(u => u.UserName == userName);
+        if (existing is not null) return existing;
+
+        var created = new AppUser { UserName = userName, DisplayName = $"{client.Name} (API)", IsActive = true };
+        db.AppUsers.Add(created);
+        await db.SaveChangesAsync();
+        return created;
+    }
+
     // ---------- Access ----------
 
     public async Task<bool> IsParticipantAsync(long requestId, int userId) =>
@@ -191,7 +207,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         return (true, "Saved.");
     }
 
-    public async Task<(bool ok, string message)> SubmitAsync(long requestId, int userId)
+    public async Task<(bool ok, string message)> SubmitAsync(long requestId, int userId, string source = "Web")
     {
         var request = await db.Requests.FindAsync(requestId);
         if (request is null) return (false, "Request not found.");
@@ -244,7 +260,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         request.Status = "Pending";
         request.UpdatedAt = DateTime.UtcNow;
 
-        db.AuditLogs.Add(new AuditLog { RequestId = request.Id, UserId = userId, ActionCode = isResubmit ? "Resubmit" : "Submit", CreatedAt = DateTime.UtcNow });
+        db.AuditLogs.Add(new AuditLog { RequestId = request.Id, UserId = userId, ActionCode = isResubmit ? "Resubmit" : "Submit", Source = source, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
 
         if (!isResubmit) await ppf.RaiseEventAsync(request.Id, "Created");
@@ -283,7 +299,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
 
     static readonly string[] DecisionModes = ["ANY_ONE", "ALL", "MAJORITY", "MINIMUM_COUNT"];
 
-    public async Task<(bool ok, string message)> DecideAsync(long requestId, int userId, string decision, string? comments, bool adminOverride = false)
+    public async Task<(bool ok, string message)> DecideAsync(long requestId, int userId, string decision, string? comments, bool adminOverride = false, string source = "Web")
     {
         decision = decision.Trim();
         if (decision is not ("Approve" or "Reject" or "SendBack")) return (false, "Invalid decision.");
@@ -304,7 +320,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         var effectiveComments = adminOverride ? $"{AdminOverrideMarker} -- decided on behalf of the assigned approver(s)] {comments}".TrimEnd() : comments;
 
         db.RequestActions.Add(new RequestAction { RequestId = requestId, LevelNo = step.LevelNo, UserId = userId, ActionCode = decision, Comments = effectiveComments, CreatedAt = now });
-        db.AuditLogs.Add(new AuditLog { RequestId = requestId, UserId = userId, ActionCode = decision, DetailsJson = effectiveComments, CreatedAt = now });
+        db.AuditLogs.Add(new AuditLog { RequestId = requestId, UserId = userId, ActionCode = decision, DetailsJson = effectiveComments, Source = source, CreatedAt = now });
         await AddParticipantIfMissingAsync(requestId, userId, "Approver");
 
         string? eventCode = null;
@@ -375,7 +391,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         return (true, request.Status);
     }
 
-    public async Task<(bool ok, string message)> WithdrawAsync(long requestId, int creatorUserId, string? reason)
+    public async Task<(bool ok, string message)> WithdrawAsync(long requestId, int creatorUserId, string? reason, string source = "Web")
     {
         var request = await db.Requests.FindAsync(requestId);
         if (request is null) return (false, "Request not found.");
@@ -385,7 +401,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         request.Status = "Withdrawn";
         request.CurrentLevelNo = null;
         request.UpdatedAt = DateTime.UtcNow;
-        db.AuditLogs.Add(new AuditLog { RequestId = requestId, UserId = creatorUserId, ActionCode = "Withdraw", DetailsJson = reason, CreatedAt = DateTime.UtcNow });
+        db.AuditLogs.Add(new AuditLog { RequestId = requestId, UserId = creatorUserId, ActionCode = "Withdraw", DetailsJson = reason, Source = source, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
         return (true, request.Status);
     }

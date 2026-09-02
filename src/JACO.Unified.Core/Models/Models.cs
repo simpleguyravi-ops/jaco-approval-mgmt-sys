@@ -244,6 +244,68 @@ public sealed class AuditLog
     public int? UserId { get; set; }
     public string ActionCode { get; set; } = "";
     public string? DetailsJson { get; set; }
+    // "Web" (browser UI) or "Api" (an external system via the API layer) -- lets the
+    // existing audit screen distinguish a front-end action from a remote one without a
+    // separate log to cross-reference.
+    public string Source { get; set; } = "Web";
+    public DateTime CreatedAt { get; set; }
+}
+
+// ============================================================
+// External API access -- SAP and any other outside system creating/reading approvals
+// through the API layer (see ApprovalsApiController), not through the browser UI.
+// ============================================================
+
+// Admin-managed credential for one external caller. Only the hash is stored -- the
+// plaintext key is shown once at creation/regeneration and never again, same principle as
+// a password. KeyPrefix is a short, non-secret lookup aid (also used to find the matching
+// row without scanning every hash) shown in the UI so an admin can tell keys apart.
+public sealed class ApiClient
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+    public string KeyHash { get; set; } = "";
+    public string KeyPrefix { get; set; } = "";
+    public bool Active { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public string? CreatedByUserName { get; set; }
+    public DateTime? LastUsedAt { get; set; }
+}
+
+// One row (Id=1) -- a master switch for the whole external API, independent of any single
+// ApiClient's Active flag, so an admin can kill all external access instantly without
+// having to deactivate every client one at a time. LogRequests defaults on since the whole
+// point of this layer is an audit trail; it's a toggle only for extraordinary cases
+// (very high call volume, storage pressure), not a normal operating mode.
+public sealed class ApiSettings
+{
+    public int Id { get; set; } = 1;
+    public bool Enabled { get; set; }
+    public bool LogRequests { get; set; } = true;
+    public DateTime UpdatedAt { get; set; }
+    public string? UpdatedByUserName { get; set; }
+}
+
+// Full HTTP-level record of every call to the external API, successful or not -- separate
+// from AuditLog (which records business actions like Submit/Approve regardless of caller).
+// A rejected/forged call attempt (bad or missing key) is still logged here with
+// ApiClientId null, since that's exactly the kind of thing a security review needs to see.
+public sealed class ApiRequestLog
+{
+    public long Id { get; set; }
+    public int? ApiClientId { get; set; }
+    // Snapshot, not just a foreign key -- the row stays meaningful even if the client is
+    // later renamed or removed.
+    public string? ClientName { get; set; }
+    public string Method { get; set; } = "";
+    public string Path { get; set; } = "";
+    public string? QueryString { get; set; }
+    public string? RequestBody { get; set; }
+    public int StatusCode { get; set; }
+    public string? ResponseBody { get; set; }
+    public string? RemoteIp { get; set; }
+    public int DurationMs { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 

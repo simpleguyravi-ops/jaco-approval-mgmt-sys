@@ -120,6 +120,12 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("emailAction", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 20 }));
+    // Partitioned per API key (not IP) so one external system can't be starved by another,
+    // and a misbehaving/looping caller can't exceed this regardless of key validity --
+    // falls back to IP only for the (already-401ing) case of no key being presented at all.
+    options.AddPolicy("api", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Request.Headers["X-Api-Key"].FirstOrDefault() ?? ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 60 }));
 });
 
 var app = builder.Build();
@@ -162,6 +168,11 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
+
+// Before MVC dispatch so it can short-circuit an /api/** call (disabled/unauthenticated)
+// without ever reaching a controller, and after UseRouting/UseAuthorization so a normal
+// browser request is completely unaffected by it (the check is a cheap path-prefix test).
+app.UseMiddleware<JACO.Unified.Web.Middleware.ApiGatewayMiddleware>();
 
 app.MapControllerRoute(
     name: "default",

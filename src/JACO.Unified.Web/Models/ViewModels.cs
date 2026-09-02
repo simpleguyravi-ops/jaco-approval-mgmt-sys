@@ -280,6 +280,7 @@ public sealed class AuditLogFilter
 {
     public string? RequestNumber { get; set; }
     public string? ActionCode { get; set; }
+    public string? Source { get; set; }
     public DateTime? DateFrom { get; set; }
     public DateTime? DateTo { get; set; }
     public bool AdminOverrideOnly { get; set; }
@@ -295,6 +296,18 @@ public sealed class AuditLogRow
     public string? UserName { get; set; }
     public string ActionCode { get; set; } = "";
     public string? DetailsJson { get; set; }
+    public string Source { get; set; } = "Web";
+}
+
+public sealed class ApiRequestLogFilter
+{
+    public string? ClientName { get; set; }
+    public string? Path { get; set; }
+    public int? StatusCode { get; set; }
+    public DateTime? DateFrom { get; set; }
+    public DateTime? DateTo { get; set; }
+    public string? Sort { get; set; }
+    public string Dir { get; set; } = "asc";
 }
 
 public sealed class ClearLogsResult

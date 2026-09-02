@@ -1,0 +1,96 @@
+@using JACO.Unified.Core.Models
+@model List<ApiRequestLog>
+@{
+    ViewData["Title"] = "Operations Cockpit";
+    var filter = (ApiRequestLogFilter)ViewBag.Filter;
+    var totalCount = (int)ViewBag.TotalCount;
+    var pageSize = (int)ViewBag.PageSize;
+    string BadgeClass(int status) => status switch { >= 200 and < 300 => "jaco-badge-success", 401 or 403 or 503 => "jaco-badge-danger", >= 400 and < 500 => "jaco-badge-warning", _ => "jaco-badge-danger" };
+
+    string SortUrl(string field)
+    {
+        var dir = filter.Sort == field && filter.Dir == "asc" ? "desc" : "asc";
+        var qs = new List<string>();
+        if (!string.IsNullOrWhiteSpace(filter.ClientName)) qs.Add($"ClientName={Uri.EscapeDataString(filter.ClientName)}");
+        if (!string.IsNullOrWhiteSpace(filter.Path)) qs.Add($"Path={Uri.EscapeDataString(filter.Path)}");
+        if (filter.StatusCode is not null) qs.Add($"StatusCode={filter.StatusCode}");
+        if (filter.DateFrom is not null) qs.Add($"DateFrom={filter.DateFrom:yyyy-MM-dd}");
+        if (filter.DateTo is not null) qs.Add($"DateTo={filter.DateTo:yyyy-MM-dd}");
+        qs.Add($"Sort={field}"); qs.Add($"Dir={dir}");
+        return $"{Context.Request.PathBase}/Cockpit/ApiRequestLog?" + string.Join("&", qs);
+    }
+    string SortArrow(string field) => filter.Sort != field ? "" : (filter.Dir == "asc" ? " &#9650;" : " &#9660;");
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div><h1>Operations Cockpit</h1><p>Every call to the external API, successful or not &mdash; including a rejected/forged attempt, since that's exactly what a security review needs to see.</p></div>
+</div>
+
+<div class="lookup-tabs" style="margin-bottom:16px;">
+    <a class="lookup-tab" asp-controller="Cockpit" asp-action="RoutingLog">Routing / Determination Log</a>
+    <a class="lookup-tab" asp-controller="Cockpit" asp-action="AuditLog">Request Audit Log</a>
+    <a class="lookup-tab selected" asp-controller="Cockpit" asp-action="ApiRequestLog">API Request Log</a>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="margin-bottom:16px;">
+    <form method="get" action="~/Cockpit/ApiRequestLog" style="display:grid;grid-template-columns:1fr 1fr 0.7fr 1fr 1fr auto;gap:12px;align-items:end;">
+        <div class="jaco-form-group" style="margin:0;"><label>Client</label><input name="ClientName" value="@filter.ClientName" class="jaco-input" style="margin:0;" placeholder="e.g. SAP" /></div>
+        <div class="jaco-form-group" style="margin:0;"><label>Path</label><input name="Path" value="@filter.Path" class="jaco-input" style="margin:0;" placeholder="/api/v1/approvals" /></div>
+        <div class="jaco-form-group" style="margin:0;"><label>Status</label><input type="number" name="StatusCode" value="@filter.StatusCode" class="jaco-input" style="margin:0;" placeholder="200" /></div>
+        <div class="jaco-form-group" style="margin:0;"><label>From</label><input type="date" name="DateFrom" value="@(filter.DateFrom?.ToString("yyyy-MM-dd"))" class="jaco-input" style="margin:0;" /></div>
+        <div class="jaco-form-group" style="margin:0;"><label>To</label><input type="date" name="DateTo" value="@(filter.DateTo?.ToString("yyyy-MM-dd"))" class="jaco-input" style="margin:0;" /></div>
+        <button type="submit" class="jaco-btn jaco-btn-primary">Filter</button>
+    </form>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <span style="font-size:12.5px;color:var(--jaco-text-muted);">Showing @Model.Count of @totalCount matching entries@(totalCount > pageSize ? $" (most recent {pageSize})" : "").</span>
+    <div style="display:flex;gap:8px;">
+        <a class="jaco-btn jaco-btn-outline jaco-btn-sm" asp-controller="Cockpit" asp-action="ExportApiRequestLog" asp-all-route-data="@(new Dictionary<string,string>{ ["ClientName"]=filter.ClientName??"", ["Path"]=filter.Path??"", ["StatusCode"]=filter.StatusCode?.ToString()??"", ["DateFrom"]=filter.DateFrom?.ToString("yyyy-MM-dd")??"", ["DateTo"]=filter.DateTo?.ToString("yyyy-MM-dd")??"" })">Download CSV</a>
+        <a class="jaco-btn jaco-btn-outline jaco-btn-sm" asp-controller="Cockpit" asp-action="ClearApiRequestLog">Clear Old Entries&hellip;</a>
+    </div>
+</div>
+
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("CreatedAt")">Date/Time (UTC)@(Html.Raw(SortArrow("CreatedAt")))</a></th>
+            <th><a class="link" href="@SortUrl("Client")">Client@(Html.Raw(SortArrow("Client")))</a></th>
+            <th>Method</th>
+            <th><a class="link" href="@SortUrl("Path")">Path@(Html.Raw(SortArrow("Path")))</a></th>
+            <th><a class="link" href="@SortUrl("Status")">Status@(Html.Raw(SortArrow("Status")))</a></th>
+            <th><a class="link" href="@SortUrl("Duration")">Duration@(Html.Raw(SortArrow("Duration")))</a></th>
+            <th>Remote IP</th>
+            <th>Request / Response</th>
+        </tr></thead>
+        <tbody>
+        @foreach (var r in Model)
+        {
+            <tr>
+                <td>@r.CreatedAt.ToString("dd MMM yyyy HH:mm:ss")</td>
+                <td>@(r.ClientName ?? "—")</td>
+                <td><code>@r.Method</code></td>
+                <td style="font-size:12.5px;">@r.Path@(string.IsNullOrEmpty(r.QueryString) ? "" : r.QueryString)</td>
+                <td><span class="jaco-badge @BadgeClass(r.StatusCode)">@r.StatusCode</span></td>
+                <td>@r.DurationMs ms</td>
+                <td style="font-size:12px;color:var(--jaco-text-muted);">@(r.RemoteIp ?? "—")</td>
+                <td>
+                    <details>
+                        <summary style="cursor:pointer;color:var(--jaco-orange-600);font-size:12.5px;font-weight:600;">View</summary>
+                        <div style="margin-top:6px;font-size:12px;">
+                            <div style="color:var(--jaco-text-muted);font-weight:600;">Request</div>
+                            <pre style="white-space:pre-wrap;word-break:break-word;background:var(--jaco-bg);border-radius:4px;padding:6px 8px;margin:2px 0 8px;max-width:480px;">@(string.IsNullOrEmpty(r.RequestBody) ? "(empty)" : r.RequestBody)</pre>
+                            <div style="color:var(--jaco-text-muted);font-weight:600;">Response</div>
+                            <pre style="white-space:pre-wrap;word-break:break-word;background:var(--jaco-bg);border-radius:4px;padding:6px 8px;margin:2px 0;max-width:480px;">@(string.IsNullOrEmpty(r.ResponseBody) ? "(empty)" : r.ResponseBody)</pre>
+                        </div>
+                    </details>
+                </td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="8" style="text-align:center;color:var(--jaco-text-muted);">No entries match this filter.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

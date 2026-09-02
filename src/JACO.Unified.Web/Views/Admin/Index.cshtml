@@ -39,10 +39,17 @@
     <a class="metric metric-link" href="~/EmailSettings"><b>Email Configuration</b><span>SMTP host, credentials, and a test-send button</span><small>Configure &rarr;</small></a>
 </div>
 
+<h2 style="font-size:15px;margin-top:24px;">External API &mdash; integration with SAP and other outside systems</h2>
+<p style="color:#65727d;margin-top:-8px;">Lets an external system create approvals and read their status over HTTP (<code>/api/v1/approvals</code>), without a browser session. Off by default -- nothing can call in until enabled here.</p>
+<div class="cards">
+    <a class="metric metric-link" href="~/ApiClients"><b>API Access</b><span>Enable/disable the API, and manage the keys external systems authenticate with</span><small>Manage &rarr;</small></a>
+</div>
+
 <h2 style="font-size:15px;margin-top:24px;">Operations Cockpit &mdash; monitoring &amp; diagnostics</h2>
 <p style="color:#65727d;margin-top:-8px;">Every routing determination attempt, every request action, and every PPF action triggered, filterable by request/date, with provision to clear old entries.</p>
 <div class="cards">
     <a class="metric metric-link" href="~/Cockpit/RoutingLog"><b>Routing / Determination Log</b><span>Every routing attempt, incl. failures to route</span><small>Open Cockpit &rarr;</small></a>
-    <a class="metric metric-link" href="~/Cockpit/AuditLog"><b>Request Audit Log</b><span>Every decision/action, who and when</span><small>Open Cockpit &rarr;</small></a>
+    <a class="metric metric-link" href="~/Cockpit/AuditLog"><b>Request Audit Log</b><span>Every decision/action, who and when, front end or remote</span><small>Open Cockpit &rarr;</small></a>
     <a class="metric metric-link" href="~/Home/PpfMonitor"><b>PPF Monitor</b><span>Every action triggered, to whom, sent/failed/skipped</span><small>Open monitor &rarr;</small></a>
+    <a class="metric metric-link" href="~/Cockpit/ApiRequestLog"><b>API Request Log</b><span>Every external API call, incl. rejected/unauthenticated attempts</span><small>Open Cockpit &rarr;</small></a>
 </div>
