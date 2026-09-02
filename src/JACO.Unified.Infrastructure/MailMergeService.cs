@@ -41,13 +41,23 @@ public static class MailMergeService
                 .Append(r.CurrentLevelNo?.ToString() ?? "-").Append("</td><td>")
                 .Append(r.CreatedAt.ToString("dd MMM yyyy HH:mm")).Append("</td></tr>");
         }
-        var tokens = new Dictionary<string, string>
+        // Subject is plain text (never HTML-rendered) so the raw name is fine there, but the
+        // BODY is later shown via @Html.Raw both in the email itself and on the admin-facing
+        // Digest Run Detail page -- recipientName is a user's own display name (can originate
+        // from a self-service profile field, not just an admin), so unlike TableRows (already
+        // per-cell encoded above) it must be encoded before landing in the body.
+        var subjectTokens = new Dictionary<string, string>
         {
             ["{{RecipientName}}"] = recipientName,
             ["{{PendingCount}}"] = requests.Count.ToString(),
+        };
+        var bodyTokens = new Dictionary<string, string>
+        {
+            ["{{RecipientName}}"] = Html(recipientName),
+            ["{{PendingCount}}"] = requests.Count.ToString(),
             ["{{TableRows}}"] = rows.ToString(),
         };
-        return (Replace(template.Subject, tokens), Replace(template.BodyHtml, tokens));
+        return (Replace(template.Subject, subjectTokens), Replace(template.BodyHtml, bodyTokens));
     }
 
     // Flat DataJson (no routingContext/decisionData nesting -- every WorkflowField value

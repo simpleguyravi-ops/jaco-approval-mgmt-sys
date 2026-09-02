@@ -16,16 +16,45 @@ namespace JACO.Unified.Web.Controllers;
 [EnableRateLimiting("emailAction")]
 public sealed class EmailActionController(UnifiedDbContext db, RequestService requests, ApprovalActionLinkService linkService) : Controller
 {
+    // GET is never allowed to change state here -- a corporate mail gateway's Safe
+    // Links-style scanner routinely auto-visits every link in an incoming email BEFORE a
+    // human opens it, so a GET that decided immediately would let a scanner silently
+    // approve a real request. Both Approve and Reject now follow the same
+    // render-a-confirm-page-then-POST pattern; Decide only ever routes to one of those two
+    // confirm pages, matching the links PpfExecutor already builds (their URLs don't change).
     [HttpGet]
     public async Task<IActionResult> Decide(string token, string decision)
     {
-        if (!linkService.TryValidate(token, out var requestId, out var userId))
+        if (!linkService.TryValidate(token, out _, out _))
             return View("Invalid");
 
         if (decision == "Reject")
             return RedirectToAction(nameof(RejectForm), new { token });
+        if (decision == "Approve")
+            return RedirectToAction(nameof(ApproveForm), new { token });
 
-        if (decision != "Approve")
+        return View("Invalid");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ApproveForm(string token)
+    {
+        if (!linkService.TryValidate(token, out var requestId, out var userId))
+            return View("Invalid");
+
+        var req = await db.Requests.FindAsync(requestId);
+        var eligible = req is not null && await requests.IsEligibleApproverAsync(requestId, userId);
+        if (req is null || req.Status != "Pending" || !eligible)
+            return View("AlreadyHandled", req?.RequestNumber);
+
+        return View(new EmailApproveViewModel { Token = token, RequestNumber = req.RequestNumber, Subject = req.Subject });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApproveConfirm(string token)
+    {
+        if (!linkService.TryValidate(token, out var requestId, out var userId))
             return View("Invalid");
 
         var req = await db.Requests.FindAsync(requestId);
@@ -52,6 +81,7 @@ public sealed class EmailActionController(UnifiedDbContext db, RequestService re
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> RejectConfirm(string token, string comments)
     {
         if (!linkService.TryValidate(token, out var requestId, out var userId))

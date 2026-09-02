@@ -363,6 +363,13 @@ public sealed class EmailRejectViewModel
     public string? Error { get; init; }
 }
 
+public sealed class EmailApproveViewModel
+{
+    public required string Token { get; init; }
+    public required string RequestNumber { get; init; }
+    public string? Subject { get; init; }
+}
+
 public sealed class BulkReassignViewModel
 {
     public List<long> RequestIds { get; set; } = [];

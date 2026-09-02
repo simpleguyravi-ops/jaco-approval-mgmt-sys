@@ -162,6 +162,18 @@ app.Use((ctx, next) =>
     ctx.Response.Headers.Append("Content-Security-Policy",
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+    // This app never needs any of these from any origin, including its own -- an explicit
+    // empty allowlist per feature costs nothing and closes off a class of embedding/plugin
+    // abuse even though nothing here currently relies on them.
+    ctx.Response.Headers.Append("Permissions-Policy",
+        "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()");
+    // Isolates this page's window/tab from being reachable by a cross-origin opener (an
+    // attacker-controlled page that popped this one up), independent of the CSP frame
+    // controls above, which only cover embedding, not window references.
+    ctx.Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin");
+    // Blocks the legacy Flash/Acrobat cross-domain-policy mechanism outright -- irrelevant
+    // to what this app serves, but free to close off explicitly.
+    ctx.Response.Headers.Append("X-Permitted-Cross-Domain-Policies", "none");
     return next();
 });
 

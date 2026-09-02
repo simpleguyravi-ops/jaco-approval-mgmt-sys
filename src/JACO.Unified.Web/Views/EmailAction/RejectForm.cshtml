@@ -23,6 +23,7 @@
             <div class="jaco-alert jaco-alert-danger" style="margin-bottom:14px;padding:10px 14px;border-radius:8px;">@Model.Error</div>
         }
         <form method="post" action="~/EmailAction/RejectConfirm">
+            @Html.AntiForgeryToken()
             <input type="hidden" name="token" value="@Model.Token" />
             <div class="jaco-form-group">
                 <label for="comments">Reason for rejection</label>

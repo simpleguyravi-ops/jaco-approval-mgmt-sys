@@ -66,7 +66,13 @@
         @foreach (var c in Model)
         {
             <tr>
-                <td><b>@c.Name</b>@(string.IsNullOrEmpty(c.Description) ? "" : Html.Raw($"<div style=\"font-size:12px;color:var(--jaco-text-muted);\">{c.Description}</div>"))</td>
+                <td>
+                    <b>@c.Name</b>
+                    @if (!string.IsNullOrEmpty(c.Description))
+                    {
+                        <div style="font-size:12px;color:var(--jaco-text-muted);">@c.Description</div>
+                    }
+                </td>
                 <td><code>@(c.KeyPrefix)&hellip;</code></td>
                 <td>
                     @if (c.Active) { <span class="jaco-badge jaco-badge-success">ACTIVE</span> }
