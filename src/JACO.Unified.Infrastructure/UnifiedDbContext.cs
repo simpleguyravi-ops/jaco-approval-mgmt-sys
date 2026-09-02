@@ -29,6 +29,9 @@ public sealed class UnifiedDbContext(DbContextOptions<UnifiedDbContext> options)
     public DbSet<ApiClient> ApiClients => Set<ApiClient>();
     public DbSet<ApiSettings> ApiSettings => Set<ApiSettings>();
     public DbSet<ApiRequestLog> ApiRequestLog => Set<ApiRequestLog>();
+    public DbSet<DigestSchedule> DigestSchedules => Set<DigestSchedule>();
+    public DbSet<DigestRun> DigestRuns => Set<DigestRun>();
+    public DbSet<DigestRunRecipient> DigestRunRecipients => Set<DigestRunRecipient>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -36,5 +39,6 @@ public sealed class UnifiedDbContext(DbContextOptions<UnifiedDbContext> options)
         modelBuilder.Entity<WorkflowField>().HasIndex(f => new { f.ApprovalTypeId, f.FieldKey });
         modelBuilder.Entity<PicklistValue>().HasIndex(p => new { p.LookupType, p.Value });
         modelBuilder.Entity<ApiClient>().HasIndex(c => c.KeyPrefix);
+        modelBuilder.Entity<DigestSchedule>().HasIndex(s => s.ApprovalTypeId).IsUnique();
     }
 }

@@ -53,6 +53,8 @@ builder.Services.AddScoped<TimelineService>();
 builder.Services.AddScoped<PpfExecutor>();
 builder.Services.AddScoped<RequestService>();
 builder.Services.AddScoped<ReportsService>();
+builder.Services.AddScoped<DigestService>();
+builder.Services.AddHostedService<JACO.Unified.Web.Services.DigestSchedulerHostedService>();
 builder.Services.AddSingleton(sp =>
 {
     var root = builder.Configuration["Attachments:RootPath"] ?? @"C:\JACO\_shared\unified-attachments";

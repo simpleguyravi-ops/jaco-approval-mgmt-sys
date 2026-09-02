@@ -223,6 +223,15 @@ public sealed class DigestViewModel
     public int PendingCount { get; set; }
 }
 
+public sealed class DigestScheduleViewModel
+{
+    public int ApprovalTypeId { get; set; }
+    public required List<ApprovalType> Types { get; set; }
+    public required DigestSchedule Schedule { get; set; }
+    public List<(int Id, string Name)> TableTemplates { get; set; } = [];
+    public DigestRun? LastRun { get; set; }
+}
+
 public sealed class PpfMonitorFilter
 {
     public string? RequestNumber { get; set; }
@@ -304,6 +313,16 @@ public sealed class ApiRequestLogFilter
     public string? ClientName { get; set; }
     public string? Path { get; set; }
     public int? StatusCode { get; set; }
+    public DateTime? DateFrom { get; set; }
+    public DateTime? DateTo { get; set; }
+    public string? Sort { get; set; }
+    public string Dir { get; set; } = "asc";
+}
+
+public sealed class DigestRunFilter
+{
+    public int? ApprovalTypeId { get; set; }
+    public string? TriggeredBy { get; set; }
     public DateTime? DateFrom { get; set; }
     public DateTime? DateTo { get; set; }
     public string? Sort { get; set; }

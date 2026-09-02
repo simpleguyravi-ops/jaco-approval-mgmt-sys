@@ -315,6 +315,67 @@ public sealed class ApiRequestLog
     public DateTime CreatedAt { get; set; }
 }
 
+// ============================================================
+// Automatic Pending Approvals Digest -- one schedule PER Approval Type (CR might run every
+// 2 days, Sales Discount every working day at 9am, each independently), distinct from the
+// existing ad-hoc "send to one person" screen which stays manual/unscheduled. No row for a
+// type means "never configured" (equivalent to disabled), not "run continuously."
+// ============================================================
+public sealed class DigestSchedule
+{
+    public int Id { get; set; }
+    public int ApprovalTypeId { get; set; }
+    public bool Enabled { get; set; }
+    // "EveryNDays" (paired with IntervalDays) or "Weekdays" (Mon-Fri only, IntervalDays
+    // ignored) -- two named patterns rather than a full day-of-week/cron picker, matching
+    // the two shapes actually asked for ("every 2 days", "every working day").
+    public string RecurrenceType { get; set; } = "EveryNDays";
+    public int IntervalDays { get; set; } = 1;
+    // Time of day in the SERVER's local wall-clock time (what an admin means by "9am") --
+    // NextRunAtUtc is what the scheduler actually reads; this is just the anchor used to
+    // recompute it whenever the schedule changes or after each run.
+    public TimeSpan StartTime { get; set; } = new(9, 0, 0);
+    public int? MailTemplateId { get; set; }
+    public DateTime? NextRunAtUtc { get; set; }
+    public DateTime? LastRunAtUtc { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public string? UpdatedByUserName { get; set; }
+}
+
+// One row per digest send -- scheduled or a manual "Run Now" -- so "how many emails went
+// out, and to whom" is answerable without cross-referencing PPF Monitor (which is
+// per-Request and doesn't apply here; a digest isn't tied to any single request).
+public sealed class DigestRun
+{
+    public long Id { get; set; }
+    public int ApprovalTypeId { get; set; }
+    public string ApprovalTypeName { get; set; } = "";
+    public DateTime RunAtUtc { get; set; }
+    public string TriggeredBy { get; set; } = "Scheduled"; // "Scheduled" or "Manual"
+    public string? TriggeredByUserName { get; set; }
+    public int EligibleUserCount { get; set; }
+    public int RecipientCount { get; set; }
+    public int SentCount { get; set; }
+    public int FailedCount { get; set; }
+}
+
+// Per-recipient detail for one DigestRun, including the exact rendered subject/body sent --
+// "what did this person actually receive" is answerable by reading the row, not by
+// re-rendering the template against current (possibly since-changed) data.
+public sealed class DigestRunRecipient
+{
+    public long Id { get; set; }
+    public long DigestRunId { get; set; }
+    public int UserId { get; set; }
+    public string UserName { get; set; } = "";
+    public string? Email { get; set; }
+    public int PendingCount { get; set; }
+    public string Subject { get; set; } = "";
+    public string BodyHtml { get; set; } = "";
+    public string Status { get; set; } = ""; // Sent, Failed
+    public string? ErrorMessage { get; set; }
+}
+
 public sealed class RoutingLogEntry
 {
     public long Id { get; set; }

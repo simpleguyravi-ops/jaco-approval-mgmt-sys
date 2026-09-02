@@ -1,0 +1,98 @@
+@using JACO.Unified.Core.Models
+@model List<DigestRun>
+@{
+    ViewData["Title"] = "Operations Cockpit";
+    var filter = (DigestRunFilter)ViewBag.Filter;
+    var totalCount = (int)ViewBag.TotalCount;
+    var pageSize = (int)ViewBag.PageSize;
+    var types = (List<ApprovalType>)ViewBag.Types;
+
+    string SortUrl(string field)
+    {
+        var dir = filter.Sort == field && filter.Dir == "asc" ? "desc" : "asc";
+        var qs = new List<string>();
+        if (filter.ApprovalTypeId is not null) qs.Add($"ApprovalTypeId={filter.ApprovalTypeId}");
+        if (!string.IsNullOrWhiteSpace(filter.TriggeredBy)) qs.Add($"TriggeredBy={Uri.EscapeDataString(filter.TriggeredBy)}");
+        if (filter.DateFrom is not null) qs.Add($"DateFrom={filter.DateFrom:yyyy-MM-dd}");
+        if (filter.DateTo is not null) qs.Add($"DateTo={filter.DateTo:yyyy-MM-dd}");
+        qs.Add($"Sort={field}"); qs.Add($"Dir={dir}");
+        return $"{Context.Request.PathBase}/Cockpit/DigestLog?" + string.Join("&", qs);
+    }
+    string SortArrow(string field) => filter.Sort != field ? "" : (filter.Dir == "asc" ? " &#9650;" : " &#9660;");
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div><h1>Operations Cockpit</h1><p>Every Pending Approvals Digest send &mdash; scheduled or manual &mdash; how many emails went out, and to whom.</p></div>
+</div>
+
+<div class="lookup-tabs" style="margin-bottom:16px;">
+    <a class="lookup-tab" asp-controller="Cockpit" asp-action="RoutingLog">Routing / Determination Log</a>
+    <a class="lookup-tab" asp-controller="Cockpit" asp-action="AuditLog">Request Audit Log</a>
+    <a class="lookup-tab" asp-controller="Cockpit" asp-action="ApiRequestLog">API Request Log</a>
+    <a class="lookup-tab selected" asp-controller="Cockpit" asp-action="DigestLog">Digest Log</a>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="margin-bottom:16px;">
+    <form method="get" action="~/Cockpit/DigestLog" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:12px;align-items:end;">
+        <div class="jaco-form-group" style="margin:0;">
+            <label>Approval Type</label>
+            <select name="ApprovalTypeId" class="jaco-select">
+                <option value="">(all)</option>
+                @foreach (var t in types) { <option value="@t.Id" selected="@(filter.ApprovalTypeId == t.Id)">@t.Name</option> }
+            </select>
+        </div>
+        <div class="jaco-form-group" style="margin:0;">
+            <label>Triggered By</label>
+            <select name="TriggeredBy" class="jaco-select">
+                <option value="">(all)</option>
+                <option value="Scheduled" selected="@(filter.TriggeredBy == "Scheduled")">Scheduled</option>
+                <option value="Manual" selected="@(filter.TriggeredBy == "Manual")">Manual</option>
+            </select>
+        </div>
+        <div class="jaco-form-group" style="margin:0;"><label>From</label><input type="date" name="DateFrom" value="@(filter.DateFrom?.ToString("yyyy-MM-dd"))" class="jaco-input" style="margin:0;" /></div>
+        <div class="jaco-form-group" style="margin:0;"><label>To</label><input type="date" name="DateTo" value="@(filter.DateTo?.ToString("yyyy-MM-dd"))" class="jaco-input" style="margin:0;" /></div>
+        <button type="submit" class="jaco-btn jaco-btn-primary">Filter</button>
+    </form>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <span style="font-size:12.5px;color:var(--jaco-text-muted);">Showing @Model.Count of @totalCount matching entries@(totalCount > pageSize ? $" (most recent {pageSize})" : "").</span>
+    <div style="display:flex;gap:8px;">
+        <a class="jaco-btn jaco-btn-outline jaco-btn-sm" asp-controller="Cockpit" asp-action="ExportDigestLog" asp-all-route-data="@(new Dictionary<string,string>{ ["ApprovalTypeId"]=filter.ApprovalTypeId?.ToString()??"", ["TriggeredBy"]=filter.TriggeredBy??"", ["DateFrom"]=filter.DateFrom?.ToString("yyyy-MM-dd")??"", ["DateTo"]=filter.DateTo?.ToString("yyyy-MM-dd")??"" })">Download CSV</a>
+        <a class="jaco-btn jaco-btn-outline jaco-btn-sm" asp-controller="Cockpit" asp-action="ClearDigestLog">Clear Old Entries&hellip;</a>
+    </div>
+</div>
+
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("RunAt")">Date/Time (UTC)@(Html.Raw(SortArrow("RunAt")))</a></th>
+            <th><a class="link" href="@SortUrl("Type")">Approval Type@(Html.Raw(SortArrow("Type")))</a></th>
+            <th><a class="link" href="@SortUrl("Triggered")">Triggered By@(Html.Raw(SortArrow("Triggered")))</a></th>
+            <th>Eligible Users</th>
+            <th>Had Pending</th>
+            <th><a class="link" href="@SortUrl("Sent")">Sent@(Html.Raw(SortArrow("Sent")))</a></th>
+            <th>Failed</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        @foreach (var r in Model)
+        {
+            <tr>
+                <td>@r.RunAtUtc.ToString("dd MMM yyyy HH:mm:ss")</td>
+                <td>@r.ApprovalTypeName</td>
+                <td>@r.TriggeredBy@(r.TriggeredByUserName is null ? "" : $" ({r.TriggeredByUserName})")</td>
+                <td>@r.EligibleUserCount</td>
+                <td>@r.RecipientCount</td>
+                <td>@if (r.SentCount > 0) { <span class="jaco-badge jaco-badge-success">@r.SentCount</span> } else { @r.SentCount }</td>
+                <td>@if (r.FailedCount > 0) { <span class="jaco-badge jaco-badge-danger">@r.FailedCount</span> } else { <text>0</text> }</td>
+                <td><a class="link" href="~/Cockpit/DigestRunDetail/@r.Id">View &rarr;</a></td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="8" style="text-align:center;color:var(--jaco-text-muted);">No digest runs match this filter.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

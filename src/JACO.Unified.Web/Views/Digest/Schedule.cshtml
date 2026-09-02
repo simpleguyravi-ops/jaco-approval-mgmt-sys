@@ -1,0 +1,86 @@
+@using JACO.Unified.Core.Models
+@model DigestScheduleViewModel
+@{
+    ViewData["Title"] = "Automatic Digest Schedule";
+    var s = Model.Schedule;
+    var recurrenceTypes = DigestController.RecurrenceTypes;
+}
+<a class="jaco-back-link" href="~/Digest">&larr; Back to Digest</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Automatic Digest Schedule</h1>
+        <p>Sends every active user their own Pending Approvals Digest &mdash; scoped to just this Approval Type &mdash; on a recurring schedule, without an admin triggering it by hand. Someone with zero pending items for this type is skipped, not sent an empty email.</p>
+    </div>
+    <a class="jaco-btn jaco-btn-outline" href="~/Cockpit/DigestLog">View Digest Run Log</a>
+</div>
+
+<div class="lookup-tabs" style="margin-bottom:18px;">
+    @foreach (var t in Model.Types)
+    {
+        <a class="lookup-tab @(t.Id == Model.ApprovalTypeId ? "selected" : "")" href="~/Digest/Schedule?approvalTypeId=@t.Id">@t.Name</a>
+    }
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+    <form method="post" action="~/Digest/SaveSchedule" class="jaco-card jaco-card-pad">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="approvalTypeId" value="@Model.ApprovalTypeId" />
+
+        <div class="jaco-check-row"><input type="checkbox" name="enabled" value="true" checked="@s.Enabled" id="enabled" /><label for="enabled" style="margin:0;font-weight:400;">Enabled</label></div>
+
+        <div class="jaco-form-group">
+            <label>Recurrence</label>
+            @foreach (var (value, label) in recurrenceTypes)
+            {
+                <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:13.5px;margin:6px 0;">
+                    <input type="radio" name="recurrenceType" value="@value" checked="@(s.RecurrenceType == value)" style="width:auto;" /> @label
+                </label>
+            }
+        </div>
+
+        <div class="jaco-form-group">
+            <label>Every how many day(s) <span style="font-weight:400;color:var(--jaco-text-muted);">(only applies to "Every N day(s)")</span></label>
+            <input class="jaco-input" type="number" min="1" name="intervalDays" value="@s.IntervalDays" />
+        </div>
+
+        <div class="jaco-form-group">
+            <label>Start Time <span style="font-weight:400;color:var(--jaco-text-muted);">(server local time)</span></label>
+            <input class="jaco-input" type="time" name="startTime" value="@s.StartTime.ToString(@"hh\:mm")" required />
+        </div>
+
+        <div class="jaco-form-group">
+            <label>Template</label>
+            <select class="jaco-select" name="mailTemplateId">
+                <option value="">-- Select --</option>
+                @foreach (var t in Model.TableTemplates)
+                {
+                    <option value="@t.Id" selected="@(s.MailTemplateId == t.Id)">@t.Name</option>
+                }
+            </select>
+            @if (Model.TableTemplates.Count == 0)
+            {
+                <p style="margin:6px 0 0;font-size:12px;color:var(--jaco-warning);">No table (digest) templates exist yet &mdash; create one under <a class="link" href="~/MailTemplates">Mail Templates</a> first.</p>
+            }
+        </div>
+
+        <button type="submit" class="jaco-btn jaco-btn-primary">Save Schedule</button>
+    </form>
+
+    <div class="jaco-card jaco-card-pad">
+        <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:10px;">Status</label>
+        <table style="width:100%;font-size:13px;border-collapse:collapse;">
+            <tr><td style="padding:6px 0;color:var(--jaco-text-muted);width:40%;">Next Scheduled Run</td><td style="padding:6px 0;">@(s.Enabled && s.NextRunAtUtc is not null ? s.NextRunAtUtc.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm") + " (server local)" : "-- not scheduled --")</td></tr>
+            <tr><td style="padding:6px 0;color:var(--jaco-text-muted);">Last Scheduled Run</td><td style="padding:6px 0;">@(s.LastRunAtUtc is not null ? s.LastRunAtUtc.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm") + " (server local)" : "Never -- only Run Now has fired so far, if anything")</td></tr>
+            @if (Model.LastRun is not null)
+            {
+                <tr><td style="padding:6px 0;color:var(--jaco-text-muted);">Last Run (any)</td><td style="padding:6px 0;">@Model.LastRun.RunAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm") (@Model.LastRun.TriggeredBy) &mdash; sent to @Model.LastRun.SentCount of @Model.LastRun.RecipientCount with pending items (@Model.LastRun.EligibleUserCount active user(s) considered)@(Model.LastRun.FailedCount > 0 ? $", {Model.LastRun.FailedCount} failed" : "")</td></tr>
+            }
+        </table>
+
+        <form method="post" action="~/Digest/RunNow" style="margin-top:16px;" data-confirm="Run this digest right now, sending real emails to every eligible user with pending items? This does not affect the schedule.">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="approvalTypeId" value="@Model.ApprovalTypeId" />
+            <button type="submit" class="jaco-btn jaco-btn-outline">Run Now</button>
+        </form>
+    </div>
+</div>

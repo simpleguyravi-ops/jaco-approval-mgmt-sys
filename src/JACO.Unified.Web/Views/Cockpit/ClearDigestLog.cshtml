@@ -1,0 +1,37 @@
+@model ClearLogsResult
+@{ ViewData["Title"] = "Clear Digest Log"; }
+<a class="jaco-back-link" asp-controller="Cockpit" asp-action="DigestLog">&larr; Back to Digest Log</a>
+<div class="jaco-page-header">
+    <div><h1>Clear Digest Log</h1><p>Permanently deletes digest run entries (and their per-recipient detail) older than the date below. This cannot be undone.</p></div>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="max-width:480px;">
+    <form method="get" asp-controller="Cockpit" asp-action="ClearDigestLog">
+        <div class="jaco-form-group"><label>Delete entries older than</label><input type="date" name="beforeDate" value="@(Model.BeforeDate?.ToString("yyyy-MM-dd"))" class="jaco-input" required /></div>
+        <button type="submit" class="jaco-btn jaco-btn-outline">Preview Count</button>
+    </form>
+
+    @if (Model.BeforeDate is null)
+    {
+        <p style="margin-top:16px;color:var(--jaco-text-muted);font-size:13px;">Pick a date and preview how many entries that would delete before anything is removed. There is no default range &mdash; nothing is deleted until you choose one.</p>
+    }
+    else
+    {
+        <div class="jaco-alert" style="margin-top:16px;background:var(--jaco-warning-bg);color:var(--jaco-warning);">
+            <strong>@Model.MatchingCount</strong> run(s) dated before <strong>@Model.BeforeDate.Value.ToString("dd MMM yyyy")</strong> will be permanently deleted.
+        </div>
+        @if (Model.MatchingCount > 0)
+        {
+            <form method="post" asp-controller="Cockpit" asp-action="ClearDigestLogConfirmed" style="margin-top:12px;">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="beforeDate" value="@Model.BeforeDate.Value.ToString("yyyy-MM-dd")" />
+                <button type="submit" class="jaco-btn" style="background:var(--jaco-danger);color:#fff;border-color:var(--jaco-danger);">Delete @Model.MatchingCount Entries</button>
+                <a class="jaco-btn jaco-btn-outline" asp-controller="Cockpit" asp-action="DigestLog">Cancel</a>
+            </form>
+        }
+        else
+        {
+            <a class="jaco-btn jaco-btn-outline" style="margin-top:12px;" asp-controller="Cockpit" asp-action="DigestLog">Back</a>
+        }
+    }
+</div>

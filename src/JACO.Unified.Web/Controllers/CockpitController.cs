@@ -218,4 +218,77 @@ public sealed class CockpitController(UnifiedDbContext db) : Controller
         TempData["Success"] = $"Cleared {count} API request log entries older than {beforeDate:dd MMM yyyy}.";
         return RedirectToAction(nameof(ApiRequestLog));
     }
+
+    // ---------- Digest Log (automatic + manual Pending Approvals Digest runs -- see DigestService) ----------
+
+    IQueryable<DigestRun> DigestRunQuery(DigestRunFilter filter)
+    {
+        var query = db.DigestRuns.AsNoTracking().AsQueryable();
+        if (filter.ApprovalTypeId is not null) query = query.Where(r => r.ApprovalTypeId == filter.ApprovalTypeId);
+        if (!string.IsNullOrWhiteSpace(filter.TriggeredBy)) query = query.Where(r => r.TriggeredBy == filter.TriggeredBy);
+        if (filter.DateFrom is not null) query = query.Where(r => r.RunAtUtc >= filter.DateFrom.Value);
+        if (filter.DateTo is not null) query = query.Where(r => r.RunAtUtc < filter.DateTo.Value.AddDays(1));
+
+        var desc = filter.Dir == "desc";
+        return filter.Sort switch
+        {
+            "Type" => desc ? query.OrderByDescending(r => r.ApprovalTypeName) : query.OrderBy(r => r.ApprovalTypeName),
+            "Triggered" => desc ? query.OrderByDescending(r => r.TriggeredBy) : query.OrderBy(r => r.TriggeredBy),
+            "Sent" => desc ? query.OrderByDescending(r => r.SentCount) : query.OrderBy(r => r.SentCount),
+            "RunAt" => desc ? query.OrderByDescending(r => r.RunAtUtc) : query.OrderBy(r => r.RunAtUtc),
+            _ => query.OrderByDescending(r => r.RunAtUtc)
+        };
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DigestLog(DigestRunFilter filter)
+    {
+        var query = DigestRunQuery(filter);
+        ViewBag.Filter = filter;
+        ViewBag.TotalCount = await query.CountAsync();
+        ViewBag.PageSize = PageSize;
+        ViewBag.Types = await db.ApprovalTypes.OrderBy(t => t.Name).ToListAsync();
+        return View(await query.Take(PageSize).ToListAsync());
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportDigestLog(DigestRunFilter filter)
+    {
+        var rows = await DigestRunQuery(filter).Take(ExportCap).ToListAsync();
+        var bytes = CsvHelper.ToCsvBytes(rows,
+            ["Date/Time (UTC)", "Approval Type", "Triggered By", "Eligible Users", "Recipients (had pending)", "Sent", "Failed"],
+            r => [r.RunAtUtc.ToString("yyyy-MM-dd HH:mm:ss"), r.ApprovalTypeName, r.TriggeredBy + (r.TriggeredByUserName is null ? "" : $" ({r.TriggeredByUserName})"), r.EligibleUserCount.ToString(), r.RecipientCount.ToString(), r.SentCount.ToString(), r.FailedCount.ToString()]);
+        return File(bytes, "text/csv", $"digest-log-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DigestRunDetail(long id)
+    {
+        var run = await db.DigestRuns.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id);
+        if (run is null) return NotFound();
+        ViewBag.Run = run;
+        var recipients = await db.DigestRunRecipients.AsNoTracking().Where(r => r.DigestRunId == id).OrderBy(r => r.UserName).ToListAsync();
+        return View(recipients);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ClearDigestLog(DateTime? beforeDate)
+    {
+        if (beforeDate is null) return View(new ClearLogsResult { LogType = "Digest Log" });
+        var count = await db.DigestRuns.CountAsync(r => r.RunAtUtc < beforeDate.Value);
+        return View(new ClearLogsResult { LogType = "Digest Log", BeforeDate = beforeDate.Value, MatchingCount = count });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ClearDigestLogConfirmed(DateTime beforeDate)
+    {
+        var runIds = await db.DigestRuns.Where(r => r.RunAtUtc < beforeDate).Select(r => r.Id).ToListAsync();
+        db.DigestRunRecipients.RemoveRange(db.DigestRunRecipients.Where(r => runIds.Contains(r.DigestRunId)));
+        db.DigestRuns.RemoveRange(db.DigestRuns.Where(r => runIds.Contains(r.Id)));
+        db.AuditLogs.Add(new AuditLog { ActionCode = "DigestLogCleared", DetailsJson = $"{{\"beforeDate\":\"{beforeDate:O}\",\"rowsDeleted\":{runIds.Count}}}", CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+        TempData["Success"] = $"Cleared {runIds.Count} digest run(s) older than {beforeDate:dd MMM yyyy}.";
+        return RedirectToAction(nameof(DigestLog));
+    }
 }
