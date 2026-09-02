@@ -9,6 +9,12 @@ public sealed record SubmittedField(string FieldKey, string Label, string DataTy
 public sealed record TimelineDecision(string ActorName, string ActionCode, string? Comments, DateTime AtUtc);
 public sealed record TimelineLevel(int LevelNo, string Mode, IReadOnlyList<string> ApproverNames, IReadOnlyList<TimelineDecision> Decisions, string LevelStatus);
 
+// Describes ONE field of an Approval Type's data shape, for both the admin-facing API
+// Reference screen and the API's own GET .../schema/{code} endpoint -- generated live from
+// WorkflowFields, never hand-maintained, so it can't drift out of sync with what
+// SaveFieldsAsync actually accepts or GetSubmittedFieldsAsync actually returns.
+public sealed record ApprovalFieldSchema(int DisplayOrder, string FieldKey, string Label, string DataType, bool Required, bool Sensitive, string? LookupType, List<string> AllowedValues);
+
 // The unified engine: what ApprovalService (decisions/routing/PPF) and
 // ChangeRequestController (create/edit/submit) used to split across two apps and two
 // database rows, now operating on ONE Request row for its entire lifecycle. No snapshot,
@@ -55,6 +61,23 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
 
     public async Task<List<PicklistValue>> GetPicklistAsync(string lookupType) =>
         await db.PicklistValues.Where(p => p.LookupType == lookupType && p.Active).OrderBy(p => p.SortOrder).ThenBy(p => p.DisplayText).ToListAsync();
+
+    // Exactly the field set Create/SaveFieldsAsync will accept and Get/GetSubmittedFieldsAsync
+    // will return for this type -- same source (GetFormFieldsAsync), so "what does the API
+    // expose" never needs to be answered by reading code or guessing from the UI form.
+    public async Task<List<ApprovalFieldSchema>> GetFieldSchemaAsync(int approvalTypeId)
+    {
+        var fields = await GetFormFieldsAsync(approvalTypeId);
+        var result = new List<ApprovalFieldSchema>();
+        foreach (var f in fields)
+        {
+            var allowedValues = f.DataType == FieldDataType.Dropdown && !string.IsNullOrEmpty(f.LookupType)
+                ? (await GetPicklistAsync(f.LookupType)).Select(p => p.Value).ToList()
+                : [];
+            result.Add(new ApprovalFieldSchema(f.DisplayOrder, f.FieldKey, f.FieldLabel, f.DataType, f.IsRequired, f.IsSensitive, f.LookupType, allowedValues));
+        }
+        return result;
+    }
 
     // ---------- Identity ----------
 

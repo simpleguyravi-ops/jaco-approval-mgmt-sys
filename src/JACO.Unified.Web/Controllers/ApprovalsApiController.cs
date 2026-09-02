@@ -88,6 +88,46 @@ public sealed class ApprovalsApiController(UnifiedDbContext db, RequestService r
         return Ok(result);
     }
 
+    // Self-describing discovery: an integrator (or a script SAP runs at deploy time) can
+    // find out what approvalTypeCode values even exist without asking a human first.
+    [HttpGet("types")]
+    public async Task<IActionResult> Types()
+    {
+        var types = await db.ApprovalTypes.Where(t => t.Active).OrderBy(t => t.Name)
+            .Select(t => new { code = t.Code, name = t.Name, description = t.Description }).ToListAsync();
+        return Ok(types);
+    }
+
+    // The live field shape for one Approval Type -- exactly what Create accepts in `data`
+    // and what Get returns in `data` back, generated from the same WorkflowFields catalog
+    // that drives the UI form. A field added/renamed/removed under Criteria Fields is
+    // reflected here immediately -- no API version, no redeploy, no admin action needed
+    // beyond the field edit itself.
+    [HttpGet("schema/{approvalTypeCode}")]
+    public async Task<IActionResult> Schema(string approvalTypeCode)
+    {
+        var type = await db.ApprovalTypes.SingleOrDefaultAsync(t => t.Code == approvalTypeCode && t.Active);
+        if (type is null) return NotFound(new ApiErrorResponse { Error = $"No active Approval Type with code '{approvalTypeCode}'." });
+
+        var fields = await requests.GetFieldSchemaAsync(type.Id);
+        return Ok(new
+        {
+            approvalTypeCode = type.Code,
+            approvalTypeName = type.Name,
+            fields = fields.Select(f => new
+            {
+                order = f.DisplayOrder,
+                key = f.FieldKey,
+                label = f.Label,
+                dataType = f.DataType,
+                required = f.Required,
+                sensitive = f.Sensitive,
+                lookupType = f.LookupType,
+                allowedValues = f.AllowedValues.Count > 0 ? f.AllowedValues : null
+            })
+        });
+    }
+
     async Task<ApprovalApiResponse> BuildResponseAsync(long requestId)
     {
         var request = await db.Requests.SingleAsync(r => r.Id == requestId);

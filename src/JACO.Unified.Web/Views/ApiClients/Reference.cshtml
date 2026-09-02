@@ -1,0 +1,83 @@
+@using JACO.Unified.Core.Models
+@using JACO.Unified.Infrastructure
+@model List<ApprovalFieldSchema>
+@{
+    ViewData["Title"] = "API Reference";
+    var types = (List<ApprovalType>)ViewBag.Types;
+    int selectedTypeId = ViewBag.SelectedTypeId;
+    var selectedType = types.FirstOrDefault(t => t.Id == selectedTypeId);
+    var exampleJson = (string?)ViewBag.ExampleJson;
+}
+<a class="jaco-back-link" asp-controller="ApiClients" asp-action="Index">&larr; Back to API Access</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>API Reference</h1>
+        <p>What the external API actually accepts and returns &mdash; generated live from Criteria Fields, so it's never out of date.</p>
+    </div>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="margin-bottom:16px;">
+    <h2 style="font-size:14px;margin:0 0 10px;">Endpoints</h2>
+    <table class="jaco-table">
+        <tbody>
+            <tr><td style="width:90px;"><code>POST</code></td><td><code>/api/v1/approvals</code></td><td>Create and submit a request &mdash; body: <code>approvalTypeCode</code>, <code>subject</code>, <code>externalReference</code>, <code>data{}</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/api/v1/approvals/{requestNumber}</code></td><td>Status, current level, and every field's current value</td></tr>
+            <tr><td><code>GET</code></td><td><code>/api/v1/approvals/{requestNumber}/timeline</code></td><td>Per-level approvers and decisions so far</td></tr>
+            <tr><td><code>GET</code></td><td><code>/api/v1/approvals/types</code></td><td>Every active Approval Type's code/name &mdash; what <code>approvalTypeCode</code> can be</td></tr>
+            <tr><td><code>GET</code></td><td><code>/api/v1/approvals/schema/{approvalTypeCode}</code></td><td>This same field list, as JSON &mdash; query it directly instead of reading this page by eye</td></tr>
+        </tbody>
+    </table>
+    <p style="margin:10px 0 0;font-size:12.5px;color:var(--jaco-text-muted);">Every call needs an <code>X-Api-Key</code> header. See <a class="link" href="~/ApiClients">API Access</a> to enable the API and issue a key.</p>
+</div>
+
+<div class="lookup-tabs" style="margin-bottom:16px;">
+    @foreach (var t in types)
+    {
+        <a class="lookup-tab @(t.Id == selectedTypeId ? "selected" : "")" href="~/ApiClients/Reference?approvalTypeId=@t.Id">@t.Name</a>
+    }
+</div>
+
+@if (selectedType is null)
+{
+    <div class="jaco-card jaco-card-pad"><p style="margin:0;color:var(--jaco-text-muted);">No active Approval Types yet.</p></div>
+}
+else
+{
+    <div class="jaco-card" style="margin-bottom:16px;">
+        <table class="jaco-table">
+            <thead><tr>
+                <th>Order</th><th>Field Key</th><th>Label</th><th>Type</th><th>Required</th><th>Sensitive</th><th>Allowed Values</th>
+            </tr></thead>
+            <tbody>
+            @foreach (var f in Model)
+            {
+                <tr>
+                    <td>@f.DisplayOrder</td>
+                    <td><code>@f.FieldKey</code></td>
+                    <td>@f.Label</td>
+                    <td>@f.DataType</td>
+                    <td>@(f.Required ? "Yes" : "—")</td>
+                    <td>@(f.Sensitive ? "Yes" : "—")</td>
+                    <td style="font-size:12.5px;">@(f.AllowedValues.Count > 0 ? string.Join(", ", f.AllowedValues) : "—")</td>
+                </tr>
+            }
+            @if (Model.Count == 0)
+            {
+                <tr><td colspan="7" style="text-align:center;color:var(--jaco-text-muted);">No fields configured for this type yet.</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;background:var(--jaco-info-bg);">
+        <p style="margin:0;font-size:13px;color:var(--jaco-text);"><b>This list is live, not documentation someone has to remember to update.</b> Add, rename, or remove a field under <a class="link" href="~/WorkflowFields?approvalTypeId=@selectedTypeId">Criteria Fields</a> and it takes effect here (and in the API itself) immediately &mdash; no code change, no redeploy, no version bump.</p>
+    </div>
+    <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;background:var(--jaco-warning-bg);">
+        <p style="margin:0;font-size:13px;color:var(--jaco-warning);"><b>Sensitive fields are included here.</b> A field marked Sensitive is hidden from the request's own creator in the browser UI, but the API returns it on every <code>GET</code> &mdash; the caller is a trusted system credential, not an end user, so that human-facing rule doesn't apply.</p>
+    </div>
+
+    <div class="jaco-card jaco-card-pad">
+        <h2 style="font-size:14px;margin:0 0 10px;">Example Create request for @selectedType.Name</h2>
+        <pre style="background:var(--jaco-bg);border-radius:6px;padding:12px 14px;font-size:12.5px;overflow-x:auto;margin:0;">@exampleJson</pre>
+    </div>
+}
