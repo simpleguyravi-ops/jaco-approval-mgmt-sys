@@ -35,7 +35,21 @@ public sealed class MailSender(UnifiedDbContext db, IOptions<EmailOptions> optio
         }
         catch (Exception ex)
         {
-            return (false, ex.Message);
+            return (false, DescribeError(ex));
         }
+    }
+
+    // SmtpException.Message is frequently just the generic "Failure sending mail." --
+    // the actual cause (DNS failure, connection refused, TLS/auth rejection) sits in
+    // InnerException, sometimes nested more than one level deep (e.g. a SocketException
+    // under an IOException under the SmtpException). Walk the chain so PPF Monitor's
+    // Detail column shows something an admin can actually act on.
+    static string DescribeError(Exception ex)
+    {
+        var messages = new List<string>();
+        for (var e = ex; e is not null; e = e.InnerException)
+            if (!string.IsNullOrWhiteSpace(e.Message) && !messages.Contains(e.Message))
+                messages.Add(e.Message);
+        return string.Join(" -- ", messages);
     }
 }
