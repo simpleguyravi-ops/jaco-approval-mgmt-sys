@@ -1,0 +1,84 @@
+@model UserImportPreview
+@{ ViewData["Title"] = "Import Preview"; }
+<a class="jaco-back-link" href="~/UserAccounts/Import">&larr; Back to Import</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Import Preview</h1>
+        <p>@Model.FileName &mdash; nothing has been saved yet. Review below, then confirm.</p>
+    </div>
+</div>
+
+<div class="jaco-stat-grid" style="margin-bottom:16px;">
+    <a class="jaco-card jaco-stat-card jaco-stat-active" style="text-decoration:none;" href="#" data-preview-filter="all">
+        <div><div class="jaco-stat-value">@Model.Rows.Count</div><div class="jaco-stat-label">Rows</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="#" data-preview-filter="valid">
+        <div><div class="jaco-stat-value">@Model.ValidCount</div><div class="jaco-stat-label">Valid</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card" style="text-decoration:none;" href="#" data-preview-filter="error">
+        <div><div class="jaco-stat-value">@Model.ErrorCount</div><div class="jaco-stat-label">Errors</div></div>
+    </a>
+    <div class="jaco-card jaco-stat-card">
+        <div><div class="jaco-stat-value">@Model.NewCount</div><div class="jaco-stat-label">New accounts</div></div>
+    </div>
+</div>
+
+@if (Model.ErrorCount > 0)
+{
+    <div class="jaco-alert jaco-alert-danger" style="margin-bottom:14px;">
+        @Model.ErrorCount row(s) have errors &mdash; fix the file and re-upload. No changes have been applied.
+    </div>
+}
+else if (Model.Rows.Count > 0)
+{
+    <form method="post" action="~/UserAccounts/ImportConfirm" style="margin-bottom:14px;" data-confirm="Apply this import? This creates/updates real user accounts and access grants.">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="encodedFile" value="@Model.EncodedFile" />
+        <button type="submit" class="jaco-btn jaco-btn-primary">Confirm Import</button>
+    </form>
+}
+
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr><th>Row</th><th>Username</th><th>Name</th><th>Department</th><th>Access</th><th>Status</th></tr></thead>
+        <tbody>
+        @foreach (var r in Model.Rows)
+        {
+            <tr data-valid="@(r.IsValid ? "1" : "0")">
+                <td>@r.RowNumber</td>
+                <td>@r.UserName</td>
+                <td>@r.DisplayName</td>
+                <td>@(r.Department ?? "—")</td>
+                <td style="font-size:12.5px;">@(string.IsNullOrEmpty(r.PermissionsSummary) ? "—" : r.PermissionsSummary)</td>
+                <td>
+                    @if (r.IsValid)
+                    {
+                        <span class="jaco-badge @(r.IsNewUser ? "jaco-badge-info" : "jaco-badge-success")">@(r.IsNewUser ? "NEW" : "UPDATE")</span>
+                    }
+                    else
+                    {
+                        <span class="jaco-badge jaco-badge-danger" title="@string.Join("; ", r.Errors)">@r.Errors.Count error(s)</span>
+                        <div style="font-size:12px;color:var(--jaco-danger);margin-top:4px;">@string.Join("; ", r.Errors)</div>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.querySelectorAll('[data-preview-filter]').forEach(function (card) {
+    card.addEventListener('click', function (e) {
+        e.preventDefault();
+        var mode = card.getAttribute('data-preview-filter');
+        document.querySelectorAll('[data-preview-filter]').forEach(function (c) { c.classList.remove('jaco-stat-active'); });
+        card.classList.add('jaco-stat-active');
+        document.querySelectorAll('table.jaco-table tbody tr[data-valid]').forEach(function (row) {
+            var valid = row.getAttribute('data-valid') === '1';
+            var show = mode === 'all' || (mode === 'valid' && valid) || (mode === 'error' && !valid);
+            row.style.display = show ? '' : 'none';
+        });
+    });
+});
+</script>

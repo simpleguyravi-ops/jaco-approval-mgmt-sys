@@ -46,11 +46,32 @@
                 <option value="CurrentApprover" selected="@(Model.ToMode == "CurrentApprover")">Whoever's currently eligible to decide</option>
             </select>
         </div>
-        <div class="jaco-form-group"><label>Fixed Address (if Recipient = Fixed)</label><input name="ToAddress" class="jaco-input" value="@Model.ToAddress" /></div>
+        <div class="jaco-form-group">
+            <label>Fixed Address (if Recipient = Fixed)</label>
+            <input name="ToAddress" class="jaco-input" value="@Model.ToAddress" placeholder="one@x.com, two@x.com" />
+            <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">More than one? Separate addresses with a comma or semicolon.</p>
+        </div>
         <div class="jaco-form-group">
             <label>Field Key (if Recipient = From a submitted field)</label>
             <input name="ToFieldKey" class="jaco-input" value="@Model.ToFieldKey" placeholder="e.g. accountEmail" />
             <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">Must match a Field Key this Approval Type actually has (see Criteria Fields).</p>
+        </div>
+        <div class="jaco-form-group">
+            <label>CC</label>
+            <select name="CcMode" class="jaco-select">
+                <option value="None" selected="@(Model.CcMode == "None")">None</option>
+                <option value="Fixed" selected="@(Model.CcMode == "Fixed")">Fixed address</option>
+                <option value="Field" selected="@(Model.CcMode == "Field")">From a submitted field</option>
+            </select>
+        </div>
+        <div class="jaco-form-group">
+            <label>Fixed CC Address (if CC = Fixed)</label>
+            <input name="CcAddress" class="jaco-input" value="@Model.CcAddress" placeholder="one@x.com, two@x.com" />
+            <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">Also separated by comma/semicolon for more than one.</p>
+        </div>
+        <div class="jaco-form-group">
+            <label>CC Field Key (if CC = From a submitted field)</label>
+            <input name="CcFieldKey" class="jaco-input" value="@Model.CcFieldKey" placeholder="e.g. accountEmail" />
         </div>
         <div class="jaco-form-group"><label>Sequence</label><input name="SequenceNo" type="number" class="jaco-input" value="@Model.SequenceNo" /></div>
         <div class="jaco-check-row"><input name="Active" type="checkbox" value="true" checked="@Model.Active" id="active" /><label for="active" style="margin:0;font-weight:400;">Active</label></div>

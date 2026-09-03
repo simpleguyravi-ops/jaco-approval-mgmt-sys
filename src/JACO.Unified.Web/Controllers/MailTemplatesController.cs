@@ -46,6 +46,39 @@ public sealed class MailTemplatesController(UnifiedDbContext db) : Controller
         return View(new MailTemplateEditViewModel { Id = t.Id, Name = t.Name, Subject = t.Subject, BodyHtml = t.BodyHtml, IsTableTemplate = t.IsTableTemplate, IsActive = t.IsActive });
     }
 
+    // Duplicates a template as a starting point for a variant (e.g. a near-identical
+    // subject line for a different Approval Type) -- nothing else references the copy
+    // until an admin explicitly points a Post-Processing Rule at it, so there's no risk
+    // of it silently going live.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Copy(int id)
+    {
+        var source = await db.MailTemplates.FindAsync(id);
+        if (source is null) return NotFound();
+
+        var baseName = $"{source.Name} (Copy)";
+        var name = baseName;
+        for (var n = 2; await db.MailTemplates.AnyAsync(t => t.Name == name); n++)
+            name = $"{baseName} {n}";
+
+        var copy = new MailTemplate
+        {
+            Name = name,
+            Subject = source.Subject,
+            BodyHtml = source.BodyHtml,
+            IsTableTemplate = source.IsTableTemplate,
+            IsActive = source.IsActive,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        db.MailTemplates.Add(copy);
+        await db.SaveChangesAsync();
+
+        TempData["Success"] = $"Copied to '{name}'.";
+        return RedirectToAction(nameof(Edit), new { id = copy.Id });
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Preview(MailTemplateEditViewModel model)

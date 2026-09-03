@@ -100,10 +100,15 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
             refreshed.Id = model.Id; refreshed.ApprovalTypeId = model.ApprovalTypeId; refreshed.EventCode = model.EventCode;
             refreshed.MailTemplateId = model.MailTemplateId; refreshed.ToMode = model.ToMode; refreshed.ToAddress = model.ToAddress;
             refreshed.ToFieldKey = model.ToFieldKey; refreshed.SequenceNo = model.SequenceNo; refreshed.Active = model.Active;
+            refreshed.CcMode = model.CcMode; refreshed.CcAddress = model.CcAddress; refreshed.CcFieldKey = model.CcFieldKey;
             return View("Edit", refreshed);
         }
 
-        var config = JsonSerializer.Serialize(new { mailTemplateId = model.MailTemplateId, toMode = model.ToMode, toAddress = model.ToAddress, toFieldKey = model.ToFieldKey });
+        var config = JsonSerializer.Serialize(new
+        {
+            mailTemplateId = model.MailTemplateId, toMode = model.ToMode, toAddress = model.ToAddress, toFieldKey = model.ToFieldKey,
+            ccMode = model.CcMode, ccAddress = model.CcAddress, ccFieldKey = model.CcFieldKey
+        });
 
         PostProcessingRule rule;
         if (model.Id == 0)
@@ -155,6 +160,9 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
             if (doc.RootElement.TryGetProperty("toMode", out var m)) model.ToMode = m.GetString() ?? "Creator";
             if (doc.RootElement.TryGetProperty("toAddress", out var a)) model.ToAddress = a.GetString();
             if (doc.RootElement.TryGetProperty("toFieldKey", out var fk)) model.ToFieldKey = fk.GetString();
+            if (doc.RootElement.TryGetProperty("ccMode", out var cm)) model.CcMode = cm.GetString() ?? "None";
+            if (doc.RootElement.TryGetProperty("ccAddress", out var ca)) model.CcAddress = ca.GetString();
+            if (doc.RootElement.TryGetProperty("ccFieldKey", out var cfk)) model.CcFieldKey = cfk.GetString();
         }
         catch { /* leave defaults */ }
 

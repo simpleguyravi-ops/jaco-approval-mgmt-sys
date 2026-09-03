@@ -21,9 +21,14 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>@ViewData["Title"] - JACO</title>
-    <link rel="stylesheet" href="~/css/jaco-design-system@(themeSuffix).css" />
-    <link rel="stylesheet" href="~/css/jaco@(themeSuffix).css" />
+    <title>@ViewData["Title"] - JAMS</title>
+    <!-- asp-append-version hashes each file's actual content into a ?v= query string, so a
+         CSS edit is guaranteed a new URL and can't silently keep serving a stale cached copy
+         to anyone who already has the app open -- these links carry no Cache-Control header,
+         so browsers apply heuristic freshness caching and may reuse an old response for a
+         long time otherwise. -->
+    <link rel="stylesheet" href="~/css/jaco-design-system@(themeSuffix).css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/jaco@(themeSuffix).css" asp-append-version="true" />
 </head>
 <body>
     <div class="jaco-shell">
@@ -31,7 +36,7 @@
             <div class="jaco-topbar-brand">
                 <img src="~/img/jaco-logo-color.png" alt="JACO" />
                 <div class="divider"></div>
-                <div class="wordmark"><span class="jaco-name">JACO</span> <span class="app-name">Unified Requests</span></div>
+                <div class="wordmark"><span class="jaco-name">JAMS</span> <span class="app-name">Approval System</span></div>
             </div>
             <div class="jaco-user-chip">
                 <div class="who">

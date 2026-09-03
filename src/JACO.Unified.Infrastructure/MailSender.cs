@@ -18,7 +18,7 @@ public sealed class MailSender(UnifiedDbContext db, IOptions<EmailOptions> optio
     const string LogoContentId = "jaco-logo";
     static readonly string LogoPath = Path.Combine(AppContext.BaseDirectory, "wwwroot", "img", "jaco-logo-color.png");
 
-    public async Task<(bool sent, string? error)> SendAsync(string toAddress, string subject, string bodyHtml)
+    public async Task<(bool sent, string? error)> SendAsync(string toAddress, string subject, string bodyHtml, string? ccAddress = null)
     {
         var saved = await db.EmailSettings.AsNoTracking().SingleOrDefaultAsync(s => s.Id == 1);
         var enabled = saved?.Enabled ?? options.Value.Enabled;
@@ -39,7 +39,8 @@ public sealed class MailSender(UnifiedDbContext db, IOptions<EmailOptions> optio
                 client.Credentials = new NetworkCredential(username, password);
 
             using var message = new MailMessage { From = new MailAddress(from), Subject = subject };
-            message.To.Add(toAddress);
+            AddAddresses(message.To, toAddress);
+            if (!string.IsNullOrWhiteSpace(ccAddress)) AddAddresses(message.CC, ccAddress);
 
             // Body and a manual AlternateView can't both be set -- MailMessage.Body silently
             // creates its own default view, and adding another on top produces two text/html
@@ -63,6 +64,14 @@ public sealed class MailSender(UnifiedDbContext db, IOptions<EmailOptions> optio
         {
             return (false, DescribeError(ex));
         }
+    }
+
+    // A rule's Fixed/CC address field accepts more than one recipient, comma- or
+    // semicolon-separated (matching how most people already type a recipient list).
+    static void AddAddresses(MailAddressCollection collection, string addresses)
+    {
+        foreach (var part in addresses.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            collection.Add(part);
     }
 
     // SmtpException.Message is frequently just the generic "Failure sending mail." --

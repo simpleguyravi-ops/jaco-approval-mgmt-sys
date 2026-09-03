@@ -18,7 +18,25 @@
     </div>
     <a class="jaco-btn jaco-btn-primary" href="~/UserAccounts/Create">+ New Account</a>
 </div>
-<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+
+@if (ViewBag.NewUserCredentials is List<UserCredentialReveal> newCreds && newCreds.Count > 0)
+{
+    <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;background:var(--jaco-warning-bg);">
+        <p style="margin:0 0 10px;font-size:13px;color:var(--jaco-warning);"><b>@newCreds.Count account(s) just created by import.</b> These temporary passwords are shown once, right now &mdash; copy them out before leaving this page. Each one forces a password change on first sign-in.</p>
+        <table class="jaco-table" style="background:#fff;border-radius:var(--jaco-radius-sm);">
+            <thead><tr><th>Username</th><th>Temporary Password</th></tr></thead>
+            <tbody>
+            @foreach (var c in newCreds)
+            {
+                <tr><td>@c.UserName</td><td><code>@c.Password</code></td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;">
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/UserAccounts/Import">Bulk Import</a>
     <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/UserAccounts/Export">Download CSV</a>
 </div>
 <div class="jaco-card">

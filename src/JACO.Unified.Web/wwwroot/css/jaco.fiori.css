@@ -44,6 +44,9 @@ body{margin:0;font-family:"Inter","Segoe UI",Arial,sans-serif;background:#F5F6F7
 .form-action{padding-bottom:12px}
 .inline-form{display:flex;gap:6px;align-items:center}
 .actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+
+/* Opt-in only (added per-view, e.g. Requests/Edit) -- see jaco.css for the full explanation. */
+.jaco-sticky-toolbar{position:sticky;top:0;z-index:5;background:#F5F6F7;padding-bottom:14px;margin-bottom:2px}
 .helper{display:block;color:#6A6D70;font-size:12px;margin-top:-6px}
 
 .dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:2px dashed #C2C7CC;border-radius:8px;padding:28px 16px;cursor:pointer;background:#FAFAFA;transition:border-color .12s ease,background .12s ease}

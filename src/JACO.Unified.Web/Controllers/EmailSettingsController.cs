@@ -58,7 +58,7 @@ public sealed class EmailSettingsController(UnifiedDbContext db, MailSender mail
             return RedirectToAction(nameof(Index));
         }
 
-        var (sent, error) = await mailSender.SendAsync(testAddress, "JACO Unified -- test email", "<p>This is a test email from JACO Unified's Email Configuration screen.</p>");
+        var (sent, error) = await mailSender.SendAsync(testAddress, "JAMS -- test email", "<p>This is a test email from JAMS's Email Configuration screen.</p>");
         TempData[sent ? "Success" : "Error"] = sent ? $"Test email sent to {testAddress}." : $"Not sent: {error}";
         return RedirectToAction(nameof(Index));
     }

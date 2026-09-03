@@ -1,0 +1,36 @@
+@{ ViewData["Title"] = "Bulk Import User Accounts"; }
+<a class="jaco-back-link" href="~/UserAccounts">&larr; Back to User Accounts</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Bulk Import User Accounts</h1>
+        <p>Upload a CSV where each row is one account plus its Create/View access per Approval Type &mdash; built for onboarding a batch of new starters in one file instead of one screen visit per person.</p>
+    </div>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="max-width:640px;">
+    <form method="post" action="~/UserAccounts/ImportPreview" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <div class="jaco-form-group">
+            <label>CSV File</label>
+            <input class="jaco-input" type="file" name="file" accept=".csv" required />
+        </div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+            <button type="submit" class="jaco-btn jaco-btn-primary">Preview Import</button>
+            <a class="jaco-btn jaco-btn-outline" href="~/UserAccounts/ImportTemplate">Download Template</a>
+        </div>
+    </form>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="max-width:640px;margin-top:16px;">
+    <h2 style="font-size:14px;margin-top:0;">Columns</h2>
+    <p style="font-size:12.5px;color:var(--jaco-text-muted);">
+        <code>UserName, DisplayName, Department, Branch, Email, IsAdmin, IsAuditor, Active</code>, then a <code>{TypeCode}_CanCreate</code> / <code>{TypeCode}_CanView</code> pair per currently active Approval Type &mdash; the downloaded template already has the right columns for what's active right now.
+    </p>
+    <ul style="font-size:13px;color:var(--jaco-text-muted);padding-left:18px;">
+        <li><b>UserName</b> is the match key: an existing username updates that account's details and access; a new one creates it.</li>
+        <li>Y/N (or Yes/No/true/false) for every checkbox-shaped column; blank <b>Active</b> defaults to Active.</li>
+        <li>A brand-new account gets a random temporary password, shown once on the next screen after you confirm &mdash; the file itself never carries a password, so there's nothing sensitive to leave lying around in a spreadsheet.</li>
+        <li>An existing account's password is never touched by this import &mdash; only their details and Approval Type access.</li>
+        <li>Nothing is written until you confirm on the preview screen, and any row with an error blocks the whole file from being applied.</li>
+    </ul>
+</div>

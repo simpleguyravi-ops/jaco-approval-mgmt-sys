@@ -1,15 +1,26 @@
 @model RequestFormViewModel
 @{ ViewData["Title"] = $"Edit {Model.Request.RequestNumber}"; }
 <a class="jaco-back-link" href="~/Requests/Details/@Model.Request.Id">&larr; Back to @Model.Request.RequestNumber</a>
-<div class="page-head">
+
+<div class="page-head jaco-sticky-toolbar">
     <div>
-        <span class="eyebrow">@Model.ApprovalType.Name.ToUpperInvariant()</span>
-        <h1>Edit @Model.Request.RequestNumber <span class="status">@Model.Request.Status</span></h1>
-        <p>Update the details below, then save or resubmit for approval.</p>
+        <h1>Edit @Model.Request.RequestNumber</h1>
+    </div>
+    <div style="display:flex;gap:8px;">
+        <button type="submit" form="editRequestForm" name="submitNow" value="false" class="btn">Save</button>
+        <button type="submit" form="editRequestForm" name="submitNow" value="true" class="btn primary">Submit for Approval</button>
+        <a class="btn" href="~/Requests/Details/@Model.Request.Id">Cancel</a>
     </div>
 </div>
 
-<form method="post" action="~/Requests/Edit/@Model.Request.Id" enctype="multipart/form-data">
+<section class="status-panel" style="grid-template-columns:repeat(3,1fr);gap:10px;">
+    <div><span class="eyebrow">STATUS</span><span class="status" style="display:block;margin-top:4px;width:fit-content;">@Model.Request.Status</span></div>
+    <div><span class="eyebrow">APPROVAL TYPE</span><strong style="white-space:nowrap;">@Model.ApprovalType.Name</strong></div>
+    <div><span class="eyebrow">REQUEST NO.</span><strong style="white-space:nowrap;">@Model.Request.RequestNumber</strong></div>
+</section>
+<p style="color:#65727d;font-size:13.5px;margin:-8px 0 16px;">Update the details below, then save or resubmit for approval.</p>
+
+<form id="editRequestForm" method="post" action="~/Requests/Edit/@Model.Request.Id" enctype="multipart/form-data">
     @Html.AntiForgeryToken()
     <section class="panel">
         <h2 style="font-size:14px;">Request Details</h2>
@@ -19,11 +30,6 @@
         </label>
         @await Html.PartialAsync("_RequestFormFields", Model)
     </section>
-    <div class="actions">
-        <button type="submit" name="submitNow" value="false" class="btn">Save</button>
-        <button type="submit" name="submitNow" value="true" class="btn primary">Submit for Approval</button>
-        <a class="btn" href="~/Requests/Details/@Model.Request.Id">Cancel</a>
-    </div>
 </form>
 
 <section class="panel">

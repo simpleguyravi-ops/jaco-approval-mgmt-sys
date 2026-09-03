@@ -76,7 +76,8 @@
                     <input name="levelRequiredCount" type="number" class="jaco-input" style="width:70px;margin:0;" value="@Model.Levels[i].RequiredCount" />
                 </div>
                 <label style="display:block;font-size:12px;color:var(--jaco-text-muted);margin-bottom:4px;">Approvers &mdash; grouped by department. Ctrl/Cmd+click (or Shift+click for a range) to select more than one.</label>
-                <select name="levelApprovers[@(i + 1)]" multiple size="8" class="jaco-select" style="height:auto;">
+                <input type="text" class="jaco-input approver-filter" style="margin:0 0 6px;" placeholder="Filter by name or department&hellip;" />
+                <select name="levelApprovers[@(i + 1)]" multiple size="8" class="jaco-select approver-select" style="height:auto;">
                     @foreach (var group in Model.Users.GroupBy(u => u.Department ?? "Other").OrderBy(g => g.Key))
                     {
                         <optgroup label="@group.Key">
@@ -122,6 +123,26 @@
     levelInput.addEventListener('input', function () {
         var n = Math.max(1, Math.min(levelRows.length, parseInt(levelInput.value, 10) || 1));
         showLevelCount(n);
+    });
+
+    // Approver picker filter -- hides non-matching options (and, once a whole department
+    // has none left, its optgroup too) rather than replacing the native multi-select with
+    // something custom. A selection stays selected while filtered out of view; clearing
+    // the filter brings it back visibly checked, exactly as left.
+    document.querySelectorAll('.approver-filter').forEach(function (input) {
+        var select = input.nextElementSibling;
+        input.addEventListener('input', function () {
+            var q = input.value.trim().toLowerCase();
+            select.querySelectorAll('optgroup').forEach(function (group) {
+                var anyVisible = false;
+                group.querySelectorAll('option').forEach(function (opt) {
+                    var match = !q || opt.textContent.toLowerCase().includes(q) || group.label.toLowerCase().includes(q);
+                    opt.hidden = !match;
+                    if (match) anyVisible = true;
+                });
+                group.hidden = !anyVisible;
+            });
+        });
     });
 })();
 </script>

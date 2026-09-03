@@ -131,6 +131,46 @@ public sealed class RoutingRuleImportPreview
     public string FileName { get; set; } = "";
 }
 
+// One row = one user account, plus its Create/View grant per Approval Type -- lets an
+// admin onboard a batch of new starters (and update existing accounts' access) in one
+// file instead of one UserAccounts + UsersRoles visit per person.
+public sealed class UserImportRow
+{
+    public int RowNumber { get; set; }
+    public string UserName { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public string? Department { get; set; }
+    public string? Branch { get; set; }
+    public string? Email { get; set; }
+    public bool IsAdmin { get; set; }
+    public bool IsAuditor { get; set; }
+    public bool Active { get; set; } = true;
+    public bool IsNewUser { get; set; }
+    public Dictionary<int, (bool CanCreate, bool CanView)> Permissions { get; set; } = [];
+    public string PermissionsSummary { get; set; } = "";
+    public List<string> Errors { get; set; } = [];
+    public bool IsValid => Errors.Count == 0;
+}
+
+// Plain class, not a tuple -- a tuple's field names don't round-trip through
+// System.Text.Json, and this needs to survive a TempData JSON serialize/deserialize.
+public sealed class UserCredentialReveal
+{
+    public string UserName { get; set; } = "";
+    public string Password { get; set; } = "";
+}
+
+public sealed class UserImportPreview
+{
+    public List<UserImportRow> Rows { get; set; } = [];
+    public List<(int Id, string Code, string Name)> ApprovalTypes { get; set; } = [];
+    public int ValidCount => Rows.Count(r => r.IsValid);
+    public int ErrorCount => Rows.Count(r => !r.IsValid);
+    public int NewCount => Rows.Count(r => r.IsNewUser);
+    public string EncodedFile { get; set; } = "";
+    public string FileName { get; set; } = "";
+}
+
 // Fixed-size row counts (no JS row-adder) -- generous enough for realistic routing rules;
 // blank criteria rows and empty-approver levels are simply skipped on save.
 public sealed class RuleFormViewModel
@@ -205,6 +245,9 @@ public sealed class PpfRuleEditViewModel
     public string ToMode { get; set; } = "Creator";
     public string? ToAddress { get; set; }
     public string? ToFieldKey { get; set; }
+    public string CcMode { get; set; } = "None";
+    public string? CcAddress { get; set; }
+    public string? CcFieldKey { get; set; }
     public int SequenceNo { get; set; } = 10;
     public bool Active { get; set; } = true;
     public List<(int Id, string Name)> ApprovalTypes { get; set; } = [];
