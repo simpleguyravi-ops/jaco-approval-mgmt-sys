@@ -75,9 +75,13 @@
                     <span style="font-size:12.5px;color:var(--jaco-text-muted);">Required count (MINIMUM_COUNT only):</span>
                     <input name="levelRequiredCount" type="number" class="jaco-input" style="width:70px;margin:0;" value="@Model.Levels[i].RequiredCount" />
                 </div>
-                <label style="display:block;font-size:12px;color:var(--jaco-text-muted);margin-bottom:4px;">Approvers &mdash; grouped by department. Ctrl/Cmd+click (or Shift+click for a range) to select more than one.</label>
-                <input type="text" class="jaco-input approver-filter" style="margin:0 0 6px;" placeholder="Filter by name or department&hellip;" />
-                <select name="levelApprovers[@(i + 1)]" multiple size="8" class="jaco-select approver-select" style="height:auto;">
+                <label style="display:block;font-size:12px;color:var(--jaco-text-muted);margin-bottom:6px;">Approvers</label>
+                <div class="chip-row" data-chips-for="lvl-@i"></div>
+                <div class="picker" data-picker-for="lvl-@i">
+                    <input type="text" placeholder="Add an approver&hellip;" autocomplete="off" />
+                    <div class="picker-list"></div>
+                </div>
+                <select name="levelApprovers[@(i + 1)]" id="native-lvl-@i" multiple class="approver-select-native" style="display:none;">
                     @foreach (var group in Model.Users.GroupBy(u => u.Department ?? "Other").OrderBy(g => g.Key))
                     {
                         <optgroup label="@group.Key">
@@ -125,24 +129,84 @@
         showLevelCount(n);
     });
 
-    // Approver picker filter -- hides non-matching options (and, once a whole department
-    // has none left, its optgroup too) rather than replacing the native multi-select with
-    // something custom. A selection stays selected while filtered out of view; clearing
-    // the filter brings it back visibly checked, exactly as left.
-    document.querySelectorAll('.approver-filter').forEach(function (input) {
-        var select = input.nextElementSibling;
-        input.addEventListener('input', function () {
-            var q = input.value.trim().toLowerCase();
-            select.querySelectorAll('optgroup').forEach(function (group) {
-                var anyVisible = false;
-                group.querySelectorAll('option').forEach(function (opt) {
-                    var match = !q || opt.textContent.toLowerCase().includes(q) || group.label.toLowerCase().includes(q);
-                    opt.hidden = !match;
-                    if (match) anyVisible = true;
+    // Approver picker: click-to-toggle chips instead of a native multi-select (which needs
+    // Ctrl/Cmd+click to deselect -- confusing enough in practice that it read as broken).
+    // The native <select multiple> is kept, just hidden -- it's still what actually submits
+    // with the form (levelApprovers[N]), so nothing on the server needed to change; this only
+    // keeps its selected options in sync with the chip UI on top of it.
+    function initPicker(root) {
+        var key = root.getAttribute('data-picker-for');
+        var nativeSelect = document.getElementById('native-' + key);
+        var chipRow = document.querySelector('[data-chips-for="' + key + '"]');
+        var input = root.querySelector('input');
+        var list = root.querySelector('.picker-list');
+
+        function renderChips() {
+            var selected = Array.from(nativeSelect.selectedOptions);
+            if (selected.length === 0) { chipRow.innerHTML = '<span class="chip-empty">No approvers yet</span>'; return; }
+            chipRow.innerHTML = '';
+            selected.forEach(function (opt) {
+                var chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.innerHTML = opt.textContent + ' <button type="button">&times;</button>';
+                chip.querySelector('button').addEventListener('click', function () {
+                    opt.selected = false;
+                    renderChips();
+                    renderList();
                 });
-                group.hidden = !anyVisible;
+                chipRow.appendChild(chip);
             });
-        });
+        }
+
+        function renderList() {
+            var q = input.value.trim().toLowerCase();
+            list.innerHTML = '';
+            Array.from(nativeSelect.querySelectorAll('optgroup')).forEach(function (grp) {
+                var opts = Array.from(grp.querySelectorAll('option')).filter(function (o) {
+                    return !q || o.textContent.toLowerCase().includes(q) || grp.label.toLowerCase().includes(q);
+                });
+                if (opts.length === 0) return;
+                var label = document.createElement('div');
+                label.className = 'picker-group-label';
+                label.textContent = grp.label;
+                list.appendChild(label);
+                opts.forEach(function (opt) {
+                    var row = document.createElement('label');
+                    row.className = 'picker-option';
+                    row.innerHTML = '<input type="checkbox" ' + (opt.selected ? 'checked' : '') + '/> ' + opt.textContent;
+                    row.querySelector('input').addEventListener('change', function (e) {
+                        opt.selected = e.target.checked;
+                        renderChips();
+                    });
+                    list.appendChild(row);
+                });
+            });
+        }
+
+        renderChips();
+        input.addEventListener('focus', function () { root.classList.add('open'); renderList(); });
+        input.addEventListener('input', renderList);
+    }
+    document.querySelectorAll('[data-picker-for]').forEach(initPicker);
+    document.addEventListener('click', function (e) {
+        document.querySelectorAll('.picker.open').forEach(function (p) { if (!p.contains(e.target)) p.classList.remove('open'); });
     });
 })();
 </script>
+
+<style>
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; align-items: center; margin-bottom: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--jaco-navy-900); color: #fff; border-radius: 999px; padding: 4px 7px 4px 11px; font-size: 11.5px; font-weight: 600; }
+.chip button { all: unset; cursor: pointer; width: 15px; height: 15px; border-radius: 50%; background: rgba(255,255,255,.18); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; }
+.chip button:hover { background: var(--jaco-orange-600); }
+.chip-empty { color: var(--jaco-text-muted); font-size: 12px; font-style: italic; }
+.picker { position: relative; max-width: 320px; }
+.picker input { width: 100%; padding: 7px 10px; border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); font-size: 12px; font-family: inherit; }
+.picker input:focus { outline: none; border-color: var(--jaco-orange-600); box-shadow: 0 0 0 3px rgba(242,96,12,.12); }
+.picker-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); box-shadow: 0 8px 20px rgba(16,24,40,.12); max-height: 200px; overflow-y: auto; z-index: 20; display: none; }
+.picker.open .picker-list { display: block; }
+.picker-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--jaco-text-muted); padding: 7px 10px 3px; }
+.picker-option { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; }
+.picker-option:hover { background: var(--jaco-bg); }
+.picker-option input { width: auto; margin: 0; }
+</style>
