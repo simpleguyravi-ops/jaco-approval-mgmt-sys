@@ -187,6 +187,58 @@ public sealed class RuleFormViewModel
     public required List<AppUser> Users { get; init; }
 }
 
+// ---------- Matrix Rule (UI-only preview -- see RoutingRulesController.Matrix*) ----------
+// Authors approver chains for several criteria values (and optionally a numeric-range band
+// axis crossed with them) on one screen instead of one ordinary rule at a time. Currently a
+// preview-only flow: MatrixPreview shows exactly what real rules *would* be created, but
+// nothing is written to RoutingRules/WorkflowSteps yet -- that's a deliberate follow-up once
+// the screen flow itself is validated.
+public sealed class MatrixConfigViewModel
+{
+    public int ApprovalTypeId { get; set; }
+    public string MatrixName { get; set; } = "";
+    public string ColumnFieldKey { get; set; } = "";
+    public string ColumnValues { get; set; } = "";
+    public string? RowFieldKey { get; set; }
+    public string? RowBands { get; set; }
+    public int Priority { get; set; } = 10;
+    public bool Active { get; set; } = true;
+    public List<CriteriaFormRow> Criteria { get; set; } = [];
+    public List<WorkflowField> AvailableFields { get; set; } = [];
+}
+
+public sealed class MatrixCellViewModel
+{
+    public string RowLabel { get; set; } = ""; // "" when there's no row axis (1-field matrix)
+    public string ColumnValue { get; set; } = "";
+    public List<LevelFormRow> Levels { get; set; } = [];
+}
+
+public sealed class MatrixGridViewModel
+{
+    public const int MaxLevelsPerCell = 3;
+
+    public required MatrixConfigViewModel Config { get; init; }
+    public required List<MatrixCellViewModel> Cells { get; init; }
+    public required List<AppUser> Users { get; init; }
+}
+
+public sealed class MatrixPreviewRule
+{
+    public string RuleName { get; set; } = "";
+    public List<string> CriteriaSummary { get; set; } = [];
+    public List<(int LevelNo, List<string> ApproverNames)> Levels { get; set; } = [];
+}
+
+public sealed class MatrixPreviewViewModel
+{
+    public int ApprovalTypeId { get; set; }
+    public string MatrixName { get; set; } = "";
+    public string ApprovalTypeName { get; set; } = "";
+    public List<MatrixPreviewRule> Rules { get; set; } = [];
+    public int SkippedEmptyCells { get; set; }
+}
+
 public sealed class RequestListViewModel
 {
     public required List<RequestListRow> Rows { get; init; }

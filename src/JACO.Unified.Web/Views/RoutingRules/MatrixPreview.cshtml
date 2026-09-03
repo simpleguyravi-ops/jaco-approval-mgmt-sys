@@ -1,0 +1,38 @@
+@model MatrixPreviewViewModel
+@{ ViewData["Title"] = "Matrix Rule Preview"; }
+<a class="jaco-back-link" href="~/RoutingRules?approvalTypeId=@Model.ApprovalTypeId">&larr; Back to Rule Builder</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>@Model.MatrixName &mdash; Preview</h1>
+        <p>@Model.ApprovalTypeName. This is exactly what would be created as real routing rules.</p>
+    </div>
+</div>
+
+<div class="jaco-alert" style="background:var(--jaco-warning-bg);color:var(--jaco-warning);margin-bottom:16px;">
+    <b>Nothing has been saved.</b> This screen is a UI preview only &mdash; actual rule creation isn't wired up yet.
+</div>
+
+@if (Model.SkippedEmptyCells > 0)
+{
+    <p style="color:var(--jaco-text-muted);font-size:13px;margin-bottom:12px;">@Model.SkippedEmptyCells cell(s) had no approvers set and were skipped &mdash; no empty rule would be created for them.</p>
+}
+
+<p style="font-size:13px;color:var(--jaco-text-muted);margin-bottom:12px;">@Model.Rules.Count rule(s) would be created.</p>
+
+<div style="display:grid;gap:14px;">
+    @foreach (var rule in Model.Rules)
+    {
+        <div class="jaco-card jaco-card-pad">
+            <h2 style="font-size:14px;margin:0 0 8px;">@rule.RuleName</h2>
+            <p style="font-size:12.5px;color:var(--jaco-text-muted);margin:0 0 10px;">@(rule.CriteriaSummary.Count == 0 ? "(matches any)" : string.Join(" AND ", rule.CriteriaSummary))</p>
+            @foreach (var level in rule.Levels)
+            {
+                <div style="font-size:12.5px;margin-bottom:4px;"><b>Level @level.LevelNo:</b> @string.Join(", ", level.ApproverNames)</div>
+            }
+        </div>
+    }
+    @if (Model.Rules.Count == 0)
+    {
+        <div class="jaco-card jaco-card-pad" style="text-align:center;color:var(--jaco-text-muted);">No rules would be created &mdash; every cell was empty.</div>
+    }
+</div>
