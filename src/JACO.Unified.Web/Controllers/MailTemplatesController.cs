@@ -51,9 +51,14 @@ public sealed class MailTemplatesController(UnifiedDbContext db) : Controller
     public IActionResult Preview(MailTemplateEditViewModel model)
     {
         var sample = new MailTemplate { Subject = model.Subject, BodyHtml = model.BodyHtml, IsTableTemplate = model.IsTableTemplate };
+        // {{LogoUrl}} is otherwise only ever filled in by PpfExecutor (a real send) as
+        // "cid:jaco-logo" -- an inline email attachment reference a browser can't resolve.
+        // This preview renders directly in the admin's own browser on this app's own
+        // origin, so a normal root-relative path is what actually loads here.
+        var extraTokens = new Dictionary<string, string> { ["{{LogoUrl}}"] = "/img/jaco-logo-color.png" };
         var (subject, body) = model.IsTableTemplate
             ? MailMergeService.RenderTable(sample, "Approving Manager", SampleRequests())
-            : MailMergeService.RenderSingle(sample, SampleRequests()[0], "Test Creator");
+            : MailMergeService.RenderSingle(sample, SampleRequests()[0], "Test Creator", extraTokens);
 
         model.PreviewSubject = subject;
         model.PreviewBody = body;

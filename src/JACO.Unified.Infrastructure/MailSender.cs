@@ -10,6 +10,14 @@ namespace JACO.Unified.Infrastructure;
 // saved yet (first run before an admin has configured anything through the UI).
 public sealed class MailSender(UnifiedDbContext db, IOptions<EmailOptions> options, EmailPasswordProtector protector)
 {
+    // PpfExecutor points {{LogoUrl}} at "cid:jaco-logo" -- an inline attachment, not an
+    // http(s) URL. A URL built from AppBaseUrl (the previous approach) only resolves on
+    // whatever machine is running this app; a real recipient opening the email on their
+    // own device or phone would just see a broken image, in dev, QA, or production alike.
+    // Embedding the file travels the actual bytes with the email instead.
+    const string LogoContentId = "jaco-logo";
+    static readonly string LogoPath = Path.Combine(AppContext.BaseDirectory, "wwwroot", "img", "jaco-logo-color.png");
+
     public async Task<(bool sent, string? error)> SendAsync(string toAddress, string subject, string bodyHtml)
     {
         var saved = await db.EmailSettings.AsNoTracking().SingleOrDefaultAsync(s => s.Id == 1);
@@ -29,7 +37,25 @@ public sealed class MailSender(UnifiedDbContext db, IOptions<EmailOptions> optio
             using var client = new SmtpClient(host, port) { EnableSsl = useTls };
             if (!string.IsNullOrWhiteSpace(username))
                 client.Credentials = new NetworkCredential(username, password);
-            using var message = new MailMessage(from, toAddress, subject, bodyHtml) { IsBodyHtml = true };
+
+            using var message = new MailMessage { From = new MailAddress(from), Subject = subject };
+            message.To.Add(toAddress);
+
+            // Body and a manual AlternateView can't both be set -- MailMessage.Body silently
+            // creates its own default view, and adding another on top produces two text/html
+            // parts in the same message. Only one of these branches runs.
+            if (bodyHtml.Contains($"cid:{LogoContentId}", StringComparison.OrdinalIgnoreCase) && File.Exists(LogoPath))
+            {
+                var htmlView = AlternateView.CreateAlternateViewFromString(bodyHtml, null, "text/html");
+                htmlView.LinkedResources.Add(new LinkedResource(LogoPath, "image/png") { ContentId = LogoContentId });
+                message.AlternateViews.Add(htmlView);
+            }
+            else
+            {
+                message.Body = bodyHtml;
+                message.IsBodyHtml = true;
+            }
+
             await client.SendMailAsync(message);
             return (true, null);
         }

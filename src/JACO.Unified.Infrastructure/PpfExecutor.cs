@@ -27,7 +27,11 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
         // Same timeline HTML/logo for every recipient of this event -- built once, not
         // per-rule or per-recipient.
         var timelineHtml = BuildTimelineHtml(await timelineService.GetTimelineAsync(requestId));
-        var logoUrl = $"{baseUrl}/img/jaco-logo-color.png";
+        // "cid:jaco-logo" -- an inline attachment MailSender embeds when it sees this,
+        // not a URL. An http(s) URL built from AppBaseUrl only ever resolves on the
+        // machine running this app, so a real recipient's own mail client just shows a
+        // broken image; embedding travels the actual file with the email instead.
+        var logoUrl = "cid:jaco-logo";
 
         foreach (var rule in rules)
         {
