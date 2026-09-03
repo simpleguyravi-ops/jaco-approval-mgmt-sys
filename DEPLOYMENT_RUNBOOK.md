@@ -300,6 +300,15 @@ promotes whatever QA actually signed off on.)
 
 ### On the target server (QA or Production), to apply it
 
+**Run this from an elevated PowerShell** (Start menu → PowerShell → right-click → Run as
+Administrator). `Stop-Service`/`Start-Service` need Administrator rights; without them,
+`Stop-Service` fails with a misleadingly generic "cannot open service" error rather than an
+actual permissions message. If `Stop-Service` fails, don't retry `dotnet publish` anyway --
+the old process is still running and holding the DLLs open, so the publish will also fail
+(`MSB3027`/`MSB3021`, "file is locked by..."), and the running app is left untouched either
+way, so there's no urgency to work around it. Just re-run all five steps from an elevated
+window.
+
 ```powershell
 # 1. Stop the running service
 Stop-Service JACO-Unified
