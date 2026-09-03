@@ -48,17 +48,19 @@ If 5004 is taken or reserved, pick another and use it consistently through every
 **Option A — GitHub Desktop** (already installed and authenticated as `simpleguyravi-ops` on
 QA):
 1. File → Clone Repository → select `simpleguyravi-ops/jaco-approval-mgmt-sys`.
-2. Clone to `C:\JACO\JACO-Unified` (matches dev's path — keeps every later command in this
-   runbook copy-pasteable without adjustment).
+2. Clone to `C:\JACO\JAMS` — every command below assumes this path; if you clone somewhere
+   else, adjust every `C:\JACO\JAMS` reference in this runbook to match. (Dev's own local
+   clone lives at a different path, `C:\JACO\JACO-Unified` — that's fine, the folder name on
+   disk has no effect on the app itself; only Phase 7's "on dev" commands use it.)
 
 **Option B — git CLI** (e.g. from a Claude Code session running on the target server):
 ```powershell
-git clone https://github.com/simpleguyravi-ops/jaco-approval-mgmt-sys.git C:\JACO\JACO-Unified
+git clone https://github.com/simpleguyravi-ops/jaco-approval-mgmt-sys.git C:\JACO\JAMS
 ```
 
 Verify you're on the expected commit:
 ```powershell
-cd C:\JACO\JACO-Unified
+cd C:\JACO\JAMS
 git log --oneline -1
 ```
 
@@ -73,7 +75,7 @@ database itself (`CREATE DATABASE` + `USE`), so it must connect to `master`; eve
 it connects to `JACO_Unified` directly:
 
 ```powershell
-cd C:\JACO\JACO-Unified\Database
+cd C:\JACO\JAMS\Database
 foreach ($f in Get-ChildItem *.sql | Sort-Object Name) {
     if ($f.Name -eq "002_SeedCR.sql") {
         Write-Host "Skipping $($f.Name) (dev-only seed)" -ForegroundColor Yellow
@@ -163,7 +165,7 @@ which only a real Windows Service gives you. The repo has a script for exactly t
 
 1. **Publish** (Release, not Debug — Debug is a dev-only convention):
    ```powershell
-   dotnet publish C:\JACO\JACO-Unified\src\JACO.Unified.Web\JACO.Unified.Web.csproj -c Release -o C:\JACO\_services\Unified
+   dotnet publish C:\JACO\JAMS\src\JACO.Unified.Web\JACO.Unified.Web.csproj -c Release -o C:\JACO\_services\Unified
    ```
    **Before running the published exe or installing the service, verify the target framework
    the publish just produced is actually installed on this box** — `dotnet publish` will
@@ -185,7 +187,7 @@ which only a real Windows Service gives you. The repo has a script for exactly t
 2. **Edit `appsettings.json`** in that output folder per Phase 3.
 3. **Install the service** (run as Administrator):
    ```powershell
-   C:\JACO\JACO-Unified\deploy\Install-JacoUnifiedService.ps1
+   C:\JACO\JAMS\deploy\Install-JacoUnifiedService.ps1
    ```
    Before running it, edit the `$SqlInstance` and `$Port` variables at the top of the script
    to match Phase 0's discovered values (defaults to `5004`). The script:
@@ -205,7 +207,7 @@ which only a real Windows Service gives you. The repo has a script for exactly t
 over the same folder, start the service again — no need to re-run the installer:
 ```powershell
 Stop-Service JACO-Unified
-dotnet publish C:\JACO\JACO-Unified\src\JACO.Unified.Web\JACO.Unified.Web.csproj -c Release -o C:\JACO\_services\Unified
+dotnet publish C:\JACO\JAMS\src\JACO.Unified.Web\JACO.Unified.Web.csproj -c Release -o C:\JACO\_services\Unified
 Start-Service JACO-Unified
 ```
 
@@ -217,7 +219,7 @@ Start-Service JACO-Unified
 by `AppUsers`). A brand-new database has none, so bootstrap the first admin with the repo's
 `tools/SeedAdmin` project (safe to re-run; resets the password if the account already exists):
 ```powershell
-cd C:\JACO\JACO-Unified\tools\SeedAdmin
+cd C:\JACO\JAMS\tools\SeedAdmin
 dotnet run -- "Server=<SQL_INSTANCE>;Database=JACO_Unified;Trusted_Connection=True;TrustServerCertificate=True;" admin "Administrator" "<a strong temp password>"
 ```
 Sign in with that account — the app forces a password change on first login. Do this once per
@@ -303,7 +305,7 @@ promotes whatever QA actually signed off on.)
 Stop-Service JACO-Unified
 
 # 2. Move the checkout to the new tag (fetches new commits/tags first)
-cd C:\JACO\JACO-Unified
+cd C:\JACO\JAMS
 git fetch --all --tags
 git checkout qa-2026-09-05
 
