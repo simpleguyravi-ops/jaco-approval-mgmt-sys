@@ -1,3 +1,4 @@
+using System.Text.Json;
 using JACO.Unified.Core.Models;
 using JACO.Unified.Infrastructure;
 using JACO.Unified.Web.Models;
@@ -217,23 +218,24 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
     }
 
     // ---------- Matrix Rule (UI-only preview) ----------
-    // Three-step flow: configure axes -> fill in the resulting grid -> preview exactly what
-    // real rules would be created. No database write anywhere in this section yet -- see the
-    // comment on MatrixConfigViewModel.
+    // Single-page flow: the view owns a client-side JS state tree ("split by X" -> add
+    // values as live cards -> optionally drill into one value to split it further by a
+    // range). On Save, the whole tree is serialized to JSON once and posted to BulkSave,
+    // which is the only place anything is actually written to the database.
 
     [HttpGet]
-    public async Task<IActionResult> Matrix(int approvalTypeId)
+    public async Task<IActionResult> Bulk(int approvalTypeId)
     {
-        var model = new MatrixConfigViewModel
-        {
-            ApprovalTypeId = approvalTypeId,
-            Priority = await SuggestPriorityAsync(approvalTypeId),
-            Active = true,
-            Criteria = Enumerable.Range(0, 4).Select(_ => new CriteriaFormRow()).ToList(),
-            AvailableFields = await db.WorkflowFields.Where(f => f.ApprovalTypeId == approvalTypeId || f.ApprovalTypeId == null).OrderBy(f => f.DisplayOrder).ToListAsync()
-        };
+        var fields = await db.WorkflowFields.Where(f => f.ApprovalTypeId == approvalTypeId || f.ApprovalTypeId == null).OrderBy(f => f.DisplayOrder).ToListAsync();
+        var users = await db.AppUsers.Where(u => u.IsActive).OrderBy(u => u.DisplayName)
+            .Select(u => new { id = u.Id, name = u.DisplayName, dept = u.Department ?? "Other" }).ToListAsync();
+
         ViewBag.ApprovalTypeName = (await db.ApprovalTypes.FindAsync(approvalTypeId))?.Name ?? "";
-        return View(model);
+        ViewBag.ApprovalTypeId = approvalTypeId;
+        ViewBag.Priority = await SuggestPriorityAsync(approvalTypeId);
+        ViewBag.FieldsJson = JsonSerializer.Serialize(fields.Select(f => new { key = f.FieldKey, label = f.FieldLabel }));
+        ViewBag.UsersJson = JsonSerializer.Serialize(users);
+        return View();
     }
 
     async Task<int> SuggestPriorityAsync(int approvalTypeId)
@@ -245,133 +247,95 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> MatrixGrid(int approvalTypeId, string matrixName, string columnFieldKey, string columnValues,
-        string? rowFieldKey, string? rowBands, int priority, bool active,
-        List<string>? criteriaFieldKey, List<string>? criteriaOperator, List<string>? criteriaValue)
+    public async Task<IActionResult> BulkSave(string stateJson)
     {
-        criteriaFieldKey ??= []; criteriaOperator ??= []; criteriaValue ??= [];
-
-        if (string.IsNullOrWhiteSpace(matrixName) || string.IsNullOrWhiteSpace(columnFieldKey) || string.IsNullOrWhiteSpace(columnValues))
+        BulkRuleSubmission? submission;
+        try
         {
-            TempData["Error"] = "Matrix Name, Column Field, and Column Values are required.";
-            return RedirectToAction(nameof(Matrix), new { approvalTypeId });
+            submission = JsonSerializer.Deserialize<BulkRuleSubmission>(stateJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (JsonException)
+        {
+            submission = null;
         }
 
-        var columns = columnValues.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-        if (columns.Count == 0)
+        if (submission is null || string.IsNullOrWhiteSpace(submission.RuleBaseName) || string.IsNullOrWhiteSpace(submission.SplitFieldKey) || submission.ApprovalTypeId == 0)
         {
-            TempData["Error"] = "Enter at least one column value.";
-            return RedirectToAction(nameof(Matrix), new { approvalTypeId });
+            TempData["Error"] = "Something went wrong reading the form -- please try again.";
+            return RedirectToAction(nameof(Bulk), new { approvalTypeId = submission?.ApprovalTypeId ?? 0 });
         }
 
-        var rowLabels = new List<string>();
-        if (!string.IsNullOrWhiteSpace(rowFieldKey) && !string.IsNullOrWhiteSpace(rowBands))
+        var version = await GetOrCreateCurrentVersionAsync(submission.ApprovalTypeId);
+        var validUserIds = (await db.AppUsers.Select(u => u.Id).ToListAsync()).ToHashSet();
+
+        // Each (group, or group+band when drilled) with at least one approver anywhere
+        // becomes exactly one ordinary RoutingRule -- same shape as one built by hand on the
+        // simple Create/Edit screen, just generated N times instead of once.
+        var plan = new List<(string RuleName, List<(string FieldKey, string Operator, string Value)> Criteria, List<List<int>> LevelApproverIds)>();
+
+        foreach (var group in submission.Groups)
         {
-            foreach (var band in rowBands.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            if (string.IsNullOrWhiteSpace(group.Value)) continue;
+
+            if (!group.Drilling)
             {
-                var parts = band.Split('-', StringSplitOptions.TrimEntries);
-                if (parts.Length == 2 && double.TryParse(parts[0], out _) && double.TryParse(parts[1], out _))
-                    rowLabels.Add($"{parts[0]}-{parts[1]}");
-            }
-            if (rowLabels.Count == 0)
-            {
-                TempData["Error"] = "Row Bands must look like \"2-10, 10-25\".";
-                return RedirectToAction(nameof(Matrix), new { approvalTypeId });
-            }
-        }
-        else
-        {
-            rowLabels.Add(""); // no row axis -- a single implicit row, i.e. a 1-field matrix
-        }
+                var levelIds = group.Levels.Select(l => l.Approvers.Where(validUserIds.Contains).ToList()).Where(a => a.Count > 0).ToList();
+                if (levelIds.Count == 0) continue;
 
-        var cells = new List<MatrixCellViewModel>();
-        foreach (var rowLabel in rowLabels)
-            foreach (var col in columns)
-                cells.Add(new MatrixCellViewModel
+                var criteria = new List<(string, string, string)>(submission.SharedCriteria.Where(c => !string.IsNullOrWhiteSpace(c.FieldKey) && !string.IsNullOrWhiteSpace(c.Value)).Select(c => (c.FieldKey, c.Operator, c.Value)))
                 {
-                    RowLabel = rowLabel,
-                    ColumnValue = col,
-                    Levels = Enumerable.Range(1, MatrixGridViewModel.MaxLevelsPerCell).Select(n => new LevelFormRow { LevelNo = n }).ToList()
-                });
-
-        var sharedCriteria = new List<CriteriaFormRow>();
-        for (var i = 0; i < criteriaFieldKey.Count; i++)
-            if (!string.IsNullOrWhiteSpace(criteriaFieldKey[i]) && !string.IsNullOrWhiteSpace(criteriaValue.ElementAtOrDefault(i)))
-                sharedCriteria.Add(new CriteriaFormRow { FieldKey = criteriaFieldKey[i].Trim(), Operator = criteriaOperator.ElementAtOrDefault(i) ?? "=", ComparisonValue = criteriaValue[i] });
-
-        var model = new MatrixGridViewModel
-        {
-            Config = new MatrixConfigViewModel
-            {
-                ApprovalTypeId = approvalTypeId, MatrixName = matrixName.Trim(), ColumnFieldKey = columnFieldKey.Trim(), ColumnValues = columnValues,
-                RowFieldKey = rowFieldKey?.Trim(), RowBands = rowBands, Priority = priority, Active = active, Criteria = sharedCriteria
-            },
-            Cells = cells,
-            Users = await db.AppUsers.Where(u => u.IsActive).OrderBy(u => u.DisplayName).ToListAsync()
-        };
-        return View(model);
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> MatrixPreview(int approvalTypeId, string matrixName, string columnFieldKey, string? rowFieldKey,
-        List<string>? criteriaFieldKey, List<string>? criteriaOperator, List<string>? criteriaValue,
-        List<string>? cellRowLabel, List<string>? cellColumnValue,
-        [FromForm] Dictionary<string, List<int>>? cellLevelApprovers)
-    {
-        criteriaFieldKey ??= []; criteriaOperator ??= []; criteriaValue ??= [];
-        cellRowLabel ??= []; cellColumnValue ??= [];
-        cellLevelApprovers ??= [];
-
-        var type = await db.ApprovalTypes.FindAsync(approvalTypeId);
-        var userNames = await db.AppUsers.ToDictionaryAsync(u => u.Id, u => u.DisplayName);
-
-        var sharedCriteriaSummaries = new List<string>();
-        for (var i = 0; i < criteriaFieldKey.Count; i++)
-            if (!string.IsNullOrWhiteSpace(criteriaFieldKey[i]) && !string.IsNullOrWhiteSpace(criteriaValue.ElementAtOrDefault(i)))
-                sharedCriteriaSummaries.Add($"{criteriaFieldKey[i]} {criteriaOperator.ElementAtOrDefault(i)} {criteriaValue[i]}");
-
-        var rules = new List<MatrixPreviewRule>();
-        var skipped = 0;
-
-        for (var ci = 0; ci < cellColumnValue.Count; ci++)
-        {
-            var levels = new List<(int, List<string>)>();
-            for (var levelNo = 1; levelNo <= MatrixGridViewModel.MaxLevelsPerCell; levelNo++)
-            {
-                var approverIds = cellLevelApprovers.GetValueOrDefault($"{ci}_{levelNo}") ?? [];
-                if (approverIds.Count == 0) continue;
-                levels.Add((levelNo, approverIds.Select(id => userNames.GetValueOrDefault(id, $"User #{id}")).ToList()));
+                    (submission.SplitFieldKey, "=", group.Value)
+                };
+                plan.Add(($"{submission.RuleBaseName} - {group.Value}", criteria, levelIds));
             }
-
-            if (levels.Count == 0) { skipped++; continue; }
-
-            var criteriaSummary = new List<string>(sharedCriteriaSummaries);
-            var rowLabel = cellRowLabel.ElementAtOrDefault(ci) ?? "";
-            if (!string.IsNullOrEmpty(rowLabel) && !string.IsNullOrWhiteSpace(rowFieldKey))
+            else
             {
-                var bounds = rowLabel.Split('-');
-                if (bounds.Length == 2)
+                foreach (var band in group.Bands)
                 {
-                    criteriaSummary.Add($"{rowFieldKey} >= {bounds[0]}");
-                    criteriaSummary.Add($"{rowFieldKey} <= {bounds[1]}");
+                    if (band.Low is null || band.High is null) continue;
+                    var levelIds = band.Levels.Select(l => l.Approvers.Where(validUserIds.Contains).ToList()).Where(a => a.Count > 0).ToList();
+                    if (levelIds.Count == 0) continue;
+
+                    var criteria = new List<(string, string, string)>(submission.SharedCriteria.Where(c => !string.IsNullOrWhiteSpace(c.FieldKey) && !string.IsNullOrWhiteSpace(c.Value)).Select(c => (c.FieldKey, c.Operator, c.Value)))
+                    {
+                        (submission.SplitFieldKey, "=", group.Value),
+                        (group.DrillFieldKey ?? "", ">=", band.Low.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                        (group.DrillFieldKey ?? "", "<=", band.High.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    };
+                    var bandLabel = $"{band.Low.Value:0.##}-{band.High.Value:0.##}";
+                    plan.Add(($"{submission.RuleBaseName} - {group.Value} ({bandLabel})", criteria, levelIds));
                 }
             }
-            criteriaSummary.Add($"{columnFieldKey} = {cellColumnValue[ci]}");
-
-            var ruleName = string.IsNullOrEmpty(rowLabel) ? $"{matrixName} - {cellColumnValue[ci]}" : $"{matrixName} - {cellColumnValue[ci]} ({rowLabel})";
-            rules.Add(new MatrixPreviewRule { RuleName = ruleName, CriteriaSummary = criteriaSummary, Levels = levels });
         }
 
-        var model = new MatrixPreviewViewModel
+        if (plan.Count == 0)
         {
-            ApprovalTypeId = approvalTypeId,
-            MatrixName = matrixName,
-            ApprovalTypeName = type?.Name ?? "",
-            Rules = rules,
-            SkippedEmptyCells = skipped
-        };
-        return View(model);
+            TempData["Error"] = "Nothing to save -- add at least one approver somewhere first.";
+            return RedirectToAction(nameof(Bulk), new { approvalTypeId = submission.ApprovalTypeId });
+        }
+
+        foreach (var (ruleName, criteria, levelApproverIds) in plan)
+        {
+            var rule = new RoutingRule { WorkflowVersionId = version.Id, RuleName = ruleName, Priority = submission.Priority, Active = submission.Active };
+            db.RoutingRules.Add(rule);
+            await db.SaveChangesAsync();
+
+            for (var i = 0; i < criteria.Count; i++)
+                db.RoutingRuleCriteria.Add(new RoutingRuleCriteria { RoutingRuleId = rule.Id, FieldKey = criteria[i].FieldKey, Operator = criteria[i].Operator, ComparisonValue = criteria[i].Value, SortOrder = i });
+
+            for (var levelNo = 1; levelNo <= levelApproverIds.Count; levelNo++)
+            {
+                var step = new WorkflowStep { WorkflowVersionId = version.Id, RoutingRuleId = rule.Id, LevelNo = levelNo, Mode = "ANY_ONE" };
+                db.WorkflowSteps.Add(step);
+                await db.SaveChangesAsync();
+                foreach (var userId in levelApproverIds[levelNo - 1])
+                    db.WorkflowStepApprovers.Add(new WorkflowStepApprover { WorkflowStepId = step.Id, UserId = userId });
+            }
+            await db.SaveChangesAsync();
+        }
+
+        TempData["Success"] = $"{plan.Count} rule(s) created from '{submission.RuleBaseName}'.";
+        return RedirectToAction(nameof(Index), new { approvalTypeId = submission.ApprovalTypeId });
     }
 
     async Task<WorkflowVersion> GetOrCreateCurrentVersionAsync(int approvalTypeId)

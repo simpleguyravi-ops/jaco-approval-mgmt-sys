@@ -187,56 +187,52 @@ public sealed class RuleFormViewModel
     public required List<AppUser> Users { get; init; }
 }
 
-// ---------- Matrix Rule (UI-only preview -- see RoutingRulesController.Matrix*) ----------
-// Authors approver chains for several criteria values (and optionally a numeric-range band
-// axis crossed with them) on one screen instead of one ordinary rule at a time. Currently a
-// preview-only flow: MatrixPreview shows exactly what real rules *would* be created, but
-// nothing is written to RoutingRules/WorkflowSteps yet -- that's a deliberate follow-up once
-// the screen flow itself is validated.
-public sealed class MatrixConfigViewModel
+// ---------- Bulk Rule (see RoutingRulesController.Bulk*) ----------
+// Authors several ordinary routing rules at once -- e.g. one approver chain per Branch, or
+// per Branch further split into discount bands -- instead of one rule at a time. The whole
+// screen is a single client-side page (Views/RoutingRules/Bulk.cshtml owns the JS state
+// tree and interaction; "Split by X" -> add values as live cards -> optionally drill into
+// one value to split it further by a range); on Save, the entire tree is serialized to JSON
+// client-side and posted once as `stateJson`, deserialized here into BulkRuleSubmission, and
+// turned into real RoutingRule/RoutingRuleCriteria/WorkflowStep/WorkflowStepApprover rows --
+// one rule per group (or per band, for a drilled-in group) that actually has an approver set.
+public sealed class BulkRuleSubmission
 {
     public int ApprovalTypeId { get; set; }
-    public string MatrixName { get; set; } = "";
-    public string ColumnFieldKey { get; set; } = "";
-    public string ColumnValues { get; set; } = "";
-    public string? RowFieldKey { get; set; }
-    public string? RowBands { get; set; }
+    public string RuleBaseName { get; set; } = "";
+    public string SplitFieldKey { get; set; } = "";
     public int Priority { get; set; } = 10;
     public bool Active { get; set; } = true;
-    public List<CriteriaFormRow> Criteria { get; set; } = [];
-    public List<WorkflowField> AvailableFields { get; set; } = [];
+    public List<BulkRuleCriteriaDto> SharedCriteria { get; set; } = [];
+    public List<BulkRuleGroupDto> Groups { get; set; } = [];
 }
 
-public sealed class MatrixCellViewModel
+public sealed class BulkRuleCriteriaDto
 {
-    public string RowLabel { get; set; } = ""; // "" when there's no row axis (1-field matrix)
-    public string ColumnValue { get; set; } = "";
-    public List<LevelFormRow> Levels { get; set; } = [];
+    public string FieldKey { get; set; } = "";
+    public string Operator { get; set; } = "=";
+    public string Value { get; set; } = "";
 }
 
-public sealed class MatrixGridViewModel
+public sealed class BulkRuleGroupDto
 {
-    public const int MaxLevelsPerCell = 3;
-
-    public required MatrixConfigViewModel Config { get; init; }
-    public required List<MatrixCellViewModel> Cells { get; init; }
-    public required List<AppUser> Users { get; init; }
+    public string Value { get; set; } = "";
+    public bool Drilling { get; set; }
+    public string? DrillFieldKey { get; set; }
+    public List<BulkRuleLevelDto> Levels { get; set; } = []; // used when !Drilling
+    public List<BulkRuleBandDto> Bands { get; set; } = []; // used when Drilling
 }
 
-public sealed class MatrixPreviewRule
+public sealed class BulkRuleBandDto
 {
-    public string RuleName { get; set; } = "";
-    public List<string> CriteriaSummary { get; set; } = [];
-    public List<(int LevelNo, List<string> ApproverNames)> Levels { get; set; } = [];
+    public double? Low { get; set; }
+    public double? High { get; set; }
+    public List<BulkRuleLevelDto> Levels { get; set; } = [];
 }
 
-public sealed class MatrixPreviewViewModel
+public sealed class BulkRuleLevelDto
 {
-    public int ApprovalTypeId { get; set; }
-    public string MatrixName { get; set; } = "";
-    public string ApprovalTypeName { get; set; } = "";
-    public List<MatrixPreviewRule> Rules { get; set; } = [];
-    public int SkippedEmptyCells { get; set; }
+    public List<int> Approvers { get; set; } = [];
 }
 
 public sealed class RequestListViewModel

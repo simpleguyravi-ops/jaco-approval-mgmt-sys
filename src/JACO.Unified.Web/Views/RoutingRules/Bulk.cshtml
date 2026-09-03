@@ -1,0 +1,360 @@
+@{
+    ViewData["Title"] = "Bulk Rule";
+    int approvalTypeId = ViewBag.ApprovalTypeId;
+    string approvalTypeName = ViewBag.ApprovalTypeName;
+    int suggestedPriority = ViewBag.Priority;
+}
+<a class="jaco-back-link" href="~/RoutingRules?approvalTypeId=@approvalTypeId">&larr; Back to Rule Builder</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Bulk Rule &mdash; @approvalTypeName</h1>
+        <p>Pick a field, add its values below, and set who approves each one right there. Need a finer split for one value &mdash; e.g. a bigger discount needing more approvers? Open "Split further" on just that one.</p>
+    </div>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="max-width:640px;margin-bottom:16px;">
+    <div class="jaco-form-group">
+        <label>Rule Name (base name for every rule this creates)</label>
+        <input type="text" id="ruleBaseName" class="jaco-input" placeholder="e.g. Sales Discount by Branch" />
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="jaco-form-group">
+            <label>Priority</label>
+            <input type="number" id="priority" class="jaco-input" value="@suggestedPriority" />
+        </div>
+        <div class="jaco-form-group" style="display:flex;align-items:flex-end;">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin:0;"><input type="checkbox" id="active" checked style="width:auto;" /> Active</label>
+        </div>
+    </div>
+    <div class="sentence">
+        Split approvals by
+        <select id="splitField" class="jaco-select" style="width:auto;font-weight:700;color:var(--jaco-orange-700);border:none;border-bottom:2px solid var(--jaco-orange-600);border-radius:0;background:transparent;padding:2px 20px 2px 2px;"></select>
+    </div>
+</div>
+
+<div id="groups"></div>
+
+<div class="add-value-row">
+    <input type="text" id="newValueInput" class="jaco-input" style="margin:0;" placeholder="Add a value, e.g. Riyadh" />
+    <button type="button" id="addValueBtn" class="jaco-btn jaco-btn-outline">Add</button>
+</div>
+
+<form id="saveForm" method="post" action="~/RoutingRules/BulkSave">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="stateJson" id="stateJson" />
+</form>
+
+<div class="savebar">
+    <div class="count" id="saveSummary">0 rule(s) ready</div>
+    <div class="savebar-actions">
+        <a class="pill-btn" href="~/RoutingRules?approvalTypeId=@approvalTypeId">Cancel</a>
+        <button type="button" class="pill-btn primary" id="saveBtn" disabled>Save Bulk Rule</button>
+    </div>
+</div>
+
+<style>
+.sentence { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px; margin-top: 14px; }
+.group { background: var(--jaco-card); border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-md); box-shadow: var(--jaco-shadow); padding: 16px 18px; margin-bottom: 12px; max-width: 640px; }
+.group-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.group-title { font-size: 14.5px; font-weight: 700; }
+.group-title .field-name { color: var(--jaco-text-muted); font-weight: 400; }
+.remove-group { all: unset; cursor: pointer; color: var(--jaco-text-muted); font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.remove-group:hover { background: var(--jaco-bg); color: var(--jaco-danger); }
+.level-block { border-top: 1px solid var(--jaco-border); padding-top: 12px; margin-top: 12px; }
+.level-block:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+.level-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--jaco-text-muted); margin: 4px 0 6px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; align-items: center; margin-bottom: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--jaco-navy-900); color: #fff; border-radius: 999px; padding: 4px 7px 4px 11px; font-size: 11.5px; font-weight: 600; }
+.chip button { all: unset; cursor: pointer; width: 15px; height: 15px; border-radius: 50%; background: rgba(255,255,255,.18); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; }
+.chip button:hover { background: var(--jaco-orange-600); }
+.chip-empty { color: var(--jaco-text-muted); font-size: 12px; font-style: italic; }
+.picker { position: relative; max-width: 300px; }
+.picker input { width: 100%; padding: 7px 10px; border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); font-size: 12px; font-family: inherit; }
+.picker input:focus { outline: none; border-color: var(--jaco-orange-600); box-shadow: 0 0 0 3px rgba(242,96,12,.12); }
+.picker-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); box-shadow: 0 8px 20px rgba(16,24,40,.12); max-height: 200px; overflow-y: auto; z-index: 20; display: none; }
+.picker.open .picker-list { display: block; }
+.picker-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--jaco-text-muted); padding: 7px 10px 3px; }
+.picker-option { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; }
+.picker-option:hover { background: var(--jaco-bg); }
+.picker-option input { width: auto; margin: 0; }
+.add-level-link { background: none; border: none; color: var(--jaco-orange-700); font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 0; font-family: inherit; }
+.drill-toggle { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--jaco-border); }
+.drill-toggle > button { all: unset; cursor: pointer; color: var(--jaco-text-muted); font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+.drill-toggle > button:hover { color: var(--jaco-orange-700); }
+.drill-config { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin: 10px 0; flex-wrap: wrap; }
+.drill-config select { font: inherit; font-size: 12.5px; padding: 6px 9px; border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); }
+.band { background: var(--jaco-bg); border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); padding: 12px 14px; margin-top: 10px; }
+.band-title { font-size: 12.5px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.band-title input { font: inherit; font-weight: 700; font-size: 12.5px; border: none; background: transparent; border-bottom: 1px dashed var(--jaco-border); width: 55px; padding: 2px 0; text-align: center; }
+.add-band-btn { background: none; border: 1px dashed var(--jaco-border); border-radius: var(--jaco-radius-sm); padding: 8px 12px; font-size: 12px; font-weight: 600; color: var(--jaco-text-muted); cursor: pointer; font-family: inherit; margin-top: 8px; }
+.add-band-btn:hover { border-color: var(--jaco-orange-600); color: var(--jaco-orange-700); }
+.add-value-row { display: flex; gap: 8px; margin: 4px 0 90px; max-width: 380px; }
+.add-value-row button { flex-shrink: 0; }
+.savebar { position: fixed; left: var(--jaco-sidebar-width, 240px); right: 0; bottom: 0; background: var(--jaco-navy-900); color: #fff; padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 -4px 16px rgba(0,0,0,.15); z-index: 30; }
+.savebar .count { font-size: 13px; }
+.savebar-actions { display: flex; gap: 10px; }
+.pill-btn { border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; border-radius: var(--jaco-radius-sm); padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-flex; }
+.pill-btn.primary { background: var(--jaco-orange-600); border-color: var(--jaco-orange-600); }
+.pill-btn.primary:hover { background: var(--jaco-orange-700); }
+.pill-btn.primary:disabled { background: #4b5563; border-color: #4b5563; cursor: not-allowed; }
+</style>
+
+<script>
+const FIELDS = @Html.Raw(ViewBag.FieldsJson);
+const USERS = @Html.Raw(ViewBag.UsersJson);
+const APPROVAL_TYPE_ID = @approvalTypeId;
+
+let uid = 0;
+const newLevel = () => ({ id: 'lvl' + (uid++), approvers: [] });
+const newBand = () => ({ id: 'band' + (uid++), low: null, high: null, levels: [newLevel()] });
+const newGroup = (value) => ({ id: 'grp' + (uid++), value, drilling: false, drillField: '', bands: [], levels: [newLevel()] });
+
+const groups = [];
+
+// ---------- field / user helpers ----------
+function fieldLabel(key) { return FIELDS.find(f => f.key === key)?.label || key; }
+function userName(id) { return USERS.find(u => u.id === id)?.name || ('User #' + id); }
+function groupedUsers() {
+    const byDept = {};
+    USERS.forEach(u => { (byDept[u.dept] ||= []).push(u); });
+    return byDept;
+}
+
+// ---------- field selects ----------
+function populateFieldSelect(sel, selected) {
+    sel.innerHTML = '';
+    FIELDS.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.key; opt.textContent = f.label;
+        if (f.key === selected) opt.selected = true;
+        sel.appendChild(opt);
+    });
+}
+const splitFieldSelect = document.getElementById('splitField');
+populateFieldSelect(splitFieldSelect, FIELDS[0]?.key);
+splitFieldSelect.addEventListener('change', () => {
+    if (groups.length > 0 && !confirm('Changing the split field clears the values you already added below. Continue?')) {
+        populateFieldSelect(splitFieldSelect, splitFieldSelect.dataset.prev);
+        return;
+    }
+    groups.length = 0;
+    renderAll();
+});
+splitFieldSelect.addEventListener('focus', () => { splitFieldSelect.dataset.prev = splitFieldSelect.value; });
+
+// ---------- rendering ----------
+function renderAll() {
+    const root = document.getElementById('groups');
+    root.innerHTML = '';
+    groups.forEach(g => root.appendChild(renderGroup(g)));
+    attachPickers();
+    renderSummary();
+}
+
+function renderLevelBlock(level, levelNo) {
+    const block = document.createElement('div');
+    block.className = 'level-block';
+    block.innerHTML = `
+        <div class="level-label">Approver${levelNo > 1 ? ' — Level ' + levelNo : ''}</div>
+        <div class="chip-row" data-chips="${level.id}"></div>
+        <div class="picker" data-picker="${level.id}">
+            <input type="text" placeholder="Add an approver&hellip;" autocomplete="off" />
+            <div class="picker-list"></div>
+        </div>`;
+    return block;
+}
+
+function renderGroup(g) {
+    const el = document.createElement('div');
+    el.className = 'group';
+
+    const head = document.createElement('div');
+    head.className = 'group-head';
+    head.innerHTML = `<div class="group-title"><span class="field-name">${fieldLabel(splitFieldSelect.value)} =</span> ${g.value}</div>
+        <button class="remove-group" title="Remove ${g.value}">&times;</button>`;
+    head.querySelector('.remove-group').addEventListener('click', () => { groups.splice(groups.indexOf(g), 1); renderAll(); });
+    el.appendChild(head);
+
+    if (!g.drilling) {
+        g.levels.forEach((lvl, i) => el.appendChild(renderLevelBlock(lvl, i + 1)));
+        const addLevel = document.createElement('button');
+        addLevel.className = 'add-level-link';
+        addLevel.textContent = '+ Add another approval level';
+        addLevel.addEventListener('click', () => { g.levels.push(newLevel()); renderAll(); });
+        el.appendChild(addLevel);
+    }
+
+    const drillWrap = document.createElement('div');
+    drillWrap.className = 'drill-toggle';
+    if (!g.drilling) {
+        drillWrap.innerHTML = `<button data-drill-open>&#9662; Need a different set of approvers within ${g.value}? Split further&hellip;</button>`;
+        drillWrap.querySelector('[data-drill-open]').addEventListener('click', () => {
+            g.drilling = true;
+            g.drillField = FIELDS.find(f => f.key !== splitFieldSelect.value)?.key || FIELDS[0]?.key || '';
+            g.bands = [newBand()];
+            renderAll();
+        });
+    } else {
+        const cfg = document.createElement('div');
+        cfg.className = 'drill-config';
+        cfg.innerHTML = `Within <b>${g.value}</b>, split further by <select data-drill-field></select> into ranges:`;
+        populateFieldSelect(cfg.querySelector('[data-drill-field]'), g.drillField);
+        cfg.querySelector('[data-drill-field]').addEventListener('change', (e) => { g.drillField = e.target.value; });
+        drillWrap.appendChild(cfg);
+
+        g.bands.forEach((band) => {
+            const bandEl = document.createElement('div');
+            bandEl.className = 'band';
+            bandEl.innerHTML = `<div class="band-title">From <input type="number" data-low value="${band.low ?? ''}" /> to <input type="number" data-high value="${band.high ?? ''}" /></div>`;
+            bandEl.querySelector('[data-low]').addEventListener('input', (e) => { band.low = e.target.value === '' ? null : parseFloat(e.target.value); renderSummary(); });
+            bandEl.querySelector('[data-high]').addEventListener('input', (e) => { band.high = e.target.value === '' ? null : parseFloat(e.target.value); renderSummary(); });
+            band.levels.forEach((lvl, i) => bandEl.appendChild(renderLevelBlock(lvl, i + 1)));
+            const addLevel = document.createElement('button');
+            addLevel.className = 'add-level-link';
+            addLevel.textContent = '+ Add another approval level';
+            addLevel.addEventListener('click', () => { band.levels.push(newLevel()); renderAll(); });
+            bandEl.appendChild(addLevel);
+            drillWrap.appendChild(bandEl);
+        });
+
+        const addBand = document.createElement('button');
+        addBand.className = 'add-band-btn';
+        addBand.textContent = '+ Add another range';
+        addBand.addEventListener('click', () => { g.bands.push(newBand()); renderAll(); });
+        drillWrap.appendChild(addBand);
+
+        const undo = document.createElement('button');
+        undo.className = 'add-level-link';
+        undo.style.marginTop = '8px';
+        undo.textContent = '✕ Remove this split, go back to one approver set for ' + g.value;
+        undo.addEventListener('click', () => { g.drilling = false; g.bands = []; g.levels = [newLevel()]; renderAll(); });
+        drillWrap.appendChild(undo);
+    }
+    el.appendChild(drillWrap);
+    return el;
+}
+
+function findLevelById(id) {
+    for (const g of groups) {
+        for (const l of g.levels) if (l.id === id) return l;
+        for (const b of g.bands) for (const l of b.levels) if (l.id === id) return l;
+    }
+    return null;
+}
+
+function attachPickers() {
+    document.querySelectorAll('[data-picker]').forEach(root => {
+        const levelId = root.getAttribute('data-picker');
+        const input = root.querySelector('input');
+        renderChips(levelId);
+        renderPickerList(root, levelId);
+        input.addEventListener('focus', () => { root.classList.add('open'); renderPickerList(root, levelId); });
+        input.addEventListener('input', () => renderPickerList(root, levelId));
+    });
+    document.addEventListener('click', (e) => {
+        document.querySelectorAll('.picker.open').forEach(p => { if (!p.contains(e.target)) p.classList.remove('open'); });
+    }, { once: true });
+}
+
+function renderChips(levelId) {
+    const row = document.querySelector(`[data-chips="${levelId}"]`);
+    const level = findLevelById(levelId);
+    if (!row || !level) return;
+    if (level.approvers.length === 0) { row.innerHTML = '<span class="chip-empty">No approvers yet</span>'; return; }
+    row.innerHTML = '';
+    level.approvers.forEach(id => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.innerHTML = `${userName(id)} <button>&times;</button>`;
+        chip.querySelector('button').addEventListener('click', () => {
+            level.approvers = level.approvers.filter(x => x !== id);
+            renderChips(levelId);
+            renderSummary();
+            document.querySelectorAll('[data-picker]').forEach(root => { if (root.getAttribute('data-picker') === levelId) renderPickerList(root, levelId); });
+        });
+        row.appendChild(chip);
+    });
+}
+
+function renderPickerList(root, levelId) {
+    const list = root.querySelector('.picker-list');
+    const input = root.querySelector('input');
+    const q = input.value.trim().toLowerCase();
+    const level = findLevelById(levelId);
+    const byDept = groupedUsers();
+    list.innerHTML = '';
+    Object.keys(byDept).sort().forEach(dept => {
+        const matches = byDept[dept].filter(u => !q || u.name.toLowerCase().includes(q) || dept.toLowerCase().includes(q));
+        if (matches.length === 0) return;
+        const label = document.createElement('div');
+        label.className = 'picker-group-label';
+        label.textContent = dept;
+        list.appendChild(label);
+        matches.forEach(u => {
+            const checked = level.approvers.includes(u.id);
+            const opt = document.createElement('label');
+            opt.className = 'picker-option';
+            opt.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''}/> ${u.name}`;
+            opt.querySelector('input').addEventListener('change', (e) => {
+                if (e.target.checked) level.approvers.push(u.id);
+                else level.approvers = level.approvers.filter(x => x !== u.id);
+                renderChips(levelId);
+                renderSummary();
+                renderPickerList(root, levelId);
+            });
+            list.appendChild(opt);
+        });
+    });
+}
+
+function countReady() {
+    let count = 0;
+    groups.forEach(g => {
+        if (!g.drilling) { if (g.levels.some(l => l.approvers.length > 0)) count++; }
+        else { g.bands.forEach(b => { if (b.low !== null && b.high !== null && b.levels.some(l => l.approvers.length > 0)) count++; }); }
+    });
+    return count;
+}
+
+function renderSummary() {
+    const count = countReady();
+    document.getElementById('saveSummary').textContent = count + ' rule(s) ready' + (count === 0 ? ' — add at least one approver' : '');
+    document.getElementById('saveBtn').disabled = count === 0 || !document.getElementById('ruleBaseName').value.trim();
+}
+
+document.getElementById('ruleBaseName').addEventListener('input', renderSummary);
+
+document.getElementById('addValueBtn').addEventListener('click', () => {
+    const input = document.getElementById('newValueInput');
+    const v = input.value.trim();
+    if (!v) return;
+    groups.push(newGroup(v));
+    input.value = '';
+    renderAll();
+});
+document.getElementById('newValueInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addValueBtn').click(); }
+});
+
+document.getElementById('saveBtn').addEventListener('click', () => {
+    const state = {
+        approvalTypeId: APPROVAL_TYPE_ID,
+        ruleBaseName: document.getElementById('ruleBaseName').value.trim(),
+        splitFieldKey: splitFieldSelect.value,
+        priority: parseInt(document.getElementById('priority').value, 10) || 10,
+        active: document.getElementById('active').checked,
+        sharedCriteria: [],
+        groups: groups.map(g => ({
+            value: g.value,
+            drilling: g.drilling,
+            drillFieldKey: g.drillField,
+            levels: g.levels.map(l => ({ approvers: l.approvers })),
+            bands: g.bands.map(b => ({ low: b.low, high: b.high, levels: b.levels.map(l => ({ approvers: l.approvers })) }))
+        }))
+    };
+    document.getElementById('stateJson').value = JSON.stringify(state);
+    document.getElementById('saveForm').submit();
+});
+
+renderAll();
+</script>
