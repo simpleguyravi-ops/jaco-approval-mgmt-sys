@@ -4,9 +4,10 @@ This is the single, versioned procedure for standing up `JACO-Unified` on a new 
 Written for the **first QA rollout** (2026-09-03); the same phases, unchanged, are what you
 run again for **Production go-live** — differences are called out inline as "**Prod note:**".
 
-Scope: this app only. Portal / CR / Approval / SalesDiscount are assumed already installed
-and running on the target server (true for QA as of this writing) — this runbook only adds
-Unified alongside them and registers it with the existing Portal for SSO.
+Scope: JAMS is a **standalone application** — it is not integrated with JACO Portal or any
+other JACO app, and does not depend on any of them being installed. It has its own login page
+and its own local user accounts; there is no SSO to configure and nothing to register with
+another app's database.
 
 Repo: `https://github.com/simpleguyravi-ops/jaco-approval-mgmt-sys.git` (branch `master`).
 This runbook targets commit `581723c` and later.
@@ -15,28 +16,30 @@ This runbook targets commit `581723c` and later.
 
 ## Phase 0 — Discover the target server's real values
 
-Don't assume dev's values (`localhost\MSSQLSERVER01`, port 5004, etc.) are correct on the
-new box. The other JACO apps are already running there — the fastest, most reliable way to
-learn the server's real SQL instance name, shared key-ring path, and auth mode is to read
-**their** already-working config rather than guess:
+Don't assume dev's values (`localhost\MSSQLSERVER01`, port 5004, etc.) are correct on the new
+box — check what's actually there:
 
 ```powershell
-Get-Content "C:\JACO\_services\Portal\appsettings.json"
+Get-Service | Where-Object { $_.Name -like '*SQL*' }
 ```
 
 Note down:
-- The `ConnectionStrings:DefaultConnection` → `Server=` value (SQL instance name) and whether
-  it uses `Trusted_Connection=True` (Windows auth, matches dev) or a SQL login.
-- The `SharedAuth:KeyRingPath` value — Unified **must** point at the exact same folder, or SSO
-  breaks (a different key ring can't decrypt the other apps' `.JACO.Auth` cookie).
+- The SQL Server instance name (e.g. `.\SQLEXPRESS`, or `<hostname>\MSSQLSERVER01`) and
+  whether you'll connect with Windows auth (`Trusted_Connection=True`, matches dev) or a SQL
+  login.
+- `sqlcmd.exe`'s path — it's often installed (with SSMS or the SQL Server Client SDK) but not
+  on `PATH`. If `sqlcmd -?` fails, look under
+  `C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\<version>\Tools\Binn\SQLCMD.EXE`.
 
-Also confirm the port you intend to use is free:
+Also confirm the port you intend to use is free, and isn't in a Windows-reserved exclusion
+range (see Phase 3's note on this):
 
 ```powershell
 Get-NetTCPConnection -LocalPort 5004 -State Listen -ErrorAction SilentlyContinue
+netsh interface ipv4 show excludedportrange protocol=tcp
 ```
 
-If 5004 is taken, pick another and use it consistently through every phase below.
+If 5004 is taken or reserved, pick another and use it consistently through every phase below.
 
 ---
 
@@ -107,11 +110,10 @@ sqlcmd -S "<SQL_INSTANCE>" -d JACO_Unified -E -Q "SELECT COUNT(*) AS TableCount 
 `010_AddSystemSettings.sql` seeds `SystemSettings` with `IsProduction = 0` (Test mode) —
 correct default for UAT. **Leave it in Test through the whole QA/UAT cycle** so the Clear-Log
 retention floor doesn't block testers clearing their own test data; switch it to Production
-only right before real users start relying on the environment (see Phase 6).
+only right before real users start relying on the environment (see Phase 5).
 
-No admin user needs seeding here **if Portal SSO is already live on this server** — see
-Phase 6, "How login works." If Portal isn't installed here yet (see Phase 4), you'll need
-`tools/SeedAdmin` before you can sign in at all — also covered in Phase 6.
+A brand-new database has zero `AppUsers` rows, so nobody can sign in yet — Phase 5 covers
+bootstrapping the first admin account with `tools/SeedAdmin`.
 
 ---
 
@@ -127,23 +129,23 @@ Fields to set, using the values from Phase 0/2:
 | Key | Value |
 |---|---|
 | `Urls` | `http://+:5004` (or whatever port Phase 0 confirmed is free) — **required**, see note below |
-| `ConnectionStrings:DefaultConnection` | `Server=<SQL_INSTANCE>;Database=JACO_Unified;Trusted_Connection=True;TrustServerCertificate=True;` (or the SQL-login form if that's what Portal uses) |
+| `ConnectionStrings:DefaultConnection` | `Server=<SQL_INSTANCE>;Database=JACO_Unified;Trusted_Connection=True;TrustServerCertificate=True;` (or the SQL-login form, per what Phase 0 found) |
 | `AppBaseUrl` | `http://<THIS_SERVER_HOSTNAME>:5004` |
-| `SharedAuth:KeyRingPath` | **exactly** the same path found in Phase 0 (do not leave as `C:\JACO\_shared\dpkeys` unless that's genuinely what the other apps use on this server) |
-| `Attachments:RootPath` | `C:\JACO\_shared\unified-attachments` (fine as-is if this convention already exists on the server; create the folder if not) |
+| `SharedAuth:KeyRingPath` | any folder this app can read/write, e.g. `C:\JACO\_shared\dpkeys` — this is JAMS's own private key ring (used to persist data-protection keys, e.g. antiforgery tokens, across restarts); since JAMS is standalone it does **not** need to match any other app's key ring |
+| `Attachments:RootPath` | `C:\JACO\_shared\unified-attachments` (create the folder if it doesn't exist) |
 
 **`Urls` vs `AppBaseUrl` — don't confuse them:** `AppBaseUrl` is only used for generating
 absolute links (emails, API responses); it does **not** control what Kestrel actually listens
 on. Without an explicit `Urls` key (or `ASPNETCORE_URLS`), the app falls back to Kestrel's
-built-in default, `http://localhost:5000` — loopback-only, so nothing outside the box (not
-even Portal) can reach it, and on some Windows Server boxes port 5000 is also a
-Hyper-V/Docker-reserved port exclusion, which surfaces as a confusing "access forbidden by
-its access permissions" crash on startup rather than a normal "port in use" error. Use `+`
-(all interfaces), not `localhost`, so other servers can reach it. If the service won't start,
-check `netsh interface ipv4 show excludedportrange protocol=tcp` before assuming it's a
-permissions problem.
+built-in default, `http://localhost:5000` — loopback-only, so nothing outside the box can
+reach it, and on some Windows Server boxes port 5000 is also a Hyper-V/Docker-reserved port
+exclusion, which surfaces as a confusing "access forbidden by its access permissions" crash on
+startup rather than a normal "port in use" error. Use `+` (all interfaces), not `localhost`,
+so other machines can reach it. If the service won't start, check
+`netsh interface ipv4 show excludedportrange protocol=tcp` before assuming it's a permissions
+problem.
 
-**Prod note:** once a reverse proxy fronts the apps at `https://<domain>/JAMS` (SSL handled
+**Prod note:** once a reverse proxy fronts the app at `https://<domain>/JAMS` (SSL handled
 there, per the earlier security review — this app has no TLS logic of its own),
 `AppBaseUrl` becomes `https://<domain>/JAMS` and `Program.cs` automatically derives the
 correct path base and honors `X-Forwarded-Proto` — no code change needed, only this config
@@ -151,30 +153,7 @@ value (`Urls` still binds to plain `http://+:<port>`; the proxy handles TLS in f
 
 ---
 
-## Phase 4 — Register the app with Portal (so it shows up on My Apps)
-
-**Skip this phase if `JACO_Portal` doesn't exist on this server yet** (i.e. Portal itself
-hasn't been deployed here — this runbook's "Scope" assumption doesn't hold). There's nothing
-for the `INSERT` below to write into, and Portal's own schema is out of scope for this repo.
-Unified runs standalone in the meantime (local login only — see Phase 6's `tools/SeedAdmin`
-note); come back and do this phase once Portal is actually installed on this box.
-
-Check first — don't insert a duplicate if a previous attempt already added it:
-```powershell
-sqlcmd -S "<SQL_INSTANCE>" -d JACO_Portal -E -Q "SELECT * FROM dbo.Applications WHERE Code = 'UNIFIED';"
-```
-
-If nothing comes back:
-```powershell
-sqlcmd -S "<SQL_INSTANCE>" -d JACO_Portal -E -Q "INSERT INTO dbo.Applications (Code, Name, Description, BaseUrl, IconKey, IsActive, SortOrder) VALUES ('UNIFIED', 'Unified Requests', 'Single application for every request/approval type.', 'http://<THIS_SERVER_HOSTNAME>:5004/', 'layers', 1, 4);"
-```
-
-(This is the exact row already live on dev's Portal — `BaseUrl` is the only value that
-changes per environment.)
-
----
-
-## Phase 5 — Publish and install as a Windows Service
+## Phase 4 — Publish and install as a Windows Service
 
 Dev intentionally runs Unified as a plain background process (fast iterate/rebuild without
 admin elevation on every change — see `jaco-dev-environment` notes). QA and Production
@@ -232,34 +211,23 @@ Start-Service JACO-Unified
 
 ---
 
-## Phase 6 — Smoke test
+## Phase 5 — Smoke test
 
-**How login works:** Unified has its own login page but recognizes the same `.JACO.Auth`
-SSO cookie the other apps issue (same key ring, Phase 0/3) — anyone already signed into
-Portal/CR/Approval/SalesDiscount on this server lands in Unified already authenticated, no
-second login. A user's first visit auto-provisions their local `AppUser` row; admin access
-follows the same `PORTAL_ADMIN`/`SYSTEM_ADMIN`/`UNIFIED_ADMIN` role claims already governing
-the other apps — nothing to seed manually.
-
-**If Phase 4 was skipped (no Portal on this box yet), none of that applies** — there's no SSO
-cookie and no existing account to log in with. Bootstrap a local admin instead using the
-repo's `tools/SeedAdmin` project (safe to re-run; resets the password if the account already
-exists):
+**How login works:** JAMS is standalone — there's no SSO, only its own local accounts (backed
+by `AppUsers`). A brand-new database has none, so bootstrap the first admin with the repo's
+`tools/SeedAdmin` project (safe to re-run; resets the password if the account already exists):
 ```powershell
 cd C:\JACO\JACO-Unified\tools\SeedAdmin
 dotnet run -- "Server=<SQL_INSTANCE>;Database=JACO_Unified;Trusted_Connection=True;TrustServerCertificate=True;" admin "Administrator" "<a strong temp password>"
 ```
 Sign in with that account — the app forces a password change on first login. Do this once per
 environment (QA, then again for Production), and give the real admin the credentials
-out-of-band, not by leaving them in this file or in Slack/email history.
+out-of-band, not by leaving them in this file or in Slack/email history. Once signed in, add
+any further accounts through **Admin → User Accounts** rather than re-running `SeedAdmin`.
 
 Checklist:
 - [ ] `http://<server>:5004/Account/Login` loads.
-- [ ] **If Portal is registered (Phase 4 done):** signing into Portal first, then opening
-  Unified, lands you in already authenticated. **Otherwise:** sign in with the `SeedAdmin`
-  account above.
-- [ ] **If Portal is registered:** "Unified Requests" tile appears on this server's
-  Portal → My Apps.
+- [ ] Sign in with the `SeedAdmin` account above; forced password-change flow works.
 - [ ] **Admin → System Mode** shows **Test** (confirms Phase 2's seed took effect correctly).
 - [ ] Raise a test Change Request end-to-end: Create → Submit → routes to an approver →
   Approve → Completed.
@@ -277,17 +245,16 @@ not move or change any existing data.
 
 ---
 
-## Phase 7 — Repeating this for Production
+## Phase 6 — Repeating this for Production
 
-Same seven phases, verbatim, with these substitutions:
+Same phases, verbatim, with these substitutions:
 
 | Item | QA | Production |
 |---|---|---|
 | SQL instance | Phase 0's discovered QA value | Phase 0's discovered Prod value (repeat the discovery step there — don't assume it matches QA) |
 | `AppBaseUrl` | `http://<qa-host>:5004` | `https://<prod-domain>/JAMS` (once the reverse proxy is live) |
-| Portal `Applications.BaseUrl` | QA host | Prod domain, same path |
-| System Mode | Test until UAT passes | **Production**, switched on at go-live per Phase 6's last step |
+| System Mode | Test until UAT passes | **Production**, switched on at go-live per Phase 5's last step |
 
 TLS/SSL termination is explicitly out of scope for this app (handled at the production
 reverse proxy, per the security review already done on this codebase) — nothing in Phases
-1–6 changes for that; only `AppBaseUrl` needs to reflect the real public URL once it's live.
+1–5 changes for that; only `AppBaseUrl` needs to reflect the real public URL once it's live.
