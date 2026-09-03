@@ -39,6 +39,12 @@
     <a class="metric metric-link" href="~/EmailSettings"><b>Email Configuration</b><span>SMTP host, credentials, and a test-send button</span><small>Configure &rarr;</small></a>
 </div>
 
+<h2 style="font-size:15px;margin-top:24px;">System Mode &mdash; environment flag for compliance guardrails</h2>
+<p style="color:#65727d;margin-top:-8px;">Marks this environment Test or Production. Some guardrails (currently: the Clear Log minimum-retention floor) only apply in Production, so development/QA on this same database isn't blocked.</p>
+<div class="cards">
+    <a class="metric metric-link" href="~/SystemSettings"><b>System Mode</b><span>Test vs. Production</span><small>Configure &rarr;</small></a>
+</div>
+
 <h2 style="font-size:15px;margin-top:24px;">External API &mdash; integration with SAP and other outside systems</h2>
 <p style="color:#65727d;margin-top:-8px;">Lets an external system create approvals and read their status over HTTP (<code>/api/v1/approvals</code>), without a browser session. Off by default -- nothing can call in until enabled here.</p>
 <div class="cards">
@@ -53,4 +59,5 @@
     <a class="metric metric-link" href="~/Home/PpfMonitor"><b>PPF Monitor</b><span>Every action triggered, to whom, sent/failed/skipped</span><small>Open monitor &rarr;</small></a>
     <a class="metric metric-link" href="~/Cockpit/ApiRequestLog"><b>API Request Log</b><span>Every external API call, incl. rejected/unauthenticated attempts</span><small>Open Cockpit &rarr;</small></a>
     <a class="metric metric-link" href="~/Cockpit/DigestLog"><b>Digest Log</b><span>Every automatic/manual digest send, how many emails and to whom</span><small>Open Cockpit &rarr;</small></a>
+    <a class="metric metric-link" href="~/Cockpit/ArchivedClears"><b>Archived Clears</b><span>Recovery copies from every "Clear Old Entries" action, downloadable</span><small>Open Cockpit &rarr;</small></a>
 </div>

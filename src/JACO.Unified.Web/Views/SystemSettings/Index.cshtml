@@ -1,0 +1,27 @@
+@model SystemSettings
+@{ ViewData["Title"] = "System Mode"; }
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>System Mode</h1>
+        <p>Whether this environment is Test or Production &mdash; some compliance guardrails only take effect in Production.@(Model.UpdatedAt != default ? $" Last updated {Model.UpdatedAt:dd MMM yyyy HH:mm} UTC" + (string.IsNullOrEmpty(Model.UpdatedByUserName) ? "." : $" by {Model.UpdatedByUserName}.") : "")</p>
+    </div>
+</div>
+
+<form method="post" action="~/SystemSettings/Save" class="jaco-card jaco-card-pad" style="max-width:560px;">
+    @Html.AntiForgeryToken()
+    <div class="jaco-form-group">
+        <label style="display:flex;align-items:flex-start;gap:10px;font-weight:400;margin-bottom:10px;">
+            <input type="radio" name="isProduction" value="false" checked="@(!Model.IsProduction)" style="margin-top:3px;" />
+            <span><strong>Test</strong> &mdash; for development and QA. The Clear Log minimum-retention floor is relaxed so old test data can be cleared freely.</span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;font-weight:400;">
+            <input type="radio" name="isProduction" value="true" checked="@Model.IsProduction" style="margin-top:3px;" />
+            <span><strong>Production</strong> &mdash; live data. Clearing Routing/Audit/API Request/Digest log entries newer than 90 days is blocked, even if requested, to protect recent/active compliance evidence.</span>
+        </label>
+    </div>
+    <div class="jaco-alert" style="background:var(--jaco-warning-bg);color:var(--jaco-warning);margin-bottom:16px;">
+        Switching to Production doesn't move or change any data &mdash; it only turns on guardrails like the Clear Log retention floor. Switch this on before go-live.
+    </div>
+    <button type="submit" class="jaco-btn jaco-btn-primary">Save</button>
+</form>

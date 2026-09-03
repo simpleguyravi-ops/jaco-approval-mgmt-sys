@@ -1,3 +1,4 @@
+using System.Text.Json;
 using JACO.Unified.Core.Models;
 using JACO.Unified.Infrastructure;
 using JACO.Unified.Web.Models;
@@ -17,6 +18,39 @@ public sealed class CockpitController(UnifiedDbContext db) : Controller
 {
     const int PageSize = 200;
     const int ExportCap = 20000;
+
+    // Compliance floor for every "Clear Old Entries" action: an admin can request any date,
+    // but nothing newer than this ever gets deleted, no matter what's typed or POSTed --
+    // closes off the single most damaging mistake (picking today's date and wiping
+    // everything, including active/recent data still relevant to an open request or a
+    // pending review) without taking the ability away entirely. Only enforced when
+    // SystemSettings.IsProduction is set (see SystemSettingsController) -- in Test mode this
+    // resolves to "today," i.e. no real restriction, so development/QA isn't blocked by a
+    // policy meant for live data.
+    const int MinRetentionDays = 90;
+    async Task<(bool IsProduction, DateTime MaxAllowedBeforeDate)> GetRetentionFloorAsync()
+    {
+        var isProd = (await db.SystemSettings.AsNoTracking().SingleOrDefaultAsync(s => s.Id == 1))?.IsProduction ?? false;
+        var floor = isProd ? DateTime.UtcNow.Date.AddDays(-MinRetentionDays) : DateTime.UtcNow.Date;
+        return (isProd, floor);
+    }
+
+    // Snapshots every row a Clear action is about to remove into LogArchive before it's
+    // deleted -- same DbContext, same SaveChangesAsync call as the delete right after this
+    // returns, so archive-write and delete succeed or fail together. Recovery from a mistake
+    // is then "download/restore this archive row," not "restore the whole database."
+    void Archive<T>(string logType, DateTime beforeDate, List<T> rows)
+    {
+        db.LogArchives.Add(new LogArchive
+        {
+            LogType = logType,
+            BeforeDate = beforeDate,
+            EntryCount = rows.Count,
+            ContentJson = JsonSerializer.Serialize(rows),
+            ClearedByUserName = User.Identity?.Name,
+            ClearedAt = DateTime.UtcNow
+        });
+    }
 
     public IActionResult Index() => RedirectToAction(nameof(RoutingLog));
 
@@ -116,42 +150,58 @@ public sealed class CockpitController(UnifiedDbContext db) : Controller
     [HttpGet]
     public async Task<IActionResult> ClearRoutingLog(DateTime? beforeDate)
     {
-        if (beforeDate is null) return View(new ClearLogsResult { LogType = "Routing Log" });
+        var (isProd, floor) = await GetRetentionFloorAsync();
+        if (beforeDate is null) return View(new ClearLogsResult { LogType = "Routing Log", MaxAllowedBeforeDate = floor, IsProduction = isProd });
         var count = await db.RoutingLog.CountAsync(r => r.CreatedAt < beforeDate.Value);
-        return View(new ClearLogsResult { LogType = "Routing Log", BeforeDate = beforeDate.Value, MatchingCount = count });
+        return View(new ClearLogsResult { LogType = "Routing Log", BeforeDate = beforeDate.Value, MatchingCount = count, MaxAllowedBeforeDate = floor, IsProduction = isProd });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ClearRoutingLogConfirmed(DateTime beforeDate)
     {
-        var toDelete = db.RoutingLog.Where(r => r.CreatedAt < beforeDate);
-        var count = await toDelete.CountAsync();
-        db.RoutingLog.RemoveRange(toDelete);
-        db.AuditLogs.Add(new AuditLog { ActionCode = "RoutingLogCleared", DetailsJson = $"{{\"beforeDate\":\"{beforeDate:O}\",\"rowsDeleted\":{count}}}", CreatedAt = DateTime.UtcNow });
+        // Re-checked here, not just in the view -- a POST can be replayed/forged independent
+        // of what the confirm page showed.
+        var (_, floor) = await GetRetentionFloorAsync();
+        if (beforeDate > floor)
+        {
+            TempData["Error"] = $"Entries newer than {MinRetentionDays} days can't be cleared (minimum retention policy).";
+            return RedirectToAction(nameof(ClearRoutingLog));
+        }
+        var rows = await db.RoutingLog.Where(r => r.CreatedAt < beforeDate).ToListAsync();
+        Archive("RoutingLog", beforeDate, rows);
+        db.RoutingLog.RemoveRange(rows);
+        db.AuditLogs.Add(new AuditLog { ActionCode = "RoutingLogCleared", DetailsJson = $"{{\"beforeDate\":\"{beforeDate:O}\",\"rowsDeleted\":{rows.Count}}}", CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
-        TempData["Success"] = $"Cleared {count} routing log entries older than {beforeDate:dd MMM yyyy}.";
+        TempData["Success"] = $"Cleared {rows.Count} routing log entries older than {beforeDate:dd MMM yyyy} (archived first -- see Archived Clears).";
         return RedirectToAction(nameof(RoutingLog));
     }
 
     [HttpGet]
     public async Task<IActionResult> ClearAuditLog(DateTime? beforeDate)
     {
-        if (beforeDate is null) return View(new ClearLogsResult { LogType = "Audit Log" });
+        var (isProd, floor) = await GetRetentionFloorAsync();
+        if (beforeDate is null) return View(new ClearLogsResult { LogType = "Audit Log", MaxAllowedBeforeDate = floor, IsProduction = isProd });
         var count = await db.AuditLogs.CountAsync(a => a.CreatedAt < beforeDate.Value);
-        return View(new ClearLogsResult { LogType = "Audit Log", BeforeDate = beforeDate.Value, MatchingCount = count });
+        return View(new ClearLogsResult { LogType = "Audit Log", BeforeDate = beforeDate.Value, MatchingCount = count, MaxAllowedBeforeDate = floor, IsProduction = isProd });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ClearAuditLogConfirmed(DateTime beforeDate)
     {
-        var toDelete = db.AuditLogs.Where(a => a.CreatedAt < beforeDate);
-        var count = await toDelete.CountAsync();
-        db.AuditLogs.RemoveRange(toDelete);
-        db.AuditLogs.Add(new AuditLog { ActionCode = "AuditLogCleared", DetailsJson = $"{{\"beforeDate\":\"{beforeDate:O}\",\"rowsDeleted\":{count}}}", CreatedAt = DateTime.UtcNow });
+        var (_, floor) = await GetRetentionFloorAsync();
+        if (beforeDate > floor)
+        {
+            TempData["Error"] = $"Entries newer than {MinRetentionDays} days can't be cleared (minimum retention policy).";
+            return RedirectToAction(nameof(ClearAuditLog));
+        }
+        var rows = await db.AuditLogs.Where(a => a.CreatedAt < beforeDate).ToListAsync();
+        Archive("AuditLog", beforeDate, rows);
+        db.AuditLogs.RemoveRange(rows);
+        db.AuditLogs.Add(new AuditLog { ActionCode = "AuditLogCleared", DetailsJson = $"{{\"beforeDate\":\"{beforeDate:O}\",\"rowsDeleted\":{rows.Count}}}", CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
-        TempData["Success"] = $"Cleared {count} audit log entries older than {beforeDate:dd MMM yyyy}.";
+        TempData["Success"] = $"Cleared {rows.Count} audit log entries older than {beforeDate:dd MMM yyyy} (archived first -- see Archived Clears).";
         return RedirectToAction(nameof(AuditLog));
     }
 
@@ -201,21 +251,28 @@ public sealed class CockpitController(UnifiedDbContext db) : Controller
     [HttpGet]
     public async Task<IActionResult> ClearApiRequestLog(DateTime? beforeDate)
     {
-        if (beforeDate is null) return View(new ClearLogsResult { LogType = "API Request Log" });
+        var (isProd, floor) = await GetRetentionFloorAsync();
+        if (beforeDate is null) return View(new ClearLogsResult { LogType = "API Request Log", MaxAllowedBeforeDate = floor, IsProduction = isProd });
         var count = await db.ApiRequestLog.CountAsync(r => r.CreatedAt < beforeDate.Value);
-        return View(new ClearLogsResult { LogType = "API Request Log", BeforeDate = beforeDate.Value, MatchingCount = count });
+        return View(new ClearLogsResult { LogType = "API Request Log", BeforeDate = beforeDate.Value, MatchingCount = count, MaxAllowedBeforeDate = floor, IsProduction = isProd });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ClearApiRequestLogConfirmed(DateTime beforeDate)
     {
-        var toDelete = db.ApiRequestLog.Where(r => r.CreatedAt < beforeDate);
-        var count = await toDelete.CountAsync();
-        db.ApiRequestLog.RemoveRange(toDelete);
-        db.AuditLogs.Add(new AuditLog { ActionCode = "ApiRequestLogCleared", DetailsJson = $"{{\"beforeDate\":\"{beforeDate:O}\",\"rowsDeleted\":{count}}}", CreatedAt = DateTime.UtcNow });
+        var (_, floor) = await GetRetentionFloorAsync();
+        if (beforeDate > floor)
+        {
+            TempData["Error"] = $"Entries newer than {MinRetentionDays} days can't be cleared (minimum retention policy).";
+            return RedirectToAction(nameof(ClearApiRequestLog));
+        }
+        var rows = await db.ApiRequestLog.Where(r => r.CreatedAt < beforeDate).ToListAsync();
+        Archive("ApiRequestLog", beforeDate, rows);
+        db.ApiRequestLog.RemoveRange(rows);
+        db.AuditLogs.Add(new AuditLog { ActionCode = "ApiRequestLogCleared", DetailsJson = $"{{\"beforeDate\":\"{beforeDate:O}\",\"rowsDeleted\":{rows.Count}}}", CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
-        TempData["Success"] = $"Cleared {count} API request log entries older than {beforeDate:dd MMM yyyy}.";
+        TempData["Success"] = $"Cleared {rows.Count} API request log entries older than {beforeDate:dd MMM yyyy} (archived first -- see Archived Clears).";
         return RedirectToAction(nameof(ApiRequestLog));
     }
 
@@ -274,21 +331,69 @@ public sealed class CockpitController(UnifiedDbContext db) : Controller
     [HttpGet]
     public async Task<IActionResult> ClearDigestLog(DateTime? beforeDate)
     {
-        if (beforeDate is null) return View(new ClearLogsResult { LogType = "Digest Log" });
+        var (isProd, floor) = await GetRetentionFloorAsync();
+        if (beforeDate is null) return View(new ClearLogsResult { LogType = "Digest Log", MaxAllowedBeforeDate = floor, IsProduction = isProd });
         var count = await db.DigestRuns.CountAsync(r => r.RunAtUtc < beforeDate.Value);
-        return View(new ClearLogsResult { LogType = "Digest Log", BeforeDate = beforeDate.Value, MatchingCount = count });
+        return View(new ClearLogsResult { LogType = "Digest Log", BeforeDate = beforeDate.Value, MatchingCount = count, MaxAllowedBeforeDate = floor, IsProduction = isProd });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ClearDigestLogConfirmed(DateTime beforeDate)
     {
-        var runIds = await db.DigestRuns.Where(r => r.RunAtUtc < beforeDate).Select(r => r.Id).ToListAsync();
-        db.DigestRunRecipients.RemoveRange(db.DigestRunRecipients.Where(r => runIds.Contains(r.DigestRunId)));
-        db.DigestRuns.RemoveRange(db.DigestRuns.Where(r => runIds.Contains(r.Id)));
-        db.AuditLogs.Add(new AuditLog { ActionCode = "DigestLogCleared", DetailsJson = $"{{\"beforeDate\":\"{beforeDate:O}\",\"rowsDeleted\":{runIds.Count}}}", CreatedAt = DateTime.UtcNow });
+        var (_, floor) = await GetRetentionFloorAsync();
+        if (beforeDate > floor)
+        {
+            TempData["Error"] = $"Entries newer than {MinRetentionDays} days can't be cleared (minimum retention policy).";
+            return RedirectToAction(nameof(ClearDigestLog));
+        }
+        var runs = await db.DigestRuns.Where(r => r.RunAtUtc < beforeDate).ToListAsync();
+        var runIds = runs.Select(r => r.Id).ToList();
+        var recipients = await db.DigestRunRecipients.Where(r => runIds.Contains(r.DigestRunId)).ToListAsync();
+        // Both tables archived together as one snapshot -- a restored run without its
+        // recipients (or vice versa) isn't useful evidence of what was actually sent.
+        Archive("DigestLog", beforeDate, new List<object> { new { Runs = runs, Recipients = recipients } });
+        db.DigestRunRecipients.RemoveRange(recipients);
+        db.DigestRuns.RemoveRange(runs);
+        db.AuditLogs.Add(new AuditLog { ActionCode = "DigestLogCleared", DetailsJson = $"{{\"beforeDate\":\"{beforeDate:O}\",\"rowsDeleted\":{runs.Count}}}", CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
-        TempData["Success"] = $"Cleared {runIds.Count} digest run(s) older than {beforeDate:dd MMM yyyy}.";
+        TempData["Success"] = $"Cleared {runs.Count} digest run(s) older than {beforeDate:dd MMM yyyy} (archived first -- see Archived Clears).";
         return RedirectToAction(nameof(DigestLog));
+    }
+
+    // ---------- Archived Clears (recovery copies written by every Clear action above) ----------
+
+    IQueryable<LogArchive> LogArchiveQuery(LogArchiveFilter filter)
+    {
+        var query = db.LogArchives.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(filter.LogType)) query = query.Where(a => a.LogType == filter.LogType);
+
+        var desc = filter.Dir != "asc";
+        return filter.Sort switch
+        {
+            "LogType" => desc ? query.OrderByDescending(a => a.LogType) : query.OrderBy(a => a.LogType),
+            "EntryCount" => desc ? query.OrderByDescending(a => a.EntryCount) : query.OrderBy(a => a.EntryCount),
+            "ClearedBy" => desc ? query.OrderByDescending(a => a.ClearedByUserName) : query.OrderBy(a => a.ClearedByUserName),
+            _ => desc ? query.OrderByDescending(a => a.ClearedAt) : query.OrderBy(a => a.ClearedAt)
+        };
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ArchivedClears(LogArchiveFilter filter)
+    {
+        var query = LogArchiveQuery(filter);
+        ViewBag.Filter = filter;
+        ViewBag.TotalCount = await query.CountAsync();
+        ViewBag.PageSize = PageSize;
+        return View(await query.Take(PageSize).ToListAsync());
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DownloadLogArchive(long id)
+    {
+        var archive = await db.LogArchives.AsNoTracking().SingleOrDefaultAsync(a => a.Id == id);
+        if (archive is null) return NotFound();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(archive.ContentJson);
+        return File(bytes, "application/json", $"{archive.LogType}-archive-{archive.ClearedAt:yyyyMMdd-HHmmss}.json");
     }
 }

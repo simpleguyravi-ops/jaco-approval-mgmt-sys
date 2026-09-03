@@ -1,6 +1,8 @@
+using System.Text;
 using System.Text.Json;
 using JACO.Unified.Core.Models;
 using JACO.Unified.Infrastructure;
+using JACO.Unified.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +16,7 @@ namespace JACO.Unified.Web.Controllers;
 // which is the right lifetime for a one-time reveal (a page refresh loses it, same as any
 // "copy this now" credential screen).
 [Authorize(Policy = "UnifiedAdmin")]
-public sealed class ApiClientsController(UnifiedDbContext db, RequestService requests) : Controller
+public sealed class ApiClientsController(UnifiedDbContext db, RequestService requests, IConfiguration config) : Controller
 {
     [HttpGet]
     public async Task<IActionResult> Index()
@@ -127,23 +129,29 @@ public sealed class ApiClientsController(UnifiedDbContext db, RequestService req
             ["approvalTypeCode"] = selectedType.Code,
             ["subject"] = "Short summary of the request",
             ["externalReference"] = "Your own reference, e.g. an SAP document number",
-            ["data"] = fields.ToDictionary(f => f.FieldKey, f => (object?)ExampleValue(f))
+            ["data"] = fields.ToDictionary(f => f.FieldKey, f => (object?)ApiSpecGenerator.ExampleValue(f))
         };
         ViewBag.ExampleJson = JsonSerializer.Serialize(example, new JsonSerializerOptions { WriteIndented = true });
 
         return View(fields);
     }
 
-    static object ExampleValue(ApprovalFieldSchema f)
+    // Everything a 3rd-party IT team needs to build against this Approval Type's API --
+    // endpoints, auth/rate-limit/error contract, the live field schema, and worked
+    // request/response examples -- as one self-contained Markdown file, generated fresh from
+    // the same WorkflowFields source the Reference page and the API itself read. No separate
+    // hand-maintained spec to fall out of date: whoever needs it downloads a current copy.
+    [HttpGet]
+    public async Task<IActionResult> DownloadApiSpec(int approvalTypeId)
     {
-        if (f.AllowedValues.Count > 0) return f.AllowedValues[0];
-        return f.DataType switch
-        {
-            FieldDataType.Number => 1,
-            FieldDataType.Currency => 100.00,
-            FieldDataType.Date => DateTime.UtcNow.ToString("yyyy-MM-dd"),
-            FieldDataType.TextArea => $"{f.Label} text",
-            _ => f.Label
-        };
+        var type = await db.ApprovalTypes.SingleOrDefaultAsync(t => t.Id == approvalTypeId && t.Active);
+        if (type is null) return NotFound();
+
+        var fields = await requests.GetFieldSchemaAsync(approvalTypeId);
+        var baseUrl = (config["AppBaseUrl"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
+        var markdown = ApiSpecGenerator.BuildMarkdown(type, fields, baseUrl);
+
+        var bytes = Encoding.UTF8.GetBytes(markdown);
+        return File(bytes, "text/markdown", $"JAMS-API-Spec-{type.Code}-{DateTime.UtcNow:yyyyMMdd}.md");
     }
 }

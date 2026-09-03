@@ -376,6 +376,35 @@ public sealed class DigestRunRecipient
     public string? ErrorMessage { get; set; }
 }
 
+// Single-row (Id=1) environment flag an admin sets explicitly before go-live. Compliance
+// guardrails that would otherwise get in the way of routine development/QA on this same
+// database (currently: the Clear Log minimum-retention floor -- see CockpitController) only
+// apply when this is Production. Defaults to Test (see the seed in 010_AddSystemSettings.sql)
+// so nothing is newly blocked until an admin deliberately flips it.
+public sealed class SystemSettings
+{
+    public int Id { get; set; } = 1;
+    public bool IsProduction { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public string? UpdatedByUserName { get; set; }
+}
+
+// One row per "Clear <Log>" action -- a full snapshot of every row it removed, written in
+// the SAME transaction as the delete. A "Clear Old Entries" action stays hard-delete against
+// the live table (that's the point -- keep it small/fast to query), but a mistaken date or a
+// wrong log picked by the admin is recoverable from here (or its downloadable export)
+// instead of requiring a full database point-in-time restore.
+public sealed class LogArchive
+{
+    public long Id { get; set; }
+    public string LogType { get; set; } = ""; // "RoutingLog","AuditLog","ApiRequestLog","DigestLog"
+    public DateTime BeforeDate { get; set; }
+    public int EntryCount { get; set; }
+    public string ContentJson { get; set; } = "";
+    public string? ClearedByUserName { get; set; }
+    public DateTime ClearedAt { get; set; }
+}
+
 public sealed class RoutingLogEntry
 {
     public long Id { get; set; }

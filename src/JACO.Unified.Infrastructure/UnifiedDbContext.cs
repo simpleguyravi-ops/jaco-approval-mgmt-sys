@@ -32,6 +32,8 @@ public sealed class UnifiedDbContext(DbContextOptions<UnifiedDbContext> options)
     public DbSet<DigestSchedule> DigestSchedules => Set<DigestSchedule>();
     public DbSet<DigestRun> DigestRuns => Set<DigestRun>();
     public DbSet<DigestRunRecipient> DigestRunRecipients => Set<DigestRunRecipient>();
+    public DbSet<LogArchive> LogArchives => Set<LogArchive>();
+    public DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

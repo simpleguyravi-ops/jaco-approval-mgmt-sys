@@ -334,6 +334,21 @@ public sealed class ClearLogsResult
     public string LogType { get; set; } = "";
     public DateTime? BeforeDate { get; set; }
     public int MatchingCount { get; set; }
+    // Compliance floor -- see CockpitController.GetRetentionFloorAsync. Entries newer than
+    // this can't be cleared regardless of what an admin types, so a mis-picked date can't
+    // wipe active/recent data in one click. Only actually restrictive when IsProduction is
+    // true (see SystemSettings) -- in Test mode MaxAllowedBeforeDate is "today," i.e. no
+    // real restriction.
+    public DateTime MaxAllowedBeforeDate { get; set; }
+    public bool IsProduction { get; set; }
+    public bool ExceedsMinRetention => BeforeDate is not null && BeforeDate.Value > MaxAllowedBeforeDate;
+}
+
+public sealed class LogArchiveFilter
+{
+    public string? LogType { get; set; }
+    public string? Sort { get; set; }
+    public string Dir { get; set; } = "desc";
 }
 
 public sealed class ReassignEditViewModel
