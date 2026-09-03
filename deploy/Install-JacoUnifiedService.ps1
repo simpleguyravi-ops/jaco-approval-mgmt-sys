@@ -1,7 +1,7 @@
 #Requires -RunAsAdministrator
 <#
     Installs JACO-Unified as a Windows Service. Run from an elevated PowerShell prompt
-    after Phase 3's dotnet publish + appsettings.json edit (DEPLOYMENT_RUNBOOK.md Phase 5).
+    after Phase 3's dotnet publish + appsettings.json edit (DEPLOYMENT_RUNBOOK.md Phase 4).
     Safe to re-run: an existing "JACO-Unified" service is stopped and replaced.
 #>
 

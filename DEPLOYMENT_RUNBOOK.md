@@ -235,9 +235,10 @@ Checklist:
   file with real field data.
 - [ ] **Cockpit → Clear Routing Log**: clear a small batch, confirm it appears under
   **Archived Clears** with a working Download link.
-- [ ] Run the relevant sections of [TEST_CASES.md](TEST_CASES.md) — this is the project's
-  standing regression checklist; a new environment deserves the same discipline as a code
-  change.
+- [ ] If you have access to the dev team's `TEST_CASES.md` regression checklist (it lives
+  outside this repo, alongside the other JACO apps' source — not something a fresh clone of
+  *this* repo brings with it), run its Unified-relevant sections; a new environment deserves
+  the same discipline as a code change.
 
 **Only after UAT sign-off**, before real users depend on the data: **Admin → System Mode →
 Production**. This is what actually turns on the Clear-Log 90-day retention floor — it does
@@ -258,3 +259,74 @@ Same phases, verbatim, with these substitutions:
 TLS/SSL termination is explicitly out of scope for this app (handled at the production
 reverse proxy, per the security review already done on this codebase) — nothing in Phases
 1–5 changes for that; only `AppBaseUrl` needs to reflect the real public URL once it's live.
+
+---
+
+## Phase 7 — Applying a later code change (once QA/Prod is already stood up)
+
+Phases 0–6 are the one-time initial rollout. **This phase is what you repeat every time** —
+a bug fix, a new feature — needs to reach an already-running QA or Production. It's the same
+five steps every time, and it's what makes "did this exact code make it to QA" a fact you
+can check, not something you have to trust.
+
+The core idea: **a server never tracks a moving branch.** `master` keeps moving as work
+continues on dev; QA/Prod only ever move to a specific, named **tag** you deliberately created
+after testing a change — so a still-in-progress commit on dev can never accidentally end up
+running somewhere real, and rolling back is always "go to the previous tag," never "guess
+which commit was the last good one."
+
+### On dev, after a change is built and verified locally
+
+```powershell
+cd C:\JACO\JACO-Unified
+git add -A
+git commit -m "Describe what changed and why"
+git push origin master
+```
+
+Tag the exact commit you just pushed — the tag name is just a date, or a date plus a short
+label if you're shipping more than once in a day:
+
+```powershell
+git tag -a qa-2026-09-05 -m "One-line summary of what's in this checkpoint"
+git push origin qa-2026-09-05
+```
+
+(For a Production release later, use a `prod-YYYY-MM-DD` tag instead — same commands,
+different prefix. A tag never has to be the same commit as the last QA tag; Production
+promotes whatever QA actually signed off on.)
+
+### On the target server (QA or Production), to apply it
+
+```powershell
+# 1. Stop the running service
+Stop-Service JACO-Unified
+
+# 2. Move the checkout to the new tag (fetches new commits/tags first)
+cd C:\JACO\JACO-Unified
+git fetch --all --tags
+git checkout qa-2026-09-05
+
+# 3. Apply any new migration scripts -- check Database/ for files numbered higher than the
+#    last one you ran here; run only the new ones, in order, same as Phase 2 (skip
+#    002_SeedCR.sql, as always)
+sqlcmd -S "<SQL_INSTANCE>" -d JACO_Unified -E -i Database\0NN_WhicheverIsNew.sql
+
+# 4. Republish over the same folder (appsettings.json in this folder is untouched by
+#    publish -- it's not part of the repo, see Phase 3)
+dotnet publish src\JACO.Unified.Web\JACO.Unified.Web.csproj -c Release -o C:\JACO\_services\Unified
+
+# 5. Restart
+Start-Service JACO-Unified
+```
+
+Then re-run the relevant slice of Phase 5's smoke-test checklist — at minimum, confirm the
+login page loads and the specific thing that changed actually works.
+
+**Rollback**, if something's wrong: same five steps, `git checkout` the *previous* tag
+instead of the new one, republish, restart. No guessing which commit to go back to — the
+previous tag already names it.
+
+**If GitHub Desktop is more comfortable than the CLI:** step 2's `git fetch`/`checkout` can
+be done there instead — Fetch origin, then History → find the tag → right-click → "Checkout".
+Steps 1, 3, 4, 5 are the same either way; they aren't Git operations.
