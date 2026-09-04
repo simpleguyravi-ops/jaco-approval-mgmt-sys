@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using JACO.Unified.Core.Models;
 using JACO.Unified.Infrastructure;
@@ -138,9 +137,11 @@ public sealed class ApiClientsController(UnifiedDbContext db, RequestService req
 
     // Everything a 3rd-party IT team needs to build against this Approval Type's API --
     // endpoints, auth/rate-limit/error contract, the live field schema, and worked
-    // request/response examples -- as one self-contained Markdown file, generated fresh from
+    // request/response examples -- as one self-contained Word document, generated fresh from
     // the same WorkflowFields source the Reference page and the API itself read. No separate
     // hand-maintained spec to fall out of date: whoever needs it downloads a current copy.
+    // ApiSpecGenerator.BuildDocx and BuildMarkdown both render the same section list
+    // (BuildSections), so this is never a second copy of the content to keep in sync.
     [HttpGet]
     public async Task<IActionResult> DownloadApiSpec(int approvalTypeId)
     {
@@ -149,9 +150,8 @@ public sealed class ApiClientsController(UnifiedDbContext db, RequestService req
 
         var fields = await requests.GetFieldSchemaAsync(approvalTypeId);
         var baseUrl = (config["AppBaseUrl"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
-        var markdown = ApiSpecGenerator.BuildMarkdown(type, fields, baseUrl);
+        var bytes = ApiSpecGenerator.BuildDocx(type, fields, baseUrl);
 
-        var bytes = Encoding.UTF8.GetBytes(markdown);
-        return File(bytes, "text/markdown", $"JAMS-API-Spec-{type.Code}-{DateTime.UtcNow:yyyyMMdd}.md");
+        return File(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", $"JAMS-API-Spec-{type.Code}-{DateTime.UtcNow:yyyyMMdd}.docx");
     }
 }
