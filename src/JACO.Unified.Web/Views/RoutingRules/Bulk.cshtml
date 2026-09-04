@@ -71,7 +71,7 @@
 .picker { position: relative; max-width: 300px; }
 .picker input { width: 100%; padding: 7px 10px; border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); font-size: 12px; font-family: inherit; }
 .picker input:focus { outline: none; border-color: var(--jaco-orange-600); box-shadow: 0 0 0 3px rgba(242,96,12,.12); }
-.picker-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); box-shadow: 0 8px 20px rgba(16,24,40,.12); max-height: 200px; overflow-y: auto; z-index: 20; display: none; }
+.picker-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); box-shadow: 0 8px 20px rgba(16,24,40,.12); max-height: 200px; overflow-y: auto; z-index: 40; display: none; }
 .picker.open .picker-list { display: block; }
 .picker-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--jaco-text-muted); padding: 7px 10px 3px; }
 .picker-option { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; }
@@ -133,12 +133,12 @@ function populateFieldSelect(sel, selected) {
 const splitFieldSelect = document.getElementById('splitField');
 populateFieldSelect(splitFieldSelect, FIELDS[0]?.key);
 splitFieldSelect.addEventListener('change', () => {
-    if (groups.length > 0 && !confirm('Changing the split field clears the values you already added below. Continue?')) {
-        populateFieldSelect(splitFieldSelect, splitFieldSelect.dataset.prev);
-        return;
-    }
-    groups.length = 0;
-    renderAll();
+    if (groups.length === 0) { renderAll(); return; }
+    window.jacoConfirm('Changing the split field clears the values you already added below. Continue?').then(ok => {
+        if (!ok) { populateFieldSelect(splitFieldSelect, splitFieldSelect.dataset.prev); return; }
+        groups.length = 0;
+        renderAll();
+    });
 });
 splitFieldSelect.addEventListener('focus', () => { splitFieldSelect.dataset.prev = splitFieldSelect.value; });
 
@@ -251,10 +251,14 @@ function attachPickers() {
         input.addEventListener('focus', () => { root.classList.add('open'); renderPickerList(root, levelId); });
         input.addEventListener('input', () => renderPickerList(root, levelId));
     });
-    document.addEventListener('click', (e) => {
-        document.querySelectorAll('.picker.open').forEach(p => { if (!p.contains(e.target)) p.classList.remove('open'); });
-    }, { once: true });
 }
+// Registered once, outside renderAll()/attachPickers() -- those run on every add/remove of a
+// value, level, or band, and a listener re-added there each time (previously as a `{once:true}`
+// document listener) got consumed by the first outside click after the last render, leaving
+// later-opened pickers with no close-on-outside-click handler at all.
+document.addEventListener('click', (e) => {
+    document.querySelectorAll('.picker.open').forEach(p => { if (!p.contains(e.target)) p.classList.remove('open'); });
+});
 
 function renderChips(levelId) {
     const row = document.querySelector(`[data-chips="${levelId}"]`);

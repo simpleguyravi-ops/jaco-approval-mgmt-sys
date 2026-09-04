@@ -81,6 +81,9 @@ public sealed class CriteriaFormRow
     public string FieldKey { get; set; } = "";
     public string Operator { get; set; } = "=";
     public string ComparisonValue { get; set; } = "";
+    // How this row joins with the one before it -- "AND" or "OR". Ignored for whichever row
+    // ends up first (see RoutingService.GroupByPrecedence).
+    public string LogicalOperator { get; set; } = "AND";
 }
 
 public sealed class RoutingRuleListItem

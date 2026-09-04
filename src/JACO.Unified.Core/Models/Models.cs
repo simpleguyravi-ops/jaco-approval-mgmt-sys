@@ -152,6 +152,10 @@ public sealed class RoutingRuleCriteria
     public string Operator { get; set; } = "=";
     public string ComparisonValue { get; set; } = "";
     public int SortOrder { get; set; }
+    // How this row joins with the one before it in SortOrder ("AND" or "OR") -- meaningless
+    // on whichever row is first, since nothing precedes it. See RoutingService.GroupByPrecedence
+    // for how a rule's criteria are evaluated with standard AND-before-OR precedence.
+    public string LogicalOperator { get; set; } = "AND";
 }
 
 public sealed class WorkflowStep

@@ -31,7 +31,7 @@ public sealed class RoutingService(UnifiedDbContext db)
         foreach (var rule in rules)
         {
             var criteria = await db.RoutingRuleCriteria.Where(c => c.RoutingRuleId == rule.Id).ToListAsync();
-            if (criteria.All(c => Evaluate(c, routingContext)))
+            if (EvaluateAll(criteria, routingContext))
             {
                 var steps = await db.WorkflowSteps.Where(s => s.RoutingRuleId == rule.Id).OrderBy(s => s.LevelNo).ToListAsync();
                 if (steps.Count == 0)
@@ -50,6 +50,30 @@ public sealed class RoutingService(UnifiedDbContext db)
         }
 
         return new RouteResult(false, "NoRuleMatched", "No routing rule's criteria matched the submitted data.", null, version.Id, null, new());
+    }
+
+    // Splits a rule's criteria into OR-separated groups of consecutive AND-joined rows,
+    // ordered by SortOrder -- i.e. standard "AND binds tighter than OR" precedence, so
+    // "A OR B AND C" groups as [A], [B, C] (meaning A OR (B AND C)), never (A OR B) AND C.
+    // A row's LogicalOperator is only consulted from the second row onward; the first row of
+    // a rule (and the first row of any new group) always starts a fresh group regardless of
+    // what its own LogicalOperator happens to be.
+    public static List<List<RoutingRuleCriteria>> GroupByPrecedence(IEnumerable<RoutingRuleCriteria> criteria)
+    {
+        var groups = new List<List<RoutingRuleCriteria>>();
+        foreach (var c in criteria.OrderBy(c => c.SortOrder))
+        {
+            if (groups.Count == 0 || string.Equals(c.LogicalOperator, "OR", StringComparison.OrdinalIgnoreCase))
+                groups.Add([]);
+            groups[^1].Add(c);
+        }
+        return groups;
+    }
+
+    public static bool EvaluateAll(IEnumerable<RoutingRuleCriteria> criteria, Dictionary<string, JsonElement> context)
+    {
+        var groups = GroupByPrecedence(criteria);
+        return groups.Count == 0 || groups.Any(g => g.All(c => Evaluate(c, context)));
     }
 
     public static bool Evaluate(RoutingRuleCriteria criteria, Dictionary<string, JsonElement> context)

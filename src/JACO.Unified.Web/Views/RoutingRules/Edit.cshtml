@@ -29,8 +29,8 @@
         </div>
     </div>
 
-    <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;">
-        <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:10px;">Criteria (all must match)</label>
+    <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;" id="criteriaCard">
+        <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:10px;">Criteria</label>
         <datalist id="fieldKeyOptions">
             @foreach (var f in Model.AvailableFields)
             {
@@ -40,18 +40,36 @@
         <div class="jaco-criteria-header"><div>FIELD</div><div>OPERATOR</div><div>VALUE</div></div>
         @for (var i = 0; i < Model.Criteria.Count; i++)
         {
-            <div class="criteria-row jaco-criteria-row" data-row="@i">
-                <input name="criteriaFieldKey" class="jaco-input" style="margin:0;" list="fieldKeyOptions" value="@Model.Criteria[i].FieldKey" placeholder="e.g. department" />
-                <select name="criteriaOperator" class="jaco-select">
-                    @foreach (var op in RoutingRulesController.Operators)
-                    {
-                        <option value="@op" selected="@(Model.Criteria[i].Operator == op)">@op</option>
-                    }
-                </select>
-                <input name="criteriaValue" class="jaco-input" style="margin:0;" value="@Model.Criteria[i].ComparisonValue" placeholder="e.g. IT" />
+            <div class="criteria-row" data-row="@i">
+                @if (i > 0)
+                {
+                    <select name="criteriaLogicalOperator" class="jaco-select criteria-join-select" title="How this condition joins the one(s) before it">
+                        <option value="AND" selected="@(Model.Criteria[i].LogicalOperator != "OR")">AND</option>
+                        <option value="OR" selected="@(Model.Criteria[i].LogicalOperator == "OR")">OR</option>
+                    </select>
+                }
+                <div class="jaco-criteria-row" style="margin:0;flex:1;">
+                    <input name="criteriaFieldKey" class="jaco-input" style="margin:0;" list="fieldKeyOptions" value="@Model.Criteria[i].FieldKey" placeholder="e.g. department" />
+                    <select name="criteriaOperator" class="jaco-select">
+                        @foreach (var op in RoutingRulesController.Operators)
+                        {
+                            <option value="@op" selected="@(Model.Criteria[i].Operator == op)">@op</option>
+                        }
+                    </select>
+                    <input name="criteriaValue" class="jaco-input" style="margin:0;" value="@Model.Criteria[i].ComparisonValue" placeholder="e.g. IT" />
+                </div>
+                <span class="criteria-match-indicator" data-row="@i" title="Matches the sample values below?"></span>
             </div>
         }
         <button type="button" id="addCriteriaBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm" style="margin-top:4px;">+ Add Condition</button>
+        <div id="criteriaPreview" class="criteria-preview"></div>
+    </div>
+
+    <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;">
+        <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:4px;">Test This Rule</label>
+        <p style="font-size:12.5px;color:var(--jaco-text-muted);margin:0 0 10px;">Enter sample values for the fields used above to see which conditions would match before you save.</p>
+        <div id="simulatorFields" class="simulator-fields"></div>
+        <div id="simulatorResult"></div>
     </div>
 
     <div class="jaco-card jaco-card-pad">
@@ -104,6 +122,7 @@
 
 <script>
 (function () {
+    var FIELD_LABELS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AvailableFields.Select(f => new { key = f.FieldKey, label = f.FieldLabel })));
     var criteriaRows = Array.from(document.querySelectorAll('.criteria-row'));
     var levelRows = Array.from(document.querySelectorAll('.level-row'));
 
@@ -120,7 +139,129 @@
         if (criteriaVisible >= criteriaRows.length) return;
         criteriaVisible++;
         showCriteriaCount(criteriaVisible);
+        runSimulation();
     });
+
+    // ---------- Criteria preview + "Test This Rule" simulator ----------
+    // Mirrors RoutingService.GroupByPrecedence/Evaluate on the server: standard AND-before-OR
+    // precedence, so "A OR B AND C" previews (and evaluates) as "A OR (B AND C)". The operator
+    // matching here (evalCondition) is a client-side approximation of RoutingService.Evaluate
+    // meant for a quick sanity check, not a byte-for-byte reimplementation of its numeric/date
+    // parsing.
+    function fieldLabelFor(key) { var f = FIELD_LABELS.find(function (x) { return x.key === key; }); return f ? f.label : key; }
+
+    function currentCriteria() {
+        var rows = [];
+        criteriaRows.forEach(function (row) {
+            if (row.style.display === 'none') return;
+            var field = row.querySelector('[name="criteriaFieldKey"]').value.trim();
+            var val = row.querySelector('[name="criteriaValue"]').value;
+            if (!field || val === '') return;
+            var op = row.querySelector('[name="criteriaOperator"]').value;
+            var joinSelect = row.querySelector('[name="criteriaLogicalOperator"]');
+            rows.push({ index: row.getAttribute('data-row'), field: field, op: op, val: val, join: joinSelect ? joinSelect.value : 'AND' });
+        });
+        return rows;
+    }
+
+    function groupCriteria(rows) {
+        var groups = [];
+        rows.forEach(function (r) {
+            if (groups.length === 0 || r.join === 'OR') groups.push([]);
+            groups[groups.length - 1].push(r);
+        });
+        return groups;
+    }
+
+    function buildPreviewText(rows) {
+        if (rows.length === 0) return 'This rule matches any request (no conditions).';
+        var parts = groupCriteria(rows).map(function (g) {
+            var s = g.map(function (r) { return fieldLabelFor(r.field) + ' ' + r.op + ' "' + r.val + '"'; }).join(' AND ');
+            return g.length > 1 ? '(' + s + ')' : s;
+        });
+        return parts.join(' OR ');
+    }
+
+    function evalCondition(op, actual, expected) {
+        actual = actual || '';
+        switch (op) {
+            case '=': return actual.toLowerCase() === expected.toLowerCase();
+            case '!=': return actual.toLowerCase() !== expected.toLowerCase();
+            case 'CONTAINS': return actual.toLowerCase().indexOf(expected.toLowerCase()) !== -1;
+            case 'STARTSWITH': return actual.toLowerCase().indexOf(expected.toLowerCase()) === 0;
+            case 'ENDSWITH': return actual.toLowerCase().slice(-expected.length) === expected.toLowerCase();
+            case 'IN': return expected.split(',').map(function (v) { return v.trim().toLowerCase(); }).indexOf(actual.toLowerCase()) !== -1;
+            case '>': case '>=': case '<': case '<=':
+                var cmp;
+                var an = parseFloat(actual), en = parseFloat(expected);
+                if (!isNaN(an) && !isNaN(en) && actual.trim() !== '' && expected.trim() !== '') { cmp = an - en; }
+                else {
+                    var ad = Date.parse(actual), ed = Date.parse(expected);
+                    if (isNaN(ad) || isNaN(ed)) return false;
+                    cmp = ad - ed;
+                }
+                if (op === '>') return cmp > 0;
+                if (op === '>=') return cmp >= 0;
+                if (op === '<') return cmp < 0;
+                return cmp <= 0;
+            default: return false;
+        }
+    }
+
+    var sampleValues = {};
+    function renderSimulatorFields(rows) {
+        var container = document.getElementById('simulatorFields');
+        var keys = [];
+        rows.forEach(function (r) { if (keys.indexOf(r.field) === -1) keys.push(r.field); });
+        if (keys.length === 0) { container.innerHTML = '<span class="chip-empty">Add a condition above to test it here.</span>'; return; }
+        var focusedKey = document.activeElement && document.activeElement.getAttribute && document.activeElement.getAttribute('data-sim-field');
+        container.innerHTML = '';
+        keys.forEach(function (key) {
+            var wrap = document.createElement('div');
+            wrap.className = 'sim-field';
+            var label = document.createElement('label');
+            label.textContent = fieldLabelFor(key);
+            var input = document.createElement('input');
+            input.className = 'jaco-input';
+            input.setAttribute('data-sim-field', key);
+            input.value = sampleValues[key] || '';
+            input.addEventListener('input', function () { sampleValues[key] = input.value; runSimulation(); });
+            wrap.appendChild(label);
+            wrap.appendChild(input);
+            container.appendChild(wrap);
+            if (key === focusedKey) input.focus();
+        });
+    }
+
+    function runSimulation() {
+        var rows = currentCriteria();
+        document.getElementById('criteriaPreview').textContent = buildPreviewText(rows);
+        renderSimulatorFields(rows);
+
+        document.querySelectorAll('.criteria-match-indicator').forEach(function (el) { el.textContent = ''; el.className = 'criteria-match-indicator'; });
+
+        var groups = groupCriteria(rows);
+        var anyGroupTrue = groups.length === 0;
+        groups.forEach(function (g) {
+            var groupTrue = true;
+            g.forEach(function (r) {
+                var ok = evalCondition(r.op, sampleValues[r.field] || '', r.val);
+                groupTrue = groupTrue && ok;
+                var indicator = document.querySelector('.criteria-match-indicator[data-row="' + r.index + '"]');
+                if (indicator) { indicator.textContent = ok ? '✓' : '✗'; indicator.className = 'criteria-match-indicator ' + (ok ? 'match-yes' : 'match-no'); }
+            });
+            if (groupTrue) anyGroupTrue = true;
+        });
+
+        var resultEl = document.getElementById('simulatorResult');
+        resultEl.innerHTML = rows.length === 0 ? '' : (anyGroupTrue
+            ? '<span class="sim-verdict sim-match">✓ This rule WOULD match these values</span>'
+            : '<span class="sim-verdict sim-no-match">✗ This rule would NOT match these values</span>');
+    }
+
+    document.getElementById('criteriaCard').addEventListener('input', runSimulation);
+    document.getElementById('criteriaCard').addEventListener('change', runSimulation);
+    runSimulation();
 
     var levelInput = document.getElementById('levelCountInput');
     showLevelCount(parseInt(levelInput.value, 10) || 1);
@@ -195,6 +336,19 @@
 </script>
 
 <style>
+.criteria-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.criteria-join-select { width: 72px; flex-shrink: 0; }
+.criteria-match-indicator { width: 16px; flex-shrink: 0; text-align: center; font-weight: 700; }
+.criteria-match-indicator.match-yes { color: var(--jaco-success); }
+.criteria-match-indicator.match-no { color: var(--jaco-danger); }
+.criteria-preview { font-size: 12.5px; color: var(--jaco-text-muted); font-style: italic; margin-top: 10px; }
+.simulator-fields { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
+.sim-field { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+.sim-field label { font-size: 11.5px; font-weight: 600; color: var(--jaco-text-muted); }
+.sim-field input { margin: 0; }
+.sim-verdict { font-size: 13px; font-weight: 700; }
+.sim-verdict.sim-match { color: var(--jaco-success); }
+.sim-verdict.sim-no-match { color: var(--jaco-danger); }
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; align-items: center; margin-bottom: 6px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--jaco-navy-900); color: #fff; border-radius: 999px; padding: 4px 7px 4px 11px; font-size: 11.5px; font-weight: 600; }
 .chip button { all: unset; cursor: pointer; width: 15px; height: 15px; border-radius: 50%; background: rgba(255,255,255,.18); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; }

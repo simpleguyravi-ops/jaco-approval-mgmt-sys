@@ -70,7 +70,11 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
                 Priority = rule.Priority,
                 Active = rule.Active,
                 LevelCount = levelCount,
-                CriteriaSummary = criteria.Count == 0 ? "(matches any)" : string.Join(" AND ", criteria.Select(c => $"{c.FieldKey} {c.Operator} {c.ComparisonValue}"))
+                CriteriaSummary = criteria.Count == 0 ? "(matches any)" : string.Join(" OR ", RoutingService.GroupByPrecedence(criteria).Select(g =>
+                {
+                    var joined = string.Join(" AND ", g.Select(c => $"{c.FieldKey} {c.Operator} {c.ComparisonValue}"));
+                    return g.Count > 1 ? $"({joined})" : joined;
+                }))
             });
         }
         return items;
@@ -99,7 +103,7 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
             rule = await db.RoutingRules.FindAsync(ruleId.Value);
             var existingCriteria = await db.RoutingRuleCriteria.Where(c => c.RoutingRuleId == ruleId).OrderBy(c => c.SortOrder).ToListAsync();
             for (var i = 0; i < existingCriteria.Count && i < criteriaRows.Count; i++)
-                criteriaRows[i] = new CriteriaFormRow { FieldKey = existingCriteria[i].FieldKey, Operator = existingCriteria[i].Operator, ComparisonValue = existingCriteria[i].ComparisonValue };
+                criteriaRows[i] = new CriteriaFormRow { FieldKey = existingCriteria[i].FieldKey, Operator = existingCriteria[i].Operator, ComparisonValue = existingCriteria[i].ComparisonValue, LogicalOperator = existingCriteria[i].LogicalOperator };
 
             var steps = await db.WorkflowSteps.Where(s => s.RoutingRuleId == ruleId).OrderBy(s => s.LevelNo).ToListAsync();
             for (var n = 0; n < levelRows.Count; n++)
@@ -134,7 +138,7 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(int approvalTypeId, string ruleName, int priority, bool active,
-        List<string> criteriaFieldKey, List<string> criteriaOperator, List<string> criteriaValue,
+        List<string> criteriaFieldKey, List<string> criteriaOperator, List<string> criteriaValue, List<string> criteriaLogicalOperator,
         List<string> levelMode, List<int?> levelRequiredCount, [FromForm] Dictionary<string, List<int>> levelApprovers)
     {
         if (string.IsNullOrWhiteSpace(ruleName))
@@ -148,7 +152,7 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
         db.RoutingRules.Add(rule);
         await db.SaveChangesAsync();
 
-        await SaveCriteriaAndLevelsAsync(rule.Id, version.Id, criteriaFieldKey, criteriaOperator, criteriaValue, levelMode, levelRequiredCount, levelApprovers);
+        await SaveCriteriaAndLevelsAsync(rule.Id, version.Id, criteriaFieldKey, criteriaOperator, criteriaValue, criteriaLogicalOperator, levelMode, levelRequiredCount, levelApprovers);
 
         TempData["Success"] = $"Rule '{ruleName}' created.";
         return RedirectToAction(nameof(Index), new { approvalTypeId });
@@ -157,7 +161,7 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, string ruleName, int priority, bool active,
-        List<string> criteriaFieldKey, List<string> criteriaOperator, List<string> criteriaValue,
+        List<string> criteriaFieldKey, List<string> criteriaOperator, List<string> criteriaValue, List<string> criteriaLogicalOperator,
         List<string> levelMode, List<int?> levelRequiredCount, [FromForm] Dictionary<string, List<int>> levelApprovers)
     {
         var rule = await db.RoutingRules.FindAsync(id);
@@ -180,18 +184,23 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
         db.WorkflowSteps.RemoveRange(oldSteps);
         await db.SaveChangesAsync();
 
-        await SaveCriteriaAndLevelsAsync(id, rule.WorkflowVersionId, criteriaFieldKey, criteriaOperator, criteriaValue, levelMode, levelRequiredCount, levelApprovers);
+        await SaveCriteriaAndLevelsAsync(id, rule.WorkflowVersionId, criteriaFieldKey, criteriaOperator, criteriaValue, criteriaLogicalOperator, levelMode, levelRequiredCount, levelApprovers);
 
         TempData["Success"] = "Saved.";
         return RedirectToAction(nameof(Index), new { approvalTypeId = version!.ApprovalTypeId });
     }
 
-    async Task SaveCriteriaAndLevelsAsync(int ruleId, int workflowVersionId, List<string> fieldKeys, List<string> operators, List<string> values, List<string> modes, List<int?> requiredCounts, Dictionary<string, List<int>>? levelApprovers)
+    // criteriaLogicalOperator carries only the join for rows 2..N of what's actually posted
+    // (the form renders no AND/OR selector for a rule's first visible row, so the browser
+    // never submits an entry for it) -- logicalOperators[i-1] is therefore the join for
+    // fieldKeys[i], for every i > 0.
+    async Task SaveCriteriaAndLevelsAsync(int ruleId, int workflowVersionId, List<string> fieldKeys, List<string> operators, List<string> values, List<string> logicalOperators, List<string> modes, List<int?> requiredCounts, Dictionary<string, List<int>>? levelApprovers)
     {
         for (var i = 0; i < fieldKeys.Count; i++)
         {
             if (string.IsNullOrWhiteSpace(fieldKeys[i]) || string.IsNullOrWhiteSpace(values[i])) continue;
-            db.RoutingRuleCriteria.Add(new RoutingRuleCriteria { RoutingRuleId = ruleId, FieldKey = fieldKeys[i].Trim(), Operator = operators[i], ComparisonValue = values[i], SortOrder = i });
+            var logicalOperator = i == 0 ? "AND" : logicalOperators.ElementAtOrDefault(i - 1) ?? "AND";
+            db.RoutingRuleCriteria.Add(new RoutingRuleCriteria { RoutingRuleId = ruleId, FieldKey = fieldKeys[i].Trim(), Operator = operators[i], ComparisonValue = values[i], SortOrder = i, LogicalOperator = logicalOperator });
         }
 
         for (var levelNo = 1; levelNo <= modes.Count; levelNo++)
