@@ -225,7 +225,8 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(int approvalTypeId, string? subject, bool submitNow)
+    [RequestSizeLimit(52_428_800)] // 50 MB, matching UploadAttachment -- files can now be picked at Create time too
+    public async Task<IActionResult> Create(int approvalTypeId, string? subject, bool submitNow, List<IFormFile>? attachmentFiles)
     {
         var user = await CurrentUserAsync();
         if (!IsAdmin && !await requests.CanCreateAsync(user.Id, approvalTypeId))
@@ -238,7 +239,19 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
         var fields = await requests.GetFormFieldsAsync(approvalTypeId);
         var values = ReadFieldValues(Request.Form, fields);
 
+        // Attached here (the draft row now exists) rather than requiring a separate trip to
+        // Edit first -- RequestAttachment.RequestId is a required FK, so this couldn't happen
+        // any earlier in the flow.
+        var attachmentErrors = new List<string>();
+        foreach (var file in attachmentFiles ?? [])
+        {
+            if (file.Length == 0) continue;
+            var error = await SaveAttachmentAsync(draft.Id, file, user);
+            if (error is not null) attachmentErrors.Add(error);
+        }
+
         var (ok, message) = await requests.SaveFieldsAsync(draft.Id, user.Id, subject, values);
+        var attachmentSuffix = attachmentErrors.Count > 0 ? " " + string.Join(" ", attachmentErrors) : "";
         if (ok && submitNow)
         {
             var submitResult = await requests.SubmitAsync(draft.Id, user.Id);
@@ -247,7 +260,7 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
                 TempData["Error"] = submitResult.message;
                 return RedirectToAction(nameof(Edit), new { id = draft.Id });
             }
-            TempData["Success"] = "Request submitted.";
+            TempData["Success"] = "Request submitted." + attachmentSuffix;
             return RedirectToAction(nameof(Details), new { id = draft.Id });
         }
 
@@ -257,7 +270,7 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
             return RedirectToAction(nameof(Edit), new { id = draft.Id });
         }
 
-        TempData["Success"] = "Saved as draft.";
+        TempData["Success"] = "Saved as draft." + attachmentSuffix;
         return RedirectToAction(nameof(Edit), new { id = draft.Id });
     }
 
@@ -400,18 +413,25 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
         if (reqRow.CreatorUserId != user.Id && !IsAdmin) return Forbid();
         if (file.Length == 0) { TempData["Error"] = "Choose a file first."; return RedirectToAction(backTo, new { id }); }
 
+        var error = await SaveAttachmentAsync(id, file, user);
+        TempData[error is null ? "Success" : "Error"] = error ?? "Attachment uploaded.";
+        return RedirectToAction(backTo, new { id });
+    }
+
+    // Shared by UploadAttachment (an existing request) and Create (attaching files picked
+    // before the request had an Id, saved right after the draft row is created). Returns an
+    // error message, or null on success.
+    async Task<string?> SaveAttachmentAsync(long requestId, IFormFile file, AppUser user)
+    {
         var ext = Path.GetExtension(file.FileName);
         if (BlockedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
-        {
-            TempData["Error"] = $"'{ext}' files aren't allowed as attachments.";
-            return RedirectToAction(backTo, new { id });
-        }
+            return $"'{ext}' files aren't allowed as attachments.";
 
         await using var stream = file.OpenReadStream();
-        var stored = await attachments.SaveAsync(id, file.FileName, stream);
+        var stored = await attachments.SaveAsync(requestId, file.FileName, stream);
         db.RequestAttachments.Add(new RequestAttachment
         {
-            RequestId = id,
+            RequestId = requestId,
             OriginalFileName = file.FileName,
             StoredFileName = stored.StoredFileName,
             ContentType = file.ContentType,
@@ -421,8 +441,7 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
             UploadedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
-        TempData["Success"] = "Attachment uploaded.";
-        return RedirectToAction(backTo, new { id });
+        return null;
     }
 
     [HttpGet]

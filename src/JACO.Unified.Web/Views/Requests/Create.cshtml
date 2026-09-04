@@ -20,6 +20,11 @@
         </label>
         @await Html.PartialAsync("_RequestFormFields", Model)
     </section>
+    <section class="panel">
+        <h2 style="font-size:14px;">Attachments</h2>
+        <p style="color:#65727d;font-size:13px;margin-top:0;">Optional -- selected files are attached once you Save Draft or Submit.</p>
+        <input class="input" type="file" name="attachmentFiles" multiple />
+    </section>
     <div class="actions">
         <button type="submit" name="submitNow" value="false" class="btn">Save Draft</button>
         <button type="submit" name="submitNow" value="true" class="btn primary">Submit for Approval</button>
