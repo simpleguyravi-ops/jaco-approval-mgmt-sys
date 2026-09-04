@@ -61,11 +61,14 @@
                 <span class="criteria-match-indicator" data-row="@i" title="Matches the sample values below?"></span>
             </div>
         }
-        <button type="button" id="addCriteriaBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm" style="margin-top:4px;">+ Add Condition</button>
+        <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button type="button" id="addCriteriaBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm">+ Add Condition</button>
+            <button type="button" id="toggleTestBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm">Test This Rule</button>
+        </div>
         <div id="criteriaPreview" class="criteria-preview"></div>
     </div>
 
-    <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;">
+    <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;" id="testPanel" hidden>
         <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:4px;">Test This Rule</label>
         <p style="font-size:12.5px;color:var(--jaco-text-muted);margin:0 0 10px;">Enter sample values for the fields used above to see which conditions would match before you save.</p>
         <div id="simulatorFields" class="simulator-fields"></div>
@@ -233,12 +236,26 @@
         });
     }
 
+    function clearMatchIndicators() {
+        document.querySelectorAll('.criteria-match-indicator').forEach(function (el) { el.textContent = ''; el.className = 'criteria-match-indicator'; });
+    }
+
+    // The expression preview always reflects the criteria as typed -- it's just a readout of
+    // what's on the form. The sample-value simulator (fields, per-row match indicators, and
+    // verdict) only runs once the user opens "Test This Rule", so nobody sees a red "would NOT
+    // match" verdict before they've entered anything to test against.
+    var testModeOn = false;
+    var testPanel = document.getElementById('testPanel');
+    var toggleTestBtn = document.getElementById('toggleTestBtn');
+
     function runSimulation() {
         var rows = currentCriteria();
         document.getElementById('criteriaPreview').textContent = buildPreviewText(rows);
-        renderSimulatorFields(rows);
 
-        document.querySelectorAll('.criteria-match-indicator').forEach(function (el) { el.textContent = ''; el.className = 'criteria-match-indicator'; });
+        if (!testModeOn) { clearMatchIndicators(); return; }
+
+        renderSimulatorFields(rows);
+        clearMatchIndicators();
 
         var groups = groupCriteria(rows);
         var anyGroupTrue = groups.length === 0;
@@ -258,6 +275,13 @@
             ? '<span class="sim-verdict sim-match">✓ This rule WOULD match these values</span>'
             : '<span class="sim-verdict sim-no-match">✗ This rule would NOT match these values</span>');
     }
+
+    toggleTestBtn.addEventListener('click', function () {
+        testModeOn = !testModeOn;
+        testPanel.hidden = !testModeOn;
+        toggleTestBtn.textContent = testModeOn ? 'Hide Test' : 'Test This Rule';
+        runSimulation();
+    });
 
     document.getElementById('criteriaCard').addEventListener('input', runSimulation);
     document.getElementById('criteriaCard').addEventListener('change', runSimulation);
