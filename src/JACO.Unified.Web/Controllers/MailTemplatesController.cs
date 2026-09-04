@@ -1,3 +1,4 @@
+using System.Text.Json;
 using JACO.Unified.Core.Models;
 using JACO.Unified.Infrastructure;
 using JACO.Unified.Web.Models;
@@ -43,7 +44,32 @@ public sealed class MailTemplatesController(UnifiedDbContext db) : Controller
     {
         var t = await db.MailTemplates.FindAsync(id);
         if (t is null) return NotFound();
+        ViewBag.UsageWarning = await DescribeUsageAsync(id);
         return View(new MailTemplateEditViewModel { Id = t.Id, Name = t.Name, Subject = t.Subject, BodyHtml = t.BodyHtml, IsTableTemplate = t.IsTableTemplate, IsActive = t.IsActive });
+    }
+
+    // Used to warn an admin before they deactivate a template that something would actually
+    // notice going missing -- PostProcessingRule stores its target as JSON (ActionConfigJson),
+    // not a real FK column, so this has to parse each Email-type rule's config rather than
+    // query it directly; DigestSchedule.MailTemplateId is a real column.
+    async Task<string?> DescribeUsageAsync(int templateId)
+    {
+        var ruleCount = 0;
+        foreach (var r in await db.PostProcessingRules.Where(r => r.ActionType == "Email").ToListAsync())
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(r.ActionConfigJson ?? "{}");
+                if (doc.RootElement.TryGetProperty("mailTemplateId", out var t) && t.GetInt32() == templateId) ruleCount++;
+            }
+            catch { /* malformed config -- not this check's job to flag */ }
+        }
+        var digestCount = await db.DigestSchedules.CountAsync(s => s.MailTemplateId == templateId);
+
+        var parts = new List<string>();
+        if (ruleCount > 0) parts.Add($"{ruleCount} Post-Processing Rule{(ruleCount == 1 ? "" : "s")}");
+        if (digestCount > 0) parts.Add($"{digestCount} Digest Schedule{(digestCount == 1 ? "" : "s")}");
+        return parts.Count == 0 ? null : string.Join(" and ", parts);
     }
 
     // Duplicates a template as a starting point for a variant (e.g. a near-identical

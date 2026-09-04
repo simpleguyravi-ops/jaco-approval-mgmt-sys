@@ -28,14 +28,41 @@
             <div class="jaco-form-group"><label>Subject</label><input name="Subject" class="jaco-input" value="@Model.Subject" required /></div>
             <div class="jaco-form-group"><label>Body (HTML)</label><textarea name="BodyHtml" class="jaco-input" rows="10" style="font-family:monospace;font-size:12.5px;" required>@Model.BodyHtml</textarea></div>
             <div class="jaco-check-row"><input name="IsTableTemplate" type="checkbox" id="isTable" value="true" checked="@Model.IsTableTemplate" /><label for="isTable" style="margin:0;font-weight:400;">Table (digest) template &mdash; iterates a list of pending items instead of a single request</label></div>
-            <div class="jaco-check-row"><input name="IsActive" type="checkbox" id="isActive" value="true" checked="@Model.IsActive" /><label for="isActive" style="margin:0;font-weight:400;">Active</label></div>
+            @* A plain unchecked checkbox posts nothing at all -- without the hidden "false"
+               sibling, unchecking Active and saving silently left it true in the database
+               (the view model's IsActive defaults to true, and the binder never had a form
+               value to override that default with). *@
+            <div class="jaco-check-row"><input name="IsActive" type="checkbox" id="isActive" value="true" checked="@Model.IsActive" /><input type="hidden" name="IsActive" value="false" /><label for="isActive" style="margin:0;font-weight:400;">Active</label></div>
             <div style="display:flex;gap:10px;margin-top:12px;">
                 <button type="submit" formaction="~/MailTemplates/Preview" class="jaco-btn jaco-btn-outline">Preview</button>
-                <button type="submit" formaction="~/MailTemplates/Save" class="jaco-btn jaco-btn-primary">Save Template</button>
+                <button type="submit" formaction="~/MailTemplates/Save" id="saveTemplateBtn" class="jaco-btn jaco-btn-primary">Save Template</button>
                 <a class="jaco-btn jaco-btn-outline" href="~/MailTemplates">Cancel</a>
             </div>
         </div>
     </form>
+    @{ var usageWarning = (string?)ViewBag.UsageWarning; }
+    @if (Model.Id != 0 && Model.IsActive && usageWarning is not null)
+    {
+        <script>
+        // Only the Save button needs this -- Preview doesn't persist anything, so it shouldn't
+        // ever prompt. A direct click handler (rather than the shared jaco-confirm.js data-confirm
+        // attribute, which hooks ALL submits of a form regardless of which button fired it) keeps
+        // Preview un-gated while still routing through the same in-app confirm modal, never
+        // window.confirm().
+        (function () {
+            var checkbox = document.getElementById('isActive');
+            var saveBtn = document.getElementById('saveTemplateBtn');
+            var usageWarning = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(usageWarning));
+            saveBtn.addEventListener('click', function (e) {
+                if (checkbox.checked) return;
+                e.preventDefault();
+                window.jacoConfirm('This template is currently used by ' + usageWarning + '. Deactivating it may break those. Continue?').then(function (ok) {
+                    if (ok) saveBtn.closest('form').submit();
+                });
+            });
+        })();
+        </script>
+    }
 
     <div class="jaco-card jaco-card-pad">
         <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:10px;">Preview (sample data)</label>
