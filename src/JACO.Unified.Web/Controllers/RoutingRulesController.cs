@@ -244,6 +244,7 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
         ViewBag.Priority = await SuggestPriorityAsync(approvalTypeId);
         ViewBag.FieldsJson = JsonSerializer.Serialize(fields.Select(f => new { key = f.FieldKey, label = f.FieldLabel }));
         ViewBag.UsersJson = JsonSerializer.Serialize(users);
+        ViewBag.OperatorsJson = JsonSerializer.Serialize(Operators);
         return View();
     }
 

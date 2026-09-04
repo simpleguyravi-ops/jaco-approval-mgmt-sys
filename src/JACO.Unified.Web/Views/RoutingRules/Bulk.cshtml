@@ -32,6 +32,13 @@
     </div>
 </div>
 
+<div class="jaco-card jaco-card-pad" style="max-width:640px;margin-bottom:16px;">
+    <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:10px;">Additional Conditions <span style="font-weight:400;color:var(--jaco-text-muted);">(optional &mdash; applies to every rule this creates, e.g. discount % between 1 and 5)</span></label>
+    <div id="sharedCriteriaHeader" class="jaco-criteria-header" style="display:none;"><div>FIELD</div><div>OPERATOR</div><div>VALUE</div></div>
+    <div id="sharedCriteriaRows"></div>
+    <button type="button" id="addSharedCriteriaBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm" style="margin-top:4px;">+ Add Condition</button>
+</div>
+
 <div id="groups"></div>
 
 <div class="add-value-row">
@@ -60,6 +67,9 @@
 .group-title .field-name { color: var(--jaco-text-muted); font-weight: 400; }
 .remove-group { all: unset; cursor: pointer; color: var(--jaco-text-muted); font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
 .remove-group:hover { background: var(--jaco-bg); color: var(--jaco-danger); }
+.shared-criteria-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.remove-criteria { all: unset; cursor: pointer; color: var(--jaco-text-muted); font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.remove-criteria:hover { background: var(--jaco-bg); color: var(--jaco-danger); }
 .level-block { border-top: 1px solid var(--jaco-border); padding-top: 12px; margin-top: 12px; }
 .level-block:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
 .level-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--jaco-text-muted); margin: 4px 0 6px; }
@@ -102,6 +112,7 @@
 <script>
 const FIELDS = @Html.Raw(ViewBag.FieldsJson);
 const USERS = @Html.Raw(ViewBag.UsersJson);
+const OPERATORS = @Html.Raw(ViewBag.OperatorsJson);
 const APPROVAL_TYPE_ID = @approvalTypeId;
 
 let uid = 0;
@@ -110,6 +121,72 @@ const newBand = () => ({ id: 'band' + (uid++), low: null, high: null, levels: [n
 const newGroup = (value) => ({ id: 'grp' + (uid++), value, drilling: false, drillField: '', bands: [], levels: [newLevel()] });
 
 const groups = [];
+
+// ---------- shared criteria (ANDed onto every rule this generates, e.g. a discount-% range) ----------
+const newSharedCriterion = () => ({ id: 'crit' + (uid++), field: FIELDS[0]?.key || '', operator: '=', value: '' });
+const sharedCriteria = [];
+
+function renderSharedCriteria() {
+    document.getElementById('sharedCriteriaHeader').style.display = sharedCriteria.length === 0 ? 'none' : '';
+    const container = document.getElementById('sharedCriteriaRows');
+    container.innerHTML = '';
+    sharedCriteria.forEach(c => {
+        const row = document.createElement('div');
+        row.className = 'shared-criteria-row';
+
+        const grid = document.createElement('div');
+        grid.className = 'jaco-criteria-row';
+        grid.style.margin = '0';
+        grid.style.flex = '1';
+
+        const fieldSel = document.createElement('select');
+        fieldSel.className = 'jaco-select';
+        populateFieldSelect(fieldSel, c.field);
+        fieldSel.addEventListener('change', () => { c.field = fieldSel.value; });
+
+        const opSel = document.createElement('select');
+        opSel.className = 'jaco-select';
+        OPERATORS.forEach(op => {
+            const opt = document.createElement('option');
+            opt.value = op; opt.textContent = op;
+            if (op === c.operator) opt.selected = true;
+            opSel.appendChild(opt);
+        });
+        opSel.addEventListener('change', () => { c.operator = opSel.value; });
+
+        const valInput = document.createElement('input');
+        valInput.type = 'text';
+        valInput.className = 'jaco-input';
+        valInput.style.margin = '0';
+        valInput.placeholder = 'e.g. 5';
+        valInput.value = c.value;
+        valInput.addEventListener('input', () => { c.value = valInput.value; renderSummary(); });
+
+        grid.appendChild(fieldSel);
+        grid.appendChild(opSel);
+        grid.appendChild(valInput);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'remove-criteria';
+        removeBtn.title = 'Remove this condition';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.addEventListener('click', () => {
+            sharedCriteria.splice(sharedCriteria.indexOf(c), 1);
+            renderSharedCriteria();
+            renderSummary();
+        });
+
+        row.appendChild(grid);
+        row.appendChild(removeBtn);
+        container.appendChild(row);
+    });
+}
+document.getElementById('addSharedCriteriaBtn').addEventListener('click', () => {
+    sharedCriteria.push(newSharedCriterion());
+    renderSharedCriteria();
+});
+renderSharedCriteria();
 
 // ---------- field / user helpers ----------
 function fieldLabel(key) { return FIELDS.find(f => f.key === key)?.label || key; }
@@ -347,7 +424,7 @@ document.getElementById('saveBtn').addEventListener('click', () => {
         splitFieldKey: splitFieldSelect.value,
         priority: parseInt(document.getElementById('priority').value, 10) || 10,
         active: document.getElementById('active').checked,
-        sharedCriteria: [],
+        sharedCriteria: sharedCriteria.filter(c => c.field && c.value.trim() !== '').map(c => ({ fieldKey: c.field, operator: c.operator, value: c.value })),
         groups: groups.map(g => ({
             value: g.value,
             drilling: g.drilling,
