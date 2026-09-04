@@ -1,3 +1,5 @@
+@using JACO.Unified.Web.Controllers
+@using JACO.Unified.Web.Services
 @inject IConfiguration Configuration
 @{
     var path = Context.Request.Path.Value ?? "/";
@@ -7,14 +9,14 @@
     var displayName = User.FindFirst("DisplayName")?.Value ?? User.Identity?.Name ?? "";
     var department = User.FindFirst("Department")?.Value;
     var initials = string.Concat(displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => w[0])).ToUpperInvariant();
-    var portalHomeUrl = Configuration["SharedAuth:PortalHomeUrl"] ?? "http://localhost:5010/";
-    // Set once, platform-wide, via Portal's Account/SetTheme (the only app that owns the
-    // Users table) -- carried here as a claim in the same shared SSO cookie every JACO app
-    // already reads, so switching it in any one app applies to all of them immediately.
-    var theme = User.FindFirst("Theme")?.Value == "fiori" ? "fiori" : "orange";
-    var themeSuffix = theme == "fiori" ? ".fiori" : "";
-    var currentUrl = $"{Context.Request.Scheme}://{Context.Request.Host}{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
-    var setThemeUrl = $"{portalHomeUrl.TrimEnd('/')}/Account/SetTheme?theme={(theme == "fiori" ? "orange" : "fiori")}&returnUrl={Uri.EscapeDataString(currentUrl)}";
+    // A Unified-only cookie (set from /Themes, see ThemesController) takes precedence once
+    // the user has picked one of JAMS' own templates. Until then, fall back to the "Theme"
+    // claim Portal writes into the shared SSO cookie (orange/fiori only, platform-wide) so
+    // anyone who already picked Fiori there keeps seeing it here without having to repick.
+    var cookieTheme = Context.Request.Cookies[ThemesController.CookieName];
+    var claimTheme = User.FindFirst("Theme")?.Value == "fiori" ? "fiori" : "orange";
+    var theme = ThemeCatalog.IsValid(cookieTheme) ? cookieTheme! : claimTheme;
+    var themeSuffix = theme == "orange" ? "" : $".{theme}";
 }
 <!doctype html>
 <html lang="en">
@@ -28,7 +30,7 @@
          so browsers apply heuristic freshness caching and may reuse an old response for a
          long time otherwise. -->
     <link rel="stylesheet" href="~/css/jaco-design-system@(themeSuffix).css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/jaco@(themeSuffix).css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/jaco.css" asp-append-version="true" />
 </head>
 <body>
     <div class="jaco-shell">
@@ -42,8 +44,8 @@
                 <div class="who">
                     <div class="name">@displayName</div>
                     <div class="role">@(isAdmin ? "Administrator" : "Requestor")@(string.IsNullOrEmpty(department) ? "" : " · " + department)</div>
-                    <a class="jaco-theme-link" href="@setThemeUrl" title="Switch the platform theme (applies to every JACO app)">
-                        <span class="jaco-icon jaco-icon-settings"></span> @(theme == "fiori" ? "Fiori theme" : "Orange theme")
+                    <a class="jaco-theme-link" href="~/Themes" title="Choose a JAMS visual template">
+                        <span class="jaco-icon jaco-icon-settings"></span> @ThemeCatalog.Get(theme).Name
                     </a>
                 </div>
                 <div class="jaco-avatar">@initials</div>

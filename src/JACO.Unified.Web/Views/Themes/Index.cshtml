@@ -1,0 +1,34 @@
+@using JACO.Unified.Web.Services
+@model List<ThemeOption>
+@{
+    ViewData["Title"] = "Choose a Template";
+    var current = (string)ViewBag.Current;
+}
+<div class="jaco-page-header">
+    <div>
+        <h1>Choose a Template</h1>
+        <p>Pick how JAMS looks for you. This is a personal preference &mdash; it doesn't change what anyone else sees, and doesn't touch the shared platform theme other JACO apps use.</p>
+    </div>
+</div>
+
+<div class="jaco-app-grid">
+    @foreach (var t in Model)
+    {
+        var isCurrent = t.Key == current;
+        <form method="post" action="~/Themes/Apply" class="jaco-app-card" style="text-align:left;@(isCurrent ? "box-shadow:inset 0 0 0 2px var(--jaco-orange-600);" : "")">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="theme" value="@t.Key" />
+            <div style="display:flex;gap:6px;">
+                @foreach (var sw in t.Swatches)
+                {
+                    <span style="width:18px;height:18px;border-radius:5px;background:@sw;display:inline-block;border:1px solid var(--jaco-border);"></span>
+                }
+            </div>
+            <h3>@t.Name</h3>
+            <p>@t.Pitch</p>
+            <button type="submit" class="jaco-btn @(isCurrent ? "jaco-btn-outline" : "jaco-btn-primary")" style="align-self:flex-start;" @(isCurrent ? "disabled" : "")>
+                @(isCurrent ? "Current template" : "Apply")
+            </button>
+        </form>
+    }
+</div>
