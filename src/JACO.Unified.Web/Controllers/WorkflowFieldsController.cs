@@ -58,6 +58,7 @@ public sealed class WorkflowFieldsController(UnifiedDbContext db) : Controller
         model.ApprovalTypeId = approvalTypeId == GenericApprovalType.Id ? null : approvalTypeId;
         model.FieldKey = (model.FieldKey ?? "").Trim();
         model.FieldLabel = (model.FieldLabel ?? "").Trim();
+        model.LookupType = string.IsNullOrWhiteSpace(model.LookupType) ? null : model.LookupType.Trim();
 
         if (string.IsNullOrWhiteSpace(model.FieldKey) || string.IsNullOrWhiteSpace(model.FieldLabel))
         {
@@ -68,6 +69,18 @@ public sealed class WorkflowFieldsController(UnifiedDbContext db) : Controller
         if (await db.WorkflowFields.AnyAsync(f => f.ApprovalTypeId == model.ApprovalTypeId && f.FieldKey == model.FieldKey))
         {
             TempData["Error"] = "That Field Key already exists for this scope.";
+            ViewBag.Types = await db.ApprovalTypes.OrderBy(t => t.Name).ToListAsync();
+            return View(model);
+        }
+        if (!string.IsNullOrEmpty(model.LookupType) && model.DataType != FieldDataType.Dropdown)
+        {
+            TempData["Error"] = "Lookup Type only has an effect when Data Type is Dropdown -- set Data Type to Dropdown, or clear Lookup Type. Otherwise the field silently renders as a plain input.";
+            ViewBag.Types = await db.ApprovalTypes.OrderBy(t => t.Name).ToListAsync();
+            return View(model);
+        }
+        if (model.DataType == FieldDataType.Dropdown && string.IsNullOrEmpty(model.LookupType))
+        {
+            TempData["Error"] = "Data Type is Dropdown but no Lookup Type is set -- the field would show an empty list. Set a Lookup Type (matching a Picklist Values entry).";
             ViewBag.Types = await db.ApprovalTypes.OrderBy(t => t.Name).ToListAsync();
             return View(model);
         }
@@ -95,11 +108,26 @@ public sealed class WorkflowFieldsController(UnifiedDbContext db) : Controller
         if (field is null) return NotFound();
 
         model.FieldLabel = (model.FieldLabel ?? "").Trim();
+        model.LookupType = string.IsNullOrWhiteSpace(model.LookupType) ? null : model.LookupType.Trim();
         if (string.IsNullOrWhiteSpace(model.FieldLabel))
         {
             TempData["Error"] = "Label is required.";
             ViewBag.ScopeName = field.ApprovalTypeId is null ? GenericApprovalType.Name : (await db.ApprovalTypes.FindAsync(field.ApprovalTypeId))?.Name;
             return View(field);
+        }
+        if (!string.IsNullOrEmpty(model.LookupType) && model.DataType != FieldDataType.Dropdown)
+        {
+            TempData["Error"] = "Lookup Type only has an effect when Data Type is Dropdown -- set Data Type to Dropdown, or clear Lookup Type. Otherwise the field silently renders as a plain input.";
+            model.Id = field.Id;
+            ViewBag.ScopeName = field.ApprovalTypeId is null ? GenericApprovalType.Name : (await db.ApprovalTypes.FindAsync(field.ApprovalTypeId))?.Name;
+            return View(model);
+        }
+        if (model.DataType == FieldDataType.Dropdown && string.IsNullOrEmpty(model.LookupType))
+        {
+            TempData["Error"] = "Data Type is Dropdown but no Lookup Type is set -- the field would show an empty list. Set a Lookup Type (matching a Picklist Values entry).";
+            model.Id = field.Id;
+            ViewBag.ScopeName = field.ApprovalTypeId is null ? GenericApprovalType.Name : (await db.ApprovalTypes.FindAsync(field.ApprovalTypeId))?.Name;
+            return View(model);
         }
 
         field.FieldLabel = model.FieldLabel;
