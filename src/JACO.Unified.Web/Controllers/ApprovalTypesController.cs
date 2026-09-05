@@ -51,6 +51,11 @@ public sealed class ApprovalTypesController(UnifiedDbContext db) : Controller
             TempData["Error"] = "Code and Name are required.";
             return View(model);
         }
+        if (model.Code.Length > 3)
+        {
+            TempData["Error"] = "Code must be 3 characters or fewer -- it becomes the prefix on every request number of this type.";
+            return View(model);
+        }
         if (await db.ApprovalTypes.AnyAsync(t => t.Code == model.Code))
         {
             TempData["Error"] = "That Code is already in use.";
@@ -87,6 +92,11 @@ public sealed class ApprovalTypesController(UnifiedDbContext db) : Controller
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(model.Name))
         {
             TempData["Error"] = "Code and Name are required.";
+            return View(type);
+        }
+        if (code.Length > 3)
+        {
+            TempData["Error"] = "Code must be 3 characters or fewer -- it becomes the prefix on every request number of this type.";
             return View(type);
         }
         if (await db.ApprovalTypes.AnyAsync(t => t.Code == code && t.Id != id))
