@@ -42,9 +42,7 @@ public static class IdenticonGenerator
         if (words.Length >= 2)
             return char.ToUpperInvariant(words[0][0]).ToString() + char.ToUpperInvariant(words[^1][0]);
         if (words.Length == 1)
-            return words[0].Length >= 2
-                ? char.ToUpperInvariant(words[0][0]).ToString() + char.ToUpperInvariant(words[0][1])
-                : char.ToUpperInvariant(words[0][0]).ToString();
+            return char.ToUpperInvariant(words[0][0]).ToString();
         return "?";
     }
 }
