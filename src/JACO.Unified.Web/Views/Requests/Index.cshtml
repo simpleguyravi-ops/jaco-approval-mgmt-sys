@@ -14,6 +14,23 @@
         "Withdrawn" => "status draft",
         _ => "status"
     };
+    // Known types keep a stable, memorable colour; anything created later (a new Approval
+    // Type) still gets a consistent one instead of falling back to plain text.
+    var TypeBadgePalette = new[] { "blue", "green", "purple", "orange", "teal", "pink" };
+    var TypeBadgeHex = new Dictionary<string, string>
+    {
+        ["blue"] = "#4a90e2", ["green"] = "#00c875", ["purple"] = "#a259ff",
+        ["orange"] = "#f2600c", ["teal"] = "#14b8a6", ["pink"] = "#ec4899"
+    };
+    string TypeBadgeColorKey(string typeName) => typeName switch
+    {
+        "Change Request" => "blue",
+        "Sales Discount" => "green",
+        "Service Discount" => "purple",
+        _ => TypeBadgePalette[Math.Abs(typeName.GetHashCode()) % TypeBadgePalette.Length]
+    };
+    string TypeBadgeClass(string typeName) => $"type-badge-{TypeBadgeColorKey(typeName)}";
+    string TypeAccentHex(string typeName) => TypeBadgeHex[TypeBadgeColorKey(typeName)];
     string SortUrl(string field)
     {
         var dir = Model.Sort == field && Model.Dir == "asc" ? "desc" : "asc";
@@ -71,19 +88,19 @@
 }
 
 <div class="jaco-stat-grid">
-    <a class="jaco-card jaco-stat-card @(string.IsNullOrEmpty(Model.Status) ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=@focusQs">
+    <a class="jaco-card jaco-stat-card @(string.IsNullOrEmpty(Model.Status) ? "jaco-stat-active" : "")" style="text-decoration:none;border-top:3px solid #4a90e2;" href="@basePath?status=@focusQs">
         <div><div class="jaco-stat-value">@(Model.DraftCount + Model.PendingCount + Model.ApprovedCount + Model.RejectedCount)</div><div class="jaco-stat-label">Total</div></div>
     </a>
-    <a class="jaco-card jaco-stat-card @(Model.Status == "Draft" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Draft@(focusQs)">
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Draft" ? "jaco-stat-active" : "")" style="text-decoration:none;border-top:3px solid var(--jaco-text-muted);" href="@basePath?status=Draft@(focusQs)">
         <div><div class="jaco-stat-value">@Model.DraftCount</div><div class="jaco-stat-label">Draft</div></div>
     </a>
-    <a class="jaco-card jaco-stat-card @(Model.Status == "Pending" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Pending@(focusQs)">
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Pending" ? "jaco-stat-active" : "")" style="text-decoration:none;border-top:3px solid var(--jaco-warning);" href="@basePath?status=Pending@(focusQs)">
         <div><div class="jaco-stat-value">@Model.PendingCount</div><div class="jaco-stat-label">Pending / Sent Back</div></div>
     </a>
-    <a class="jaco-card jaco-stat-card @(Model.Status == "Approved" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Approved@(focusQs)">
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Approved" ? "jaco-stat-active" : "")" style="text-decoration:none;border-top:3px solid var(--jaco-success);" href="@basePath?status=Approved@(focusQs)">
         <div><div class="jaco-stat-value">@Model.ApprovedCount</div><div class="jaco-stat-label">Approved</div></div>
     </a>
-    <a class="jaco-card jaco-stat-card @(Model.Status == "Rejected" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Rejected@(focusQs)">
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Rejected" ? "jaco-stat-active" : "")" style="text-decoration:none;border-top:3px solid var(--jaco-danger);" href="@basePath?status=Rejected@(focusQs)">
         <div><div class="jaco-stat-value">@Model.RejectedCount</div><div class="jaco-stat-label">Rejected</div></div>
     </a>
 </div>
@@ -232,8 +249,8 @@
                             }
                         </td>
                     }
-                    <td><a class="link" href="~/Requests/Details/@x.Request.Id">@x.Request.RequestNumber</a></td>
-                    <td>@x.ApprovalTypeName</td>
+                    <td style="border-left:3px solid @(TypeAccentHex(x.ApprovalTypeName));"><a class="link" href="~/Requests/Details/@x.Request.Id">@x.Request.RequestNumber</a></td>
+                    <td><span class="type-badge @TypeBadgeClass(x.ApprovalTypeName)">@x.ApprovalTypeName</span></td>
                     <td>@x.Request.Subject</td>
                     <td><span class="@StatusClass(x.Request.Status)">@x.Request.Status</span></td>
                     @if (Model.IsAllView)
