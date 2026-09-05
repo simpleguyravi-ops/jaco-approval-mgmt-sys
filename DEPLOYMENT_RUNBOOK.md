@@ -286,16 +286,35 @@ git commit -m "Describe what changed and why"
 git push origin master
 ```
 
-Tag the exact commit you just pushed — the tag name is just a date, or a date plus a short
-label if you're shipping more than once in a day:
+Tag the exact commit you just pushed. **Always compute the tag name — never type today's date
+from memory.** Two people (or two Claude sessions, on dev and QA) shipping on the same calendar
+day will otherwise both reach for the identical bare `qa-YYYY-MM-DD` name for two *different*
+commits: whichever push reaches `origin` second silently wins there, while any server that had
+already fetched the first one keeps a stale local tag of the same name pointing at the wrong
+commit — with no error at tag-creation time to catch it. (This happened for real on
+2026-09-05: QA silently stayed on an older commit for hours despite `origin`'s tag having moved
+on, and only surfaced when someone went looking for a specific column that should've existed.)
+This script fetches existing tags first and appends the next unused letter suffix if today's
+plain date is already taken, so a collision is structurally impossible:
 
 ```powershell
-git tag -a qa-2026-09-05 -m "One-line summary of what's in this checkpoint"
-git push origin qa-2026-09-05
+git fetch origin --tags
+$today = Get-Date -Format "yyyy-MM-dd"
+$existing = git tag -l "qa-$today*"
+if (-not $existing) {
+    $tagName = "qa-$today"
+} else {
+    $suffixes = $existing | ForEach-Object { $_ -replace "^qa-$today", "" } | Where-Object { $_ -match '^[a-z]$' }
+    $next = [char]([int][char]'a' + $suffixes.Count)
+    $tagName = "qa-$today$next"
+}
+git tag -a $tagName -m "One-line summary of what's in this checkpoint"
+git push origin $tagName
+Write-Host "Tagged and pushed: $tagName" -ForegroundColor Green
 ```
 
-(For a Production release later, use a `prod-YYYY-MM-DD` tag instead — same commands,
-different prefix. A tag never has to be the same commit as the last QA tag; Production
+(For a Production release later, swap the `qa-` prefix for `prod-` — same script, same
+collision-proofing. A tag never has to be the same commit as the last QA tag; Production
 promotes whatever QA actually signed off on.)
 
 ### On the target server (QA or Production), to apply it
@@ -313,10 +332,19 @@ window.
 # 1. Stop the running service
 Stop-Service JACO-Unified
 
-# 2. Move the checkout to the new tag (fetches new commits/tags first)
+# 2. Move the checkout to the new tag. Delete any local tag of this name first, then
+#    force-fetch -- origin is always the source of truth for what a tag name means, so if a
+#    same-named tag was ever left over locally from an earlier fetch (see the dev-side
+#    collision note above), don't let git's default "refuse to clobber a local tag" behavior
+#    leave this checkout silently stuck on the wrong commit.
 cd C:\JACO\JAMS
-git fetch --all --tags
-git checkout qa-2026-09-05
+git tag -d qa-2026-09-05 2>$null
+git fetch origin --tags --force
+git checkout tags/qa-2026-09-05
+
+# Sanity check: this must print "true". If it doesn't, stop and figure out why before
+# continuing -- something is still wrong with the tag/checkout, not just cosmetically.
+if ((git rev-parse HEAD) -eq (git rev-parse qa-2026-09-05)) { "true" } else { "false" }
 
 # 3. Apply any new migration scripts -- check Database/ for files numbered higher than the
 #    last one you ran here; run only the new ones, in order, same as Phase 2 (skip
