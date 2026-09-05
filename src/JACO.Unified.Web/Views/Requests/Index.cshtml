@@ -30,7 +30,11 @@
         _ => TypeBadgePalette[Math.Abs(typeName.GetHashCode()) % TypeBadgePalette.Length]
     };
     string TypeBadgeClass(string typeName) => $"type-badge-{TypeBadgeColorKey(typeName)}";
-    string TypeAccentHex(string typeName) => TypeBadgeHex[TypeBadgeColorKey(typeName)];
+    // Unlike the badge (which must stay tied to the type so it's still meaningful), the row
+    // accent bar is purely decorative -- keyed off the request's own Id instead of its type,
+    // so rows of the same type don't all show the same bar colour, matching the mockup where
+    // that bar varies row to row with no relation to the Type column next to it.
+    string RowAccentHex(long requestId) => TypeBadgeHex[TypeBadgePalette[(int)(Math.Abs(requestId) % TypeBadgePalette.Length)]];
     string SortUrl(string field)
     {
         var dir = Model.Sort == field && Model.Dir == "asc" ? "desc" : "asc";
@@ -249,7 +253,7 @@
                             }
                         </td>
                     }
-                    <td style="border-left:3px solid @(TypeAccentHex(x.ApprovalTypeName));"><a class="link" href="~/Requests/Details/@x.Request.Id">@x.Request.RequestNumber</a></td>
+                    <td style="border-left:3px solid @(RowAccentHex(x.Request.Id));"><a class="link" href="~/Requests/Details/@x.Request.Id">@x.Request.RequestNumber</a></td>
                     <td><span class="type-badge @TypeBadgeClass(x.ApprovalTypeName)">@x.ApprovalTypeName</span></td>
                     <td>@x.Request.Subject</td>
                     <td><span class="@StatusClass(x.Request.Status)">@x.Request.Status</span></td>
