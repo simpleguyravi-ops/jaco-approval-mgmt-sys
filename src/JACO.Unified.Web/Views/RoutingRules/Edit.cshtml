@@ -360,6 +360,18 @@
     var testPanel = document.getElementById('testPanel');
     var toggleTestBtn = document.getElementById('toggleTestBtn');
 
+    // Rebuilding the field <input> elements on every keystroke -- which typing a sample value
+    // itself triggers, via each input's own 'input' listener calling runSimulation() -- kept
+    // destroying and recreating the very element the user was mid-word in, losing focus/caret
+    // position after each character. A signature of which fields/groups exist (not their
+    // values) lets a value-only change skip the rebuild entirely and just re-evaluate against
+    // the DOM that's already there; the rebuild still happens whenever the criteria ROWS
+    // themselves change (add/remove condition, edit a field/operator/value above).
+    var lastFieldSignature = null;
+    function fieldSignature(groups) {
+        return groups.map(function (g) { return g.map(function (r) { return r.field; }).join(','); }).join('|');
+    }
+
     function runSimulation() {
         var rows = currentCriteria();
         document.getElementById('criteriaPreview').textContent = buildPreviewText(rows);
@@ -367,7 +379,11 @@
         if (!testModeOn) { clearMatchIndicators(); return; }
 
         var groups = groupCriteria(rows);
-        renderSimulatorFields(groups);
+        var sig = fieldSignature(groups);
+        if (sig !== lastFieldSignature) {
+            renderSimulatorFields(groups);
+            lastFieldSignature = sig;
+        }
         clearMatchIndicators();
 
         var anyGroupTrue = groups.length === 0;
