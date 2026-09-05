@@ -4,7 +4,7 @@
 
 <div class="page-head jaco-sticky-toolbar">
     <div>
-        <h1>Edit @Model.Request.RequestNumber</h1>
+        <h1>Edit @Model.Request.RequestNumber@(string.IsNullOrEmpty(Model.Request.Subject) ? "" : $" - {Model.Request.Subject}")</h1>
     </div>
     <div style="display:flex;gap:8px;">
         <button type="submit" form="editRequestForm" name="submitNow" value="false" class="btn">Save</button>

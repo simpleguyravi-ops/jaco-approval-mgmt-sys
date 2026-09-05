@@ -18,6 +18,7 @@
     {
         var dir = Model.Sort == field && Model.Dir == "asc" ? "desc" : "asc";
         var qs = new List<string>();
+        if (!Model.IsAllView) qs.Add($"focus={Model.Focus}");
         if (!string.IsNullOrWhiteSpace(Model.Search)) qs.Add($"search={Uri.EscapeDataString(Model.Search)}");
         if (!string.IsNullOrWhiteSpace(Model.Status)) qs.Add($"status={Uri.EscapeDataString(Model.Status)}");
         if (Model.ApprovalTypeId is not null) qs.Add($"approvalTypeId={Model.ApprovalTypeId}");
@@ -29,6 +30,10 @@
         return basePath + "?" + string.Join("&", qs);
     }
     string SortArrow(string field) => Model.Sort != field ? "" : (Model.Dir == "asc" ? " &#9650;" : " &#9660;");
+    // Every stat-card / filter / export link on the "all" tab needs to keep the tab selected
+    // (the underlying query has no status yet the first time it's rendered), so it's spelled
+    // out once here instead of at each call site.
+    var focusQs = Model.IsAllView ? "" : $"&focus={Model.Focus}";
 }
 
 <div class="jaco-page-header">
@@ -50,23 +55,41 @@
     }
 </div>
 
-<div class="jaco-stat-grid">
-    <a class="jaco-card jaco-stat-card @(string.IsNullOrEmpty(Model.Status) ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=">
-        <div><div class="jaco-stat-value">@(Model.DraftCount + Model.PendingCount + Model.ApprovedCount + Model.RejectedCount)</div><div class="jaco-stat-label">Total</div></div>
-    </a>
-    <a class="jaco-card jaco-stat-card @(Model.Status == "Draft" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Draft">
-        <div><div class="jaco-stat-value">@Model.DraftCount</div><div class="jaco-stat-label">Draft</div></div>
-    </a>
-    <a class="jaco-card jaco-stat-card @(Model.Status == "Pending" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Pending">
-        <div><div class="jaco-stat-value">@Model.PendingCount</div><div class="jaco-stat-label">Pending / Sent Back</div></div>
-    </a>
-    <a class="jaco-card jaco-stat-card @(Model.Status == "Approved" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Approved">
-        <div><div class="jaco-stat-value">@Model.ApprovedCount</div><div class="jaco-stat-label">Approved</div></div>
-    </a>
-    <a class="jaco-card jaco-stat-card @(Model.Status == "Rejected" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Rejected">
-        <div><div class="jaco-stat-value">@Model.RejectedCount</div><div class="jaco-stat-label">Rejected</div></div>
-    </a>
-</div>
+@if (!Model.IsAllView)
+{
+    <div class="lookup-tabs" style="margin-bottom:16px;">
+        <a class="lookup-tab @(Model.Focus == "action" ? "selected" : "")" href="@basePath?focus=action">
+            Pending My Action@(Model.PendingMineCount > 0 ? $" ({Model.PendingMineCount})" : "")
+        </a>
+        <a class="lookup-tab @(Model.Focus == "all" ? "selected" : "")" href="@basePath?focus=all">My Requests</a>
+    </div>
+    <p style="color:var(--jaco-text-muted);font-size:13px;margin:-10px 0 16px;">
+        @(Model.Focus == "action"
+            ? "Requests currently waiting on your decision as an approver."
+            : "Every request you created or are a participant on, whoever's turn it is right now.")
+    </p>
+}
+
+@if (Model.IsAllView || Model.Focus == "all")
+{
+    <div class="jaco-stat-grid">
+        <a class="jaco-card jaco-stat-card @(string.IsNullOrEmpty(Model.Status) ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=@focusQs">
+            <div><div class="jaco-stat-value">@(Model.DraftCount + Model.PendingCount + Model.ApprovedCount + Model.RejectedCount)</div><div class="jaco-stat-label">Total</div></div>
+        </a>
+        <a class="jaco-card jaco-stat-card @(Model.Status == "Draft" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Draft@(focusQs)">
+            <div><div class="jaco-stat-value">@Model.DraftCount</div><div class="jaco-stat-label">Draft</div></div>
+        </a>
+        <a class="jaco-card jaco-stat-card @(Model.Status == "Pending" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Pending@(focusQs)">
+            <div><div class="jaco-stat-value">@Model.PendingCount</div><div class="jaco-stat-label">Pending / Sent Back</div></div>
+        </a>
+        <a class="jaco-card jaco-stat-card @(Model.Status == "Approved" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Approved@(focusQs)">
+            <div><div class="jaco-stat-value">@Model.ApprovedCount</div><div class="jaco-stat-label">Approved</div></div>
+        </a>
+        <a class="jaco-card jaco-stat-card @(Model.Status == "Rejected" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Rejected@(focusQs)">
+            <div><div class="jaco-stat-value">@Model.RejectedCount</div><div class="jaco-stat-label">Rejected</div></div>
+        </a>
+    </div>
+}
 
 <div class="jaco-card jaco-card-pad" style="margin-bottom:14px;">
     <form method="get" action="@basePath" id="filterForm">
@@ -105,6 +128,10 @@
             <button type="submit" class="jaco-btn jaco-btn-outline">Filter</button>
         </div>
         <input type="hidden" name="status" value="@Model.Status" />
+        @if (!Model.IsAllView)
+        {
+            <input type="hidden" name="focus" value="@Model.Focus" />
+        }
 
         @if (Model.IsAllView && Model.AvailableColumns.Count > 0)
         {
@@ -131,7 +158,7 @@
     {
         <button type="submit" form="bulkForm" id="reassignSelectedBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm" disabled>Reassign Selected</button>
     }
-    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="@exportPath?search=@Model.Search&status=@Model.Status&approvalTypeId=@Model.ApprovalTypeId">Download CSV</a>
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="@exportPath?search=@Model.Search&status=@Model.Status&approvalTypeId=@Model.ApprovalTypeId@(focusQs)">Download CSV</a>
 </div>
 
 <form method="get" action="~/Requests/BulkReassign" id="bulkForm">
@@ -205,7 +232,7 @@
             }
             @if (Model.Rows.Count == 0)
             {
-                <tr><td colspan="12" style="text-align:center;color:var(--jaco-text-muted);">No requests match this filter.</td></tr>
+                <tr><td colspan="12" style="text-align:center;color:var(--jaco-text-muted);">@(!Model.IsAllView && Model.Focus == "action" ? "Nothing is waiting on your decision." : "No requests match this filter.")</td></tr>
             }
             </tbody>
         </table>

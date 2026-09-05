@@ -20,6 +20,12 @@
         "ActionRequired" => "jaco-badge jaco-badge-warning",
         _ => "jaco-badge jaco-badge-neutral"
     };
+    // CurrentLevelNo goes back to null once a request is fully decided (Approved/Rejected/
+    // Withdrawn), not just for Draft -- so "of N" must only render while a level is actually
+    // in progress, otherwise a resolved request reads as the nonsensical "- of 3".
+    var currentLevelDisplay = Model.Request.CurrentLevelNo is not null
+        ? $"{Model.Request.CurrentLevelNo} of {Model.Timeline.Count}"
+        : (Model.Timeline.Count > 0 ? "Completed" : "-");
     var compactFields = Model.Fields.Where(f => f.DataType != "TextArea").ToList();
     var longFields = Model.Fields.Where(f => f.DataType == "TextArea").ToList();
     // Seeded from whatever name string is already on screen -- a per-person identicon doesn't
@@ -31,7 +37,7 @@
 <a class="jaco-back-link" href="~/Requests">&larr; Back to My Requests</a>
 <div class="page-head">
     <div>
-        <h1>@(string.IsNullOrEmpty(Model.Request.Subject) ? Model.Request.RequestNumber : Model.Request.Subject)</h1>
+        <h1>@(string.IsNullOrEmpty(Model.Request.Subject) ? Model.Request.RequestNumber : $"{Model.Request.RequestNumber} - {Model.Request.Subject}")</h1>
     </div>
     <div style="display:flex;gap:8px;">
         @if (Model.CanEdit)
@@ -65,7 +71,7 @@
 
 <section class="status-panel" style="grid-template-columns:repeat(5,1fr);gap:10px;">
     <div><span class="eyebrow">STATUS</span><span class="@StatusClass(Model.Request.Status)" style="display:block;margin-top:4px;width:fit-content;">@Model.Request.Status</span></div>
-    <div><span class="eyebrow">CURRENT LEVEL</span><strong style="white-space:nowrap;">@(Model.Request.CurrentLevelNo?.ToString() ?? "-")@(Model.Timeline.Count > 0 ? $" of {Model.Timeline.Count}" : "")</strong></div>
+    <div><span class="eyebrow">CURRENT LEVEL</span><strong style="white-space:nowrap;">@currentLevelDisplay</strong></div>
     <div><span class="eyebrow">SUBMITTED ON</span><strong style="white-space:nowrap;">@Model.Request.CreatedAt.ToString("dd MMM yyyy HH:mm")</strong></div>
     <div><span class="eyebrow">CREATED BY</span><strong style="white-space:nowrap;">@Html.Raw(AvatarImg(Model.Request.CreatorUserName)) @Model.Request.CreatorUserName</strong></div>
     <div><span class="eyebrow">APPROVAL TYPE</span><strong style="white-space:nowrap;">@Model.ApprovalType.Name</strong></div>

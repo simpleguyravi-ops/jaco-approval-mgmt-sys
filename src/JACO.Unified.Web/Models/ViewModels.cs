@@ -263,6 +263,14 @@ public sealed class RequestListViewModel
     public Dictionary<long, Dictionary<string, string>> ExtraColumns { get; init; } = [];
     public DateTime? DateFrom { get; init; }
     public DateTime? DateTo { get; init; }
+
+    // "My Work" only (never set on the /Requests/All oversight view): which of the two
+    // worklist tabs is active -- "action" (default landing tab: only requests where the
+    // current user is the eligible approver for the current level, right now) or "all"
+    // (everything the user is creator/participant on, irrespective of whose turn it is --
+    // the old single-list behavior, now demoted to its own tab).
+    public string Focus { get; set; } = "action";
+    public int PendingMineCount { get; set; }
 }
 
 public sealed class MailTemplateEditViewModel

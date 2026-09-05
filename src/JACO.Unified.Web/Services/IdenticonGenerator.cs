@@ -3,12 +3,13 @@ using System.Text;
 
 namespace JACO.Unified.Web.Services;
 
-// A GitHub-style identicon: a symmetric 5x5 pixel grid plus a hue, both derived from a hash
-// of the seed (a user's UserName -- stable and unique, unlike DisplayName) -- no stored
-// image, no upload, the same seed always renders the same identicon everywhere it appears.
-// Returned as a data: URI so any call site can just drop it into a plain `background-image`
-// (server-rendered markup) or a JSON payload a script reads (client-rendered chips) --
-// nothing has to re-implement the hashing/drawing logic in JS to stay in sync.
+// A solid-colour circle with the person's initials -- no stored image, no upload, the same
+// seed always renders the same avatar everywhere it appears. The colour is a hash of the
+// seed so two people don't collide visually; the initials are read straight off the seed
+// itself, so callers keep passing whatever display string they already show next to the
+// avatar (a name or a username) and the two stay in sync. Returned as a data: URI so any
+// call site can just drop it into a plain `background-image` (server-rendered markup) or a
+// JSON payload a script reads (client-rendered chips).
 public static class IdenticonGenerator
 {
     public static string DataUri(string seed, int size = 40)
@@ -19,35 +20,31 @@ public static class IdenticonGenerator
 
     public static string Svg(string seed, int size = 40)
     {
-        var hash = MD5.HashData(Encoding.UTF8.GetBytes(seed ?? ""));
+        seed ??= "";
+        var hash = MD5.HashData(Encoding.UTF8.GetBytes(seed));
         var hue = hash[0] / 255.0 * 360.0;
-        var color = $"hsl({hue:F0},62%,52%)";
-        var bg = $"hsl({hue:F0},55%,94%)";
+        var color = $"hsl({hue:F0},48%,42%)";
 
-        var cell = size / 5.0;
+        var initials = Initials(seed);
+        var fontSize = size * 0.42;
+
         var sb = new StringBuilder();
         sb.Append($"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 {size} {size}'>");
-        sb.Append($"<rect width='{size}' height='{size}' fill='{bg}'/>");
-
-        // Only columns 0-2 are hashed; columns 3-4 mirror 1-0 so the pattern reads as one
-        // symmetric mark rather than static noise. hash[0] is spent on the hue above, so
-        // bit-plotting starts at hash[1].
-        for (var row = 0; row < 5; row++)
-        {
-            for (var col = 0; col < 3; col++)
-            {
-                var bitIndex = row * 3 + col;
-                var b = hash[1 + (bitIndex / 8) % (hash.Length - 1)];
-                var on = ((b >> (bitIndex % 8)) & 1) == 1;
-                if (!on) continue;
-
-                var y = row * cell;
-                sb.Append($"<rect x='{(col * cell):F2}' y='{y:F2}' width='{cell:F2}' height='{cell:F2}' fill='{color}'/>");
-                if (col != 2) // col 2 is the center column -- mirroring it onto itself would double-draw
-                    sb.Append($"<rect x='{((4 - col) * cell):F2}' y='{y:F2}' width='{cell:F2}' height='{cell:F2}' fill='{color}'/>");
-            }
-        }
+        sb.Append($"<circle cx='{size / 2.0:F2}' cy='{size / 2.0:F2}' r='{size / 2.0:F2}' fill='{color}'/>");
+        sb.Append($"<text x='50%' y='51%' dy='0.35em' text-anchor='middle' font-family='Segoe UI, Arial, sans-serif' font-size='{fontSize:F1}' font-weight='700' fill='#fff'>{initials}</text>");
         sb.Append("</svg>");
         return sb.ToString();
+    }
+
+    static string Initials(string seed)
+    {
+        var words = seed.Split([' ', '.', '_', '-'], StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length >= 2)
+            return char.ToUpperInvariant(words[0][0]).ToString() + char.ToUpperInvariant(words[^1][0]);
+        if (words.Length == 1)
+            return words[0].Length >= 2
+                ? char.ToUpperInvariant(words[0][0]).ToString() + char.ToUpperInvariant(words[0][1])
+                : char.ToUpperInvariant(words[0][0]).ToString();
+        return "?";
     }
 }

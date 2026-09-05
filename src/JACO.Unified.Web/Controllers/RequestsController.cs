@@ -26,20 +26,32 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
 
 
     [HttpGet]
-    public async Task<IActionResult> Index(string? search, string? status, int? approvalTypeId, DateTime? dateFrom, DateTime? dateTo, string? sort, string dir = "desc")
+    public async Task<IActionResult> Index(string? focus, string? search, string? status, int? approvalTypeId, DateTime? dateFrom, DateTime? dateTo, string? sort, string dir = "desc")
     {
         var user = await CurrentUserAsync();
         var mine = await requests.GetMyWorkAsync(user.Id);
-        var model = await BuildListAsync(mine, search, status, approvalTypeId, sort, dir, isAllView: false, user, dateFrom: dateFrom, dateTo: dateTo);
+        var pendingMineIds = await requests.GetPendingForUserAsync(mine, user.Id);
+        var effectiveFocus = focus == "all" ? "all" : "action";
+        var source = effectiveFocus == "action" ? mine.Where(x => pendingMineIds.Contains(x.Id)).ToList() : mine;
+        var model = await BuildListAsync(source, search, effectiveFocus == "action" ? null : status, approvalTypeId, sort, dir, isAllView: false, user, dateFrom: dateFrom, dateTo: dateTo);
+        model.Focus = effectiveFocus;
+        model.PendingMineCount = pendingMineIds.Count;
         return View(model);
     }
 
     [HttpGet]
-    public async Task<IActionResult> Export(string? search, string? status, int? approvalTypeId, DateTime? dateFrom, DateTime? dateTo, string? sort, string dir = "desc")
+    public async Task<IActionResult> Export(string? focus, string? search, string? status, int? approvalTypeId, DateTime? dateFrom, DateTime? dateTo, string? sort, string dir = "desc")
     {
         var user = await CurrentUserAsync();
         var mine = await requests.GetMyWorkAsync(user.Id);
-        var model = await BuildListAsync(mine, search, status, approvalTypeId, sort, dir, isAllView: false, user, dateFrom: dateFrom, dateTo: dateTo);
+        var effectiveFocus = focus == "all" ? "all" : "action";
+        var source = mine;
+        if (effectiveFocus == "action")
+        {
+            var pendingMineIds = await requests.GetPendingForUserAsync(mine, user.Id);
+            source = mine.Where(x => pendingMineIds.Contains(x.Id)).ToList();
+        }
+        var model = await BuildListAsync(source, search, effectiveFocus == "action" ? null : status, approvalTypeId, sort, dir, isAllView: false, user, dateFrom: dateFrom, dateTo: dateTo);
         return ExportRows(model.Rows, "my-work");
     }
 
