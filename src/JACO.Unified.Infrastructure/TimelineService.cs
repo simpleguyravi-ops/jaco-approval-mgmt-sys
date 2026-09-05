@@ -23,15 +23,19 @@ public sealed class TimelineService(UnifiedDbContext db)
         var stepIds = steps.Select(s => s.Id).ToList();
         var stepApprovers = await db.WorkflowStepApprovers.Where(a => stepIds.Contains(a.WorkflowStepId)).ToListAsync();
         var userIds = actions.Select(a => a.UserId).Concat(stepApprovers.Select(a => a.UserId)).Distinct().ToList();
-        var userNames = await db.AppUsers.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.DisplayName);
+        var userInfo = await db.AppUsers.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => new TimelineApprover(u.DisplayName, u.UserName));
 
         var result = new List<TimelineLevel>();
         foreach (var step in steps)
         {
             var approverNames = stepApprovers.Where(a => a.WorkflowStepId == step.Id)
-                .Select(a => userNames.GetValueOrDefault(a.UserId)).Where(n => n is not null).Select(n => n!).ToList();
+                .Select(a => userInfo.GetValueOrDefault(a.UserId)).Where(n => n is not null).Select(n => n!).ToList();
             var decisions = actions.Where(a => a.LevelNo == step.LevelNo && a.ActionCode is not ("Nudge" or "NoLongerRequired"))
-                .Select(a => new TimelineDecision(userNames.GetValueOrDefault(a.UserId, $"User #{a.UserId}"), a.ActionCode, a.Comments, a.CreatedAt))
+                .Select(a =>
+                {
+                    var info = userInfo.GetValueOrDefault(a.UserId) ?? new TimelineApprover($"User #{a.UserId}", $"user{a.UserId}");
+                    return new TimelineDecision(info.DisplayName, info.UserName, a.ActionCode, a.Comments, a.CreatedAt);
+                })
                 .OrderBy(d => d.AtUtc).ToList();
 
             // Current state wins over history: a level that was once Sent Back but is now

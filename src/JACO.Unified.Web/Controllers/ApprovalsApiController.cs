@@ -82,7 +82,7 @@ public sealed class ApprovalsApiController(UnifiedDbContext db, RequestService r
 
         var timeline = await requests.GetTimelineAsync(request.Id) ?? [];
         var result = timeline.Select(l => new ApiTimelineLevel(
-            l.LevelNo, l.Mode, l.ApproverNames.ToList(), l.LevelStatus,
+            l.LevelNo, l.Mode, l.ApproverNames.Select(a => a.DisplayName).ToList(), l.LevelStatus,
             l.Decisions.Select(d => new ApiTimelineDecision(d.ActorName, d.ActionCode, d.Comments, d.AtUtc)).ToList()
         )).ToList();
         return Ok(result);

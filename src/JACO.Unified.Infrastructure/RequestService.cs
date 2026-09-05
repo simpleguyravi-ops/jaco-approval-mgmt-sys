@@ -6,8 +6,14 @@ using Microsoft.EntityFrameworkCore;
 namespace JACO.Unified.Infrastructure;
 
 public sealed record SubmittedField(string FieldKey, string Label, string DataType, string? Value, bool IsSensitive);
-public sealed record TimelineDecision(string ActorName, string ActionCode, string? Comments, DateTime AtUtc);
-public sealed record TimelineLevel(int LevelNo, string Mode, IReadOnlyList<string> ApproverNames, IReadOnlyList<TimelineDecision> Decisions, string LevelStatus);
+// ActorUserName exists purely so a caller rendering an avatar has something guaranteed unique
+// to seed it with -- DisplayName has no uniqueness constraint (only AppUsers.UserName does),
+// so two different people who happen to share a display name would otherwise render as
+// pixel-identical avatars (same initials, same hash-derived colour) with no way to tell them
+// apart from the avatar alone.
+public sealed record TimelineApprover(string DisplayName, string UserName);
+public sealed record TimelineDecision(string ActorName, string ActorUserName, string ActionCode, string? Comments, DateTime AtUtc);
+public sealed record TimelineLevel(int LevelNo, string Mode, IReadOnlyList<TimelineApprover> ApproverNames, IReadOnlyList<TimelineDecision> Decisions, string LevelStatus);
 
 // Describes ONE field of an Approval Type's data shape, for both the admin-facing API
 // Reference screen and the API's own GET .../schema/{code} endpoint -- generated live from

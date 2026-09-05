@@ -170,7 +170,7 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                 "SentBack" => ("#b45309", "#fef3c7", "#b45309", "Sent Back"),
                 _ => ("#9ca3af", "#eef0f3", "#6b7280", "Not Started")
             };
-            var approvers = level.ApproverNames.Count == 0 ? "-" : System.Net.WebUtility.HtmlEncode(string.Join(", ", level.ApproverNames));
+            var approvers = level.ApproverNames.Count == 0 ? "-" : System.Net.WebUtility.HtmlEncode(string.Join(", ", level.ApproverNames.Select(a => a.DisplayName)));
             var note = level.LevelStatus switch
             {
                 "ActionRequired" => "Waiting for a decision.",
