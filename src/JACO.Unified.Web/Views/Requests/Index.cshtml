@@ -70,26 +70,23 @@
     </p>
 }
 
-@if (Model.IsAllView || Model.Focus == "all")
-{
-    <div class="jaco-stat-grid">
-        <a class="jaco-card jaco-stat-card @(string.IsNullOrEmpty(Model.Status) ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=@focusQs">
-            <div><div class="jaco-stat-value">@(Model.DraftCount + Model.PendingCount + Model.ApprovedCount + Model.RejectedCount)</div><div class="jaco-stat-label">Total</div></div>
-        </a>
-        <a class="jaco-card jaco-stat-card @(Model.Status == "Draft" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Draft@(focusQs)">
-            <div><div class="jaco-stat-value">@Model.DraftCount</div><div class="jaco-stat-label">Draft</div></div>
-        </a>
-        <a class="jaco-card jaco-stat-card @(Model.Status == "Pending" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Pending@(focusQs)">
-            <div><div class="jaco-stat-value">@Model.PendingCount</div><div class="jaco-stat-label">Pending / Sent Back</div></div>
-        </a>
-        <a class="jaco-card jaco-stat-card @(Model.Status == "Approved" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Approved@(focusQs)">
-            <div><div class="jaco-stat-value">@Model.ApprovedCount</div><div class="jaco-stat-label">Approved</div></div>
-        </a>
-        <a class="jaco-card jaco-stat-card @(Model.Status == "Rejected" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Rejected@(focusQs)">
-            <div><div class="jaco-stat-value">@Model.RejectedCount</div><div class="jaco-stat-label">Rejected</div></div>
-        </a>
-    </div>
-}
+<div class="jaco-stat-grid">
+    <a class="jaco-card jaco-stat-card @(string.IsNullOrEmpty(Model.Status) ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=@focusQs">
+        <div><div class="jaco-stat-value">@(Model.DraftCount + Model.PendingCount + Model.ApprovedCount + Model.RejectedCount)</div><div class="jaco-stat-label">Total</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Draft" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Draft@(focusQs)">
+        <div><div class="jaco-stat-value">@Model.DraftCount</div><div class="jaco-stat-label">Draft</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Pending" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Pending@(focusQs)">
+        <div><div class="jaco-stat-value">@Model.PendingCount</div><div class="jaco-stat-label">Pending / Sent Back</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Approved" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Approved@(focusQs)">
+        <div><div class="jaco-stat-value">@Model.ApprovedCount</div><div class="jaco-stat-label">Approved</div></div>
+    </a>
+    <a class="jaco-card jaco-stat-card @(Model.Status == "Rejected" ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@basePath?status=Rejected@(focusQs)">
+        <div><div class="jaco-stat-value">@Model.RejectedCount</div><div class="jaco-stat-label">Rejected</div></div>
+    </a>
+</div>
 
 <div class="jaco-card jaco-card-pad" style="margin-bottom:14px;">
     <form method="get" action="@basePath" id="filterForm">
@@ -126,6 +123,12 @@
                 </div>
             </div>
             <button type="submit" class="jaco-btn jaco-btn-outline">Filter</button>
+            @if (Model.AvailableColumns.Count > 0)
+            {
+                <button type="button" id="toggleColumnsBtn" class="jaco-btn jaco-btn-outline">
+                    Columns@(Model.SelectedColumns.Count > 0 ? $" ({Model.SelectedColumns.Count})" : "")
+                </button>
+            }
         </div>
         <input type="hidden" name="status" value="@Model.Status" />
         @if (!Model.IsAllView)
@@ -133,11 +136,11 @@
             <input type="hidden" name="focus" value="@Model.Focus" />
         }
 
-        @if (Model.IsAllView && Model.AvailableColumns.Count > 0)
+        @if (Model.AvailableColumns.Count > 0)
         {
-            <div style="margin-top:14px;">
+            <div id="columnsPanel" style="margin-top:14px;@(Model.SelectedColumns.Count > 0 ? "" : "display:none;")">
                 <label style="font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);display:block;margin-bottom:6px;">
-                    Extra columns for @(Model.Types.FirstOrDefault(t => t.Id == Model.ApprovalTypeId)?.Name ?? "this type") &mdash; pick which fields this list should also show/export:
+                    Extra columns for @(Model.Types.FirstOrDefault(t => t.Id == Model.ApprovalTypeId)?.Name ?? "this type") &mdash; pick which fields this list should also show/export (includes fields common to all approval types):
                 </label>
                 <div style="display:flex;flex-wrap:wrap;gap:14px;">
                     @foreach (var col in Model.AvailableColumns)
@@ -152,6 +155,21 @@
         }
     </form>
 </div>
+
+@if (Model.AvailableColumns.Count > 0)
+{
+    <script>
+    (function () {
+        var btn = document.getElementById('toggleColumnsBtn');
+        var panel = document.getElementById('columnsPanel');
+        if (btn && panel) {
+            btn.addEventListener('click', function () {
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            });
+        }
+    })();
+    </script>
+}
 
 <div style="display:flex;justify-content:flex-end;margin-bottom:8px;gap:8px;">
     @if (Model.IsAllView)

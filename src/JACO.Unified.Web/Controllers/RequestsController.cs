@@ -26,21 +26,21 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
 
 
     [HttpGet]
-    public async Task<IActionResult> Index(string? focus, string? search, string? status, int? approvalTypeId, DateTime? dateFrom, DateTime? dateTo, string? sort, string dir = "desc")
+    public async Task<IActionResult> Index(string? focus, string? search, string? status, int? approvalTypeId, List<string>? columns, DateTime? dateFrom, DateTime? dateTo, string? sort, string dir = "desc")
     {
         var user = await CurrentUserAsync();
         var mine = await requests.GetMyWorkAsync(user.Id);
         var pendingMineIds = await requests.GetPendingForUserAsync(mine, user.Id);
         var effectiveFocus = focus == "all" ? "all" : "action";
         var source = effectiveFocus == "action" ? mine.Where(x => pendingMineIds.Contains(x.Id)).ToList() : mine;
-        var model = await BuildListAsync(source, search, effectiveFocus == "action" ? null : status, approvalTypeId, sort, dir, isAllView: false, user, dateFrom: dateFrom, dateTo: dateTo);
+        var model = await BuildListAsync(source, search, status, approvalTypeId, sort, dir, isAllView: false, user, columns: columns ?? [], dateFrom: dateFrom, dateTo: dateTo);
         model.Focus = effectiveFocus;
         model.PendingMineCount = pendingMineIds.Count;
         return View(model);
     }
 
     [HttpGet]
-    public async Task<IActionResult> Export(string? focus, string? search, string? status, int? approvalTypeId, DateTime? dateFrom, DateTime? dateTo, string? sort, string dir = "desc")
+    public async Task<IActionResult> Export(string? focus, string? search, string? status, int? approvalTypeId, List<string>? columns, DateTime? dateFrom, DateTime? dateTo, string? sort, string dir = "desc")
     {
         var user = await CurrentUserAsync();
         var mine = await requests.GetMyWorkAsync(user.Id);
@@ -51,8 +51,16 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
             var pendingMineIds = await requests.GetPendingForUserAsync(mine, user.Id);
             source = mine.Where(x => pendingMineIds.Contains(x.Id)).ToList();
         }
-        var model = await BuildListAsync(source, search, effectiveFocus == "action" ? null : status, approvalTypeId, sort, dir, isAllView: false, user, dateFrom: dateFrom, dateTo: dateTo);
-        return ExportRows(model.Rows, "my-work");
+        var model = await BuildListAsync(source, search, status, approvalTypeId, sort, dir, isAllView: false, user, columns: columns ?? [], dateFrom: dateFrom, dateTo: dateTo);
+
+        var header = new[] { "Request No.", "Type", "Subject", "Status", "Created By", "Created On" }
+            .Concat(model.SelectedColumns.Select(k => model.AvailableColumns.First(c => c.FieldKey == k).FieldLabel)).ToArray();
+        var bytes = CsvHelper.ToCsvBytes(model.Rows, header, r => new[]
+        {
+            r.Request.RequestNumber, r.ApprovalTypeName, r.Request.Subject ?? "", r.Request.Status,
+            r.Request.CreatorUserName, r.Request.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
+        }.Concat(model.SelectedColumns.Select(k => model.ExtraColumns.GetValueOrDefault(r.Request.Id)?.GetValueOrDefault(k, "") ?? "")).ToArray());
+        return new FileContentResult(bytes, "text/csv") { FileDownloadName = $"my-work-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv" };
     }
 
     [HttpGet]
@@ -73,14 +81,6 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
             model.PendingWithNames.GetValueOrDefault(r.Request.Id, ""), r.Request.CreatorUserName, r.Request.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
         }.Concat(model.SelectedColumns.Select(k => model.ExtraColumns.GetValueOrDefault(r.Request.Id)?.GetValueOrDefault(k, "") ?? "")).ToArray());
         return new FileContentResult(bytes, "text/csv") { FileDownloadName = $"all-requests-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv" };
-    }
-
-    static FileContentResult ExportRows(List<RequestListRow> rows, string fileNamePrefix)
-    {
-        var bytes = CsvHelper.ToCsvBytes(rows,
-            ["Request No.", "Type", "Subject", "Status", "Created By", "Created On"],
-            r => [r.Request.RequestNumber, r.ApprovalTypeName, r.Request.Subject ?? "", r.Request.Status, r.Request.CreatorUserName, r.Request.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")]);
-        return new FileContentResult(bytes, "text/csv") { FileDownloadName = $"{fileNamePrefix}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv" };
     }
 
     async Task<List<ApprovalType>> GetCreatableTypesAsync(AppUser user)
