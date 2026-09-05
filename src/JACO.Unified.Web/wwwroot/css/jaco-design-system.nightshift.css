@@ -192,6 +192,13 @@ a { color: inherit; text-decoration: none; }
 .jaco-badge-info { background: var(--jaco-info-bg); color: var(--jaco-info); }
 .jaco-badge-neutral { background: var(--jaco-navy-700); color: var(--jaco-text-muted); }
 
+/* jaco.css's shared .status pill (Requests list) gets the same terminal-bracket outline as
+   .jaco-badge above, so a status reads the same whether it's on the list or the timeline. */
+body .status { border: 1px solid currentColor; }
+/* Sortable header links go muted by default (jaco.css) but this theme's own reference reads
+   its header row in the accent colour -- restore that specifically here. */
+.jaco-table th, .jaco-table th a.link { color: var(--jaco-orange-600) !important; opacity: .8; }
+
 .jaco-form-group { margin-bottom: 16px; }
 .jaco-form-group label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; color: var(--jaco-text-muted); }
 .jaco-input, .jaco-select {

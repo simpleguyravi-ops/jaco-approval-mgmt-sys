@@ -85,6 +85,15 @@ body{margin:0;background:var(--jaco-bg);color:var(--jaco-text)}
 
 .link{color:var(--jaco-orange-600);text-decoration:none;font-weight:600}
 .link:hover{color:var(--jaco-orange-700)}
+/* A sortable column header re-uses the same <a class="link"> markup as a real row link, but
+   a header shouldn't shout in the accent colour -- it stays muted like the rest of the
+   header row (matching the reference mockup's thead th{color:var(--c-muted)} rule) and only
+   picks up an accent tint on hover/active-sort. */
+.jaco-table th a.link,table th a.link{color:inherit;font-weight:700}
+.jaco-table th a.link:hover,table th a.link:hover{color:var(--jaco-text)}
+/* Reference mockup: .reqno{font-family:var(--c-font-mono)} -- the request number itself
+   reads as a code/reference, not prose, in every candidate. */
+.jaco-table td.reqno a.link{font-family:'IBM Plex Mono','Consolas',monospace}
 
 table{width:100%;border-collapse:collapse}
 th,td{padding:12px 14px;border-bottom:1px solid var(--jaco-border);text-align:left;font-size:13.5px}
