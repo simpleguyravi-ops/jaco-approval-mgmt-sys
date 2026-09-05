@@ -65,6 +65,10 @@
         <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <button type="button" id="addCriteriaBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm">+ Add Condition</button>
             <button type="button" id="toggleTestBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm">Test This Rule</button>
+            @if (Model.Rule is not null)
+            {
+                <button type="button" id="toggleFlowBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm">Visualize Flow</button>
+            }
         </div>
         <div id="criteriaPreview" class="criteria-preview"></div>
     </div>
@@ -75,6 +79,74 @@
         <div id="simulatorFields" class="simulator-fields"></div>
         <div id="simulatorResult"></div>
     </div>
+
+    @if (Model.Rule is not null)
+    {
+        var activeLevels = Model.Levels.Where(l => l.ApproverUserIds.Count > 0).OrderBy(l => l.LevelNo).ToList();
+        string? PpfBadge(string eventCode, string label)
+        {
+            if (!Model.PpfCountsByEvent.TryGetValue(eventCode, out var count)) return null;
+            var text = string.IsNullOrEmpty(label) ? $"{count}" : $"{label} ({count})";
+            return $"<span class=\"flow-ppf-badge\" title=\"{count} active Post-Processing rule(s) fire on '{eventCode}'\">&#9993; {text}</span>";
+        }
+        <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;" id="flowPanel" hidden>
+            <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:4px;">Visualize Flow</label>
+            <p style="font-size:12.5px;color:var(--jaco-text-muted);margin:0 0 16px;">
+                How a submission matching this rule moves through approval, and which Post-Processing (email) rules fire at each step.
+                Reflects what's currently saved &mdash; save first if you just made changes.
+            </p>
+            <div class="flow-diagram">
+                <div class="flow-caption">@Model.SavedCriteriaSummary</div>
+
+                <div class="flow-node flow-start">
+                    <div class="flow-node-title">Submitted</div>
+                    <div class="flow-ppf-badges">@Html.Raw(PpfBadge("Created", "Created"))@Html.Raw(PpfBadge("Resubmit", "Resubmit"))</div>
+                </div>
+
+                @if (activeLevels.Count == 0)
+                {
+                    <p style="color:var(--jaco-text-muted);font-size:12.5px;margin-top:16px;text-align:center;">No levels configured yet &mdash; add approvers above to see the rest of the flow.</p>
+                }
+                @for (var i = 0; i < activeLevels.Count; i++)
+                {
+                    var level = activeLevels[i];
+                    <div class="flow-connector">
+                        <span class="flow-connector-arrow">&darr;</span>
+                        @Html.Raw(PpfBadge("LevelPending", "LevelPending"))
+                    </div>
+                    <div class="flow-row">
+                        <div class="flow-node flow-level">
+                            <div class="flow-node-title">Level @level.LevelNo</div>
+                            <div class="flow-node-sub">@level.Mode@(level.Mode == "MINIMUM_COUNT" ? $" ({level.RequiredCount})" : "")</div>
+                            <div class="flow-approvers">
+                                @foreach (var uid in level.ApproverUserIds)
+                                {
+                                    var user = Model.Users.FirstOrDefault(u => u.Id == uid);
+                                    if (user is not null)
+                                    {
+                                        <span class="flow-approver"><img src="@IdenticonGenerator.DataUri(user.UserName)" alt="" /> @user.DisplayName</span>
+                                    }
+                                }
+                            </div>
+                        </div>
+                        <div class="flow-branches">
+                            <div class="flow-branch flow-branch-reject">&rarr; Rejected @Html.Raw(PpfBadge("Rejected", ""))</div>
+                            <div class="flow-branch flow-branch-sentback">&rarr; Sent Back @Html.Raw(PpfBadge("SentBack", ""))</div>
+                        </div>
+                    </div>
+                }
+
+                @if (activeLevels.Count > 0)
+                {
+                    <div class="flow-connector"><span class="flow-connector-arrow">&darr;</span></div>
+                    <div class="flow-node flow-end">
+                        <div class="flow-node-title">Approved</div>
+                        <div class="flow-ppf-badges">@Html.Raw(PpfBadge("Approved", "Approved"))@Html.Raw(PpfBadge("Completed", "Completed"))</div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
 
     <div class="jaco-card jaco-card-pad">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
@@ -284,6 +356,15 @@
         runSimulation();
     });
 
+    var toggleFlowBtn = document.getElementById('toggleFlowBtn');
+    var flowPanel = document.getElementById('flowPanel');
+    if (toggleFlowBtn && flowPanel) {
+        toggleFlowBtn.addEventListener('click', function () {
+            flowPanel.hidden = !flowPanel.hidden;
+            toggleFlowBtn.textContent = flowPanel.hidden ? 'Visualize Flow' : 'Hide Flow';
+        });
+    }
+
     document.getElementById('criteriaCard').addEventListener('input', runSimulation);
     document.getElementById('criteriaCard').addEventListener('change', runSimulation);
     runSimulation();
@@ -390,4 +471,26 @@
 .picker-option { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; }
 .picker-option:hover { background: var(--jaco-bg); }
 .picker-option input { width: auto; margin: 0; }
+
+.flow-diagram { max-width: 640px; margin: 0 auto; }
+.flow-caption { text-align: center; font-size: 12.5px; font-style: italic; color: var(--jaco-text-muted); margin-bottom: 18px; padding: 8px 14px; background: var(--jaco-bg); border-radius: var(--jaco-radius-sm); }
+.flow-node { border: 1.5px solid var(--jaco-border); border-radius: var(--jaco-radius-md); padding: 14px 18px; background: var(--jaco-card); }
+.flow-start, .flow-end { text-align: center; }
+.flow-start { border-color: var(--jaco-info); }
+.flow-end { border-color: var(--jaco-success); background: var(--jaco-success-bg); }
+.flow-node-title { font-weight: 700; font-size: 14px; }
+.flow-node-sub { font-size: 12px; color: var(--jaco-text-muted); margin-top: 2px; }
+.flow-connector { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; }
+.flow-connector-arrow { font-size: 20px; color: var(--jaco-text-muted); line-height: 1; }
+.flow-row { display: flex; align-items: flex-start; gap: 16px; }
+.flow-level { flex: 1; min-width: 0; }
+.flow-approvers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.flow-approver { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; background: var(--jaco-bg); border-radius: 999px; padding: 3px 9px 3px 3px; }
+.flow-approver img { width: 18px; height: 18px; border-radius: 50%; }
+.flow-branches { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; padding-top: 4px; }
+.flow-branch { font-size: 11.5px; font-weight: 600; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+.flow-branch-reject { color: var(--jaco-danger); }
+.flow-branch-sentback { color: var(--jaco-warning); }
+.flow-ppf-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; background: var(--jaco-info-bg); color: var(--jaco-info); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.flow-ppf-badges { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; min-height: 0; }
 </style>

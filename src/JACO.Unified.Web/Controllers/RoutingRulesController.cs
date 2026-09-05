@@ -97,6 +97,7 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
         var criteriaRows = Enumerable.Range(0, RuleFormViewModel.MaxCriteriaRows).Select(_ => new CriteriaFormRow()).ToList();
         var levelRows = Enumerable.Range(1, RuleFormViewModel.MaxLevels).Select(n => new LevelFormRow { LevelNo = n }).ToList();
         RoutingRule? rule = null;
+        string? savedCriteriaSummary = null;
 
         if (ruleId is not null)
         {
@@ -104,6 +105,14 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
             var existingCriteria = await db.RoutingRuleCriteria.Where(c => c.RoutingRuleId == ruleId).OrderBy(c => c.SortOrder).ToListAsync();
             for (var i = 0; i < existingCriteria.Count && i < criteriaRows.Count; i++)
                 criteriaRows[i] = new CriteriaFormRow { FieldKey = existingCriteria[i].FieldKey, Operator = existingCriteria[i].Operator, ComparisonValue = existingCriteria[i].ComparisonValue, LogicalOperator = existingCriteria[i].LogicalOperator };
+
+            // Same summary logic as the Rule Builder list's own CriteriaSummary column --
+            // reused here (rather than a fresh query) for the "Visualize Flow" panel's caption.
+            savedCriteriaSummary = existingCriteria.Count == 0 ? "Matches any submission" : string.Join(" OR ", RoutingService.GroupByPrecedence(existingCriteria).Select(g =>
+            {
+                var joined = string.Join(" AND ", g.Select(c => $"{c.FieldKey} {c.Operator} {c.ComparisonValue}"));
+                return g.Count > 1 ? $"({joined})" : joined;
+            }));
 
             var steps = await db.WorkflowSteps.Where(s => s.RoutingRuleId == ruleId).OrderBy(s => s.LevelNo).ToListAsync();
             for (var n = 0; n < levelRows.Count; n++)
@@ -123,6 +132,12 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
             rule = new RoutingRule { Priority = (maxPriority ?? 0) + 10, Active = true };
         }
 
+        var ppfCountsByEvent = await db.PostProcessingRules
+            .Where(r => r.ApprovalTypeId == approvalTypeId && r.Active)
+            .GroupBy(r => r.EventCode)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count);
+
         return new RuleFormViewModel
         {
             ApprovalTypeId = approvalTypeId,
@@ -131,7 +146,9 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
             Levels = levelRows,
             AvailableFields = await db.WorkflowFields.Where(f => f.ApprovalTypeId == approvalTypeId || f.ApprovalTypeId == null).OrderBy(f => f.DisplayOrder).ToListAsync(),
             Users = await db.AppUsers.Where(u => u.IsActive).OrderBy(u => u.DisplayName).ToListAsync(),
-            DefaultPriority = rule?.Priority ?? 10
+            DefaultPriority = rule?.Priority ?? 10,
+            PpfCountsByEvent = ppfCountsByEvent,
+            SavedCriteriaSummary = savedCriteriaSummary
         };
     }
 

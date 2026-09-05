@@ -188,6 +188,15 @@ public sealed class RuleFormViewModel
     public required List<LevelFormRow> Levels { get; init; }
     public required List<WorkflowField> AvailableFields { get; init; }
     public required List<AppUser> Users { get; init; }
+    // How many ACTIVE Post-Processing (email) rules fire per event, for this rule's own
+    // Approval Type -- PPF rules are configured per Type+Event, not per Routing Rule, so this
+    // is the same for every rule of a given type. Used by the "Visualize Flow" panel to badge
+    // each transition with a rule count, not the rules' own detail (still on PostProcessingRules).
+    public Dictionary<string, int> PpfCountsByEvent { get; init; } = [];
+    // The saved criteria expression (server-computed, same logic as the Rule Builder list's
+    // own summary column) -- distinct from the live JS preview used while editing the form,
+    // since "Visualize Flow" shows what's actually in effect, not an unsaved in-progress edit.
+    public string? SavedCriteriaSummary { get; init; }
 }
 
 // ---------- Bulk Rule (see RoutingRulesController.Bulk*) ----------
