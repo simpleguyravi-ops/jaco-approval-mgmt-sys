@@ -24,7 +24,7 @@
 {
     <div class="jaco-card jaco-card-pad" style="margin-bottom:16px;background:var(--jaco-warning-bg);">
         <p style="margin:0 0 10px;font-size:13px;color:var(--jaco-warning);"><b>@newCreds.Count account(s) just created by import.</b> These temporary passwords are shown once, right now &mdash; copy them out before leaving this page. Each one forces a password change on first sign-in.</p>
-        <table class="jaco-table" style="background:#fff;border-radius:var(--jaco-radius-sm);">
+        <table class="jaco-table" style="background:var(--jaco-card);border-radius:var(--jaco-radius-sm);">
             <thead><tr><th>Username</th><th>Temporary Password</th></tr></thead>
             <tbody>
             @foreach (var c in newCreds)

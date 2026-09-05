@@ -465,10 +465,10 @@
 .picker { position: relative; max-width: 320px; }
 .picker input { width: 100%; padding: 7px 10px; border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); font-size: 12px; font-family: inherit; }
 .picker input:focus { outline: none; border-color: var(--jaco-orange-600); box-shadow: 0 0 0 3px rgba(242,96,12,.12); }
-.picker-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); box-shadow: 0 8px 20px rgba(16,24,40,.12); max-height: 200px; overflow-y: auto; z-index: 20; display: none; }
+.picker-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--jaco-card); border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); box-shadow: 0 8px 20px rgba(16,24,40,.12); max-height: 200px; overflow-y: auto; z-index: 20; display: none; }
 .picker.open .picker-list { display: block; }
 .picker-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--jaco-text-muted); padding: 7px 10px 3px; }
-.picker-option { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; }
+.picker-option { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; color: var(--jaco-text); }
 .picker-option:hover { background: var(--jaco-bg); }
 .picker-option input { width: auto; margin: 0; }
 
