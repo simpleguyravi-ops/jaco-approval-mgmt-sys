@@ -60,6 +60,7 @@
                     <input name="criteriaValue" class="jaco-input" style="margin:0;" value="@Model.Criteria[i].ComparisonValue" placeholder="e.g. IT" />
                 </div>
                 <span class="criteria-match-indicator" data-row="@i" title="Matches the sample values below?"></span>
+                <button type="button" class="criteria-remove-btn" data-row="@i" title="Remove this condition">&times;</button>
             </div>
         }
         <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -216,6 +217,38 @@
         criteriaVisible++;
         showCriteriaCount(criteriaVisible);
         runSimulation();
+    });
+
+    // Rows are a fixed pool of @Model.Criteria.Count pre-rendered slots with only a visible
+    // COUNT toggled (there's no dynamic list to splice) -- so "remove row i" means shifting
+    // every later visible row's own values up into the one before it, then clearing and
+    // hiding whatever is now the last visible slot. Each row's own AND/OR selection moves down
+    // with its row untouched; only the join to whatever ends up newly ABOVE it changes as a
+    // natural consequence of removing a row from the middle of a boolean expression.
+    function removeCriteriaRow(index) {
+        for (var i = index; i < criteriaVisible - 1; i++) {
+            var from = criteriaRows[i + 1];
+            var to = criteriaRows[i];
+            to.querySelector('[name="criteriaFieldKey"]').value = from.querySelector('[name="criteriaFieldKey"]').value;
+            to.querySelector('[name="criteriaOperator"]').value = from.querySelector('[name="criteriaOperator"]').value;
+            to.querySelector('[name="criteriaValue"]').value = from.querySelector('[name="criteriaValue"]').value;
+            var toJoin = to.querySelector('[name="criteriaLogicalOperator"]');
+            var fromJoin = from.querySelector('[name="criteriaLogicalOperator"]');
+            if (toJoin && fromJoin) toJoin.value = fromJoin.value;
+        }
+        var last = criteriaRows[criteriaVisible - 1];
+        last.querySelector('[name="criteriaFieldKey"]').value = '';
+        last.querySelector('[name="criteriaOperator"]').selectedIndex = 0;
+        last.querySelector('[name="criteriaValue"]').value = '';
+        var lastJoin = last.querySelector('[name="criteriaLogicalOperator"]');
+        if (lastJoin) lastJoin.selectedIndex = 0;
+
+        criteriaVisible = Math.max(1, criteriaVisible - 1);
+        showCriteriaCount(criteriaVisible);
+        runSimulation();
+    }
+    document.querySelectorAll('.criteria-remove-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () { removeCriteriaRow(parseInt(btn.getAttribute('data-row'), 10)); });
     });
 
     // ---------- Criteria preview + "Test This Rule" simulator ----------
@@ -501,9 +534,11 @@
 <style>
 .criteria-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .criteria-join-select { width: 72px; flex-shrink: 0; }
-.criteria-match-indicator { width: 16px; flex-shrink: 0; text-align: center; font-weight: 700; }
+.criteria-match-indicator { width: 16px; flex-shrink: 0; text-align: center; font-weight: 700; pointer-events: none; }
 .criteria-match-indicator.match-yes { color: var(--jaco-success); }
 .criteria-match-indicator.match-no { color: var(--jaco-danger); }
+.criteria-remove-btn { flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; border: none; background: transparent; color: var(--jaco-text-muted); font-size: 16px; line-height: 1; cursor: pointer; }
+.criteria-remove-btn:hover { background: var(--jaco-danger-bg); color: var(--jaco-danger); }
 .criteria-preview { font-size: 12.5px; color: var(--jaco-text-muted); font-style: italic; margin-top: 10px; }
 .simulator-fields { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .sim-group { border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); padding: 10px 12px; }
