@@ -15,7 +15,7 @@
 */
 
 *{box-sizing:border-box}
-body{margin:0;font-family:inherit;background:var(--jaco-bg);color:var(--jaco-text)}
+body{margin:0;background:var(--jaco-bg);color:var(--jaco-text)}
 
 .page-head{display:flex;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
 .page-head h1{margin:4px 0;font-size:22px}
@@ -90,9 +90,10 @@ tr:hover td{background:var(--jaco-bg)}
 .validation-summary ul{margin:0;padding-left:18px}
 .field-error{display:block;color:var(--jaco-danger);font-size:12px;margin-top:-7px;margin-bottom:8px}
 
-.lookup-tabs{display:flex;gap:8px;flex-wrap:wrap}
-.lookup-tab{padding:8px 14px;border:1px solid var(--jaco-border);border-radius:999px;text-decoration:none;color:var(--jaco-text);background:var(--jaco-card);font-size:13px;font-weight:600}
-.lookup-tab.selected{background:var(--jaco-orange-600);color:#fff;border-color:var(--jaco-orange-600)}
+.lookup-tabs{display:inline-flex;gap:3px;padding:3px;background:var(--jaco-bg);border:1px solid var(--jaco-border);border-radius:999px;flex-wrap:wrap}
+.lookup-tab{padding:7px 16px;border:none;border-radius:999px;text-decoration:none;color:var(--jaco-text-muted);background:transparent;font-size:13px;font-weight:700}
+.lookup-tab.selected{background:var(--jaco-orange-600);color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.lookup-tab:hover:not(.selected){color:var(--jaco-text)}
 
 .timeline{display:flex;gap:0;overflow:auto;padding:10px 0 20px}
 .timeline-step{min-width:180px;position:relative;padding:0 14px 0 26px}

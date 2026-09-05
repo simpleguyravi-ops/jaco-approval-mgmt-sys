@@ -20,6 +20,9 @@ public static class ThemeCatalog
         new("nightshift", "Night Shift", "A diagnostic bay after hours — amber-on-black, monospaced IDs, for whoever lives in this screen all day.", ["#0a0c0a", "#ffb000", "#29d3c6", "#7fe0c4"]),
         new("daylight", "Daylight", "One rule, kept precisely: no boxes, no shadows. The number is the design.", ["#ffffff", "#1e4fff", "#16171a", "#dedfe3"]),
         new("meadow", "Meadow", "Soft edges, quiet colour — for the requester who opens this once a month and shouldn't have to think.", ["#f4f6f1", "#4c8577", "#e8785a", "#6f8fae"]),
+        new("flux", "Flux", "Frosted glass over a fluid gradient ground — cards lift and glow on hover, Stripe/Linear-coded.", ["#0d0f1a", "#7c6cff", "#4f8bff", "#34e5b0"]),
+        new("collab", "Collab", "A light, airy shell with one confident indigo accent — every avatar gets a soft presence ring.", ["#6366f1", "#f6f7fb", "#16a34a", "#dc2626"]),
+        new("prism", "Prism", "The most colour of the set — solid saturated badges and fully rounded shapes throughout.", ["#7b5cff", "#ff3d57", "#00c48c", "#3d5aff"]),
     ];
 
     public static bool IsValid(string? key) => key is not null && Options.Any(o => o.Key == key);

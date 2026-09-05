@@ -1,18 +1,18 @@
 /*
-  JACO shared design system -- MEADOW.
+  JACO shared design system -- FLUX.
   Every custom property and class name is IDENTICAL to jaco-design-system.css on purpose --
   re-skinning by changing only the values/structure here means the whole app gets the new
-  look with zero view-file edits. Soft edges and quiet colour, for the requester who opens
-  this once a month and shouldn't have to think about it -- the least "ops tool" feeling
-  option on the platform.
+  look with zero view-file edits. Fluid glassmorphism: a soft violet/blue glow behind the
+  content column, with the big surface components (cards, stat tiles) frosted-glass over it.
+  Stripe/Linear-coded, the most "alive" of the JAMS templates.
 */
 
 @font-face {
-    font-family: 'Figtree';
+    font-family: 'Sora';
     font-style: normal;
     font-weight: 400 800;
     font-display: swap;
-    src: url('../fonts/Figtree-Variable.woff2') format('woff2');
+    src: url('../fonts/Sora-Variable.woff2') format('woff2');
 }
 @font-face {
     font-family: 'IBM Plex Mono';
@@ -23,32 +23,31 @@
 }
 
 :root {
-    --jaco-navy-900: #2b3a2e;
-    --jaco-navy-800: #3a4d3e;
-    --jaco-navy-700: #4a6350;
-    --jaco-orange-600: #4c8577;
-    --jaco-orange-700: #3e6d61;
+    --jaco-navy-900: #0d0f1a;
+    --jaco-navy-800: #171a2c;
+    --jaco-navy-700: #1f2340;
+    --jaco-orange-600: #7c6cff;
+    --jaco-orange-700: #6a5ae0;
+    --jaco-bg: #0d0f1a;
+    --jaco-card: #171a2c;
+    --jaco-border: rgba(255,255,255,.12);
+    --jaco-text: #eef0ff;
+    --jaco-text-muted: #9297c4;
+    --jaco-text-inverse: #eef0ff;
 
-    --jaco-bg: #f4f6f1;
-    --jaco-card: #ffffff;
-    --jaco-border: #e1e7dd;
-    --jaco-text: #2b3a2e;
-    --jaco-text-muted: #7c8a7d;
-    --jaco-text-inverse: #f4f6f1;
+    --jaco-success: #34e5b0;
+    --jaco-success-bg: rgba(52,229,176,.14);
+    --jaco-warning: #ffb84d;
+    --jaco-warning-bg: rgba(255,184,77,.14);
+    --jaco-danger: #ff5f87;
+    --jaco-danger-bg: rgba(255,95,135,.14);
+    --jaco-info: #5ac8ff;
+    --jaco-info-bg: rgba(90,200,255,.14);
 
-    --jaco-success: #4c8577;
-    --jaco-success-bg: #e2ede8;
-    --jaco-warning: #e8785a;
-    --jaco-warning-bg: #fbe8e2;
-    --jaco-danger: #c65b4e;
-    --jaco-danger-bg: #f7e4e0;
-    --jaco-info: #6f8fae;
-    --jaco-info-bg: #e6edf3;
-
-    --jaco-radius-sm: 14px;
-    --jaco-radius-md: 20px;
-    --jaco-radius-lg: 28px;
-    --jaco-shadow: 0 2px 8px rgba(43,58,46,.08), 0 10px 24px rgba(43,58,46,.06);
+    --jaco-radius-sm: 12px;
+    --jaco-radius-md: 16px;
+    --jaco-radius-lg: 24px;
+    --jaco-shadow: 0 1px 1px rgba(0,0,0,.25), 0 20px 40px rgba(79,139,255,.18);
     --jaco-sidebar-width: 240px;
 }
 
@@ -57,45 +56,39 @@
 body {
     margin: 0;
     background: var(--jaco-bg);
+    background-image:
+        radial-gradient(600px circle at 10% -5%, rgba(124,108,255,.20), transparent 60%),
+        radial-gradient(520px circle at 95% 15%, rgba(90,200,255,.14), transparent 60%);
+    background-attachment: fixed;
     color: var(--jaco-text);
-    font-family: "Figtree", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    font-family: "Sora", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
     font-size: 14px;
 }
 
 a { color: inherit; text-decoration: none; }
 
-/* ---------- App shell ----------
-   Matches the reference template: one FULL-WIDTH white top bar (logo + wordmark on
-   the left, user chip on the right) sits above everything; the sidebar (nav links only,
-   no logo) and the content column sit in a row below it. This theme avoids a dark chrome
-   anywhere -- the sidebar is a soft tinted panel, not a navy slab.
-*/
-
-/* Fixed-height shell: the topbar and sidebar (incl. Back to Portal/Sign Out) always stay
-   in view -- only .jaco-main scrolls. Without this, a long page pushed the WHOLE document
-   down together, so reaching Sign Out meant scrolling all the way past the page content
-   first, on every app. */
 .jaco-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 .jaco-topbar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 24px; background: var(--jaco-card); border-bottom: 1px solid var(--jaco-border);
+    padding: 10px 24px; background: rgba(23,26,44,.7); border-bottom: 1px solid var(--jaco-border);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
 }
 
 .jaco-topbar-brand { display: flex; align-items: center; gap: 14px; }
-.jaco-topbar-brand img { height: 62px; width: auto; }
+.jaco-topbar-brand img { height: 44px; width: auto; filter: brightness(0) invert(1); }
 .jaco-topbar-brand .divider { width: 1px; height: 36px; background: var(--jaco-border); }
 .jaco-topbar-brand .wordmark { line-height: 1.15; }
-.jaco-topbar-brand .wordmark .jaco-name { font-size: 20px; font-weight: 800; color: var(--jaco-navy-900); }
+.jaco-topbar-brand .wordmark .jaco-name { font-size: 20px; font-weight: 800; color: #fff; }
 .jaco-topbar-brand .wordmark .app-name { font-size: 13px; color: var(--jaco-text-muted); }
 
 .jaco-user-chip { display: flex; align-items: center; gap: 10px; }
 .jaco-avatar {
-    width: 34px; height: 34px; border-radius: 50%; background: var(--jaco-orange-600);
+    width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg,#7c6cff,#4f8bff);
     color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px;
 }
 .jaco-user-chip .who { line-height: 1.2; }
-.jaco-user-chip .who .name { font-size: 13px; font-weight: 600; }
+.jaco-user-chip .who .name { font-size: 13px; font-weight: 600; color: #fff; }
 .jaco-user-chip .who .role { font-size: 11.5px; color: var(--jaco-text-muted); }
 .jaco-theme-link { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--jaco-text-muted); margin-top: 3px; }
 .jaco-theme-link:hover { color: var(--jaco-orange-600); }
@@ -103,17 +96,17 @@ a { color: inherit; text-decoration: none; }
 
 .jaco-shell-body { display: flex; flex: 1; min-height: 0; }
 
-/* A soft tinted panel, not a dark slab -- this theme keeps light chrome throughout. */
 .jaco-sidebar {
     width: var(--jaco-sidebar-width);
     flex-shrink: 0;
-    background: var(--jaco-bg);
+    background: rgba(23,26,44,.5);
     border-right: 1px solid var(--jaco-border);
-    color: var(--jaco-text);
+    color: var(--jaco-text-inverse);
     display: flex;
     flex-direction: column;
     padding: 20px 12px;
     overflow-y: auto;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
 }
 
 .jaco-nav { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -121,18 +114,16 @@ a { color: inherit; text-decoration: none; }
 .jaco-nav a {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 12px; border-radius: var(--jaco-radius-sm);
-    color: var(--jaco-text-muted); font-size: 13.5px;
+    color: rgba(238,240,255,.75); font-size: 13.5px;
+    transition: background .15s ease, color .15s ease;
 }
 
-.jaco-nav a:hover { background: var(--jaco-card); color: var(--jaco-text); }
-/* Fully pill-shaped active item, not just rounded-sm. */
-.jaco-nav a.active { background: var(--jaco-orange-600); color: #fff; border-radius: 999px; }
+.jaco-nav a:hover { background: rgba(255,255,255,.06); color: #fff; }
+.jaco-nav a.active { background: linear-gradient(135deg,#7c6cff,#4f8bff); color: #fff; font-weight: 600; }
 .jaco-nav .jaco-icon { width: 18px; height: 18px; }
 .jaco-nav-section { margin-top: 18px; padding: 0 12px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: .5; }
 
 .jaco-sidebar-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--jaco-border); }
-
-/* ---------- Main column ---------- */
 
 .jaco-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; }
 
@@ -145,61 +136,53 @@ a { color: inherit; text-decoration: none; }
 }
 .jaco-back-link:hover { color: var(--jaco-orange-700); }
 
-/* Rule Builder's criteria FIELD/OPERATOR/VALUE row -- kept as a real class (not an
-   inline style) specifically so JS can toggle visibility via row.style.display without
-   clobbering the grid layout: clearing an *inline* display:grid falls back to the
-   browser default (block, i.e. stacked), whereas clearing it here just re-reveals this
-   class's own display:grid. */
 .jaco-criteria-row, .jaco-criteria-header { display: grid; grid-template-columns: 1.2fr 1fr 1.2fr; gap: 10px; }
 .jaco-criteria-row { margin-bottom: 8px; }
 .jaco-criteria-header { font-size: 11.5px; font-weight: 600; color: var(--jaco-text-muted); margin-bottom: 4px; }
 
-/* ---------- Cards, buttons, badges ---------- */
-
 .jaco-card {
-    background: var(--jaco-card); border: 1px solid var(--jaco-border);
+    background: rgba(255,255,255,.05); border: 1px solid var(--jaco-border);
     border-radius: var(--jaco-radius-md); box-shadow: var(--jaco-shadow);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
 }
 
 .jaco-card-pad { padding: 20px; }
 
 .jaco-page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
-.jaco-page-header h1 { font-size: 22px; margin: 0 0 4px; }
+.jaco-page-header h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
 .jaco-page-header p { margin: 0; color: var(--jaco-text-muted); font-size: 13.5px; }
 
-/* Pill buttons throughout -- rounder than the design system's usual radius scale. */
 .jaco-btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 9px 16px; border-radius: 999px; border: 1px solid transparent;
     font-size: 13.5px; font-weight: 600; cursor: pointer;
     white-space: nowrap; flex-shrink: 0; forced-color-adjust: none; font-family: inherit; appearance: none; -webkit-appearance: none; min-height: 0;
+    transition: transform .12s ease, box-shadow .12s ease;
 }
-.jaco-btn-primary { background: var(--jaco-orange-600); color: #fff; }
-.jaco-btn-primary:hover { background: var(--jaco-orange-700); }
-.jaco-btn-outline { background: #fff; border-color: var(--jaco-border); color: var(--jaco-text); }
+.jaco-btn-primary { background: linear-gradient(135deg,#7c6cff,#4f8bff); color: #fff; }
+.jaco-btn-primary:hover { box-shadow: 0 6px 18px rgba(124,108,255,.4); transform: translateY(-1px); }
+.jaco-btn-outline { background: rgba(255,255,255,.05); border-color: var(--jaco-border); color: var(--jaco-text); }
 .jaco-btn-outline:hover { border-color: var(--jaco-orange-600); color: var(--jaco-orange-600); }
 .jaco-btn-warning { background: var(--jaco-warning-bg); border-color: var(--jaco-warning); color: var(--jaco-warning); }
-.jaco-btn-warning:hover { background: var(--jaco-warning); border-color: var(--jaco-warning); color: #fff; }
-.jaco-btn-sm { padding: 6px 12px; font-size: 12.5px; height: 32px; border-radius: 999px; }
+.jaco-btn-warning:hover { background: var(--jaco-warning); border-color: var(--jaco-warning); color: #1a1500; }
+.jaco-btn-sm { padding: 6px 12px; font-size: 12.5px; height: 32px; }
 
-.jaco-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; }
-.jaco-badge-success { background: var(--jaco-success-bg); color: var(--jaco-success); }
-.jaco-badge-warning { background: var(--jaco-warning-bg); color: var(--jaco-warning); }
-.jaco-badge-danger { background: var(--jaco-danger-bg); color: var(--jaco-danger); }
-.jaco-badge-info { background: var(--jaco-info-bg); color: var(--jaco-info); }
-.jaco-badge-neutral { background: #eef0f3; color: var(--jaco-text-muted); }
+.jaco-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; }
+.jaco-badge-success { background: var(--jaco-success-bg); color: var(--jaco-success); border: 1px solid var(--jaco-success); }
+.jaco-badge-warning { background: var(--jaco-warning-bg); color: var(--jaco-warning); border: 1px solid var(--jaco-warning); }
+.jaco-badge-danger { background: var(--jaco-danger-bg); color: var(--jaco-danger); border: 1px solid var(--jaco-danger); }
+.jaco-badge-info { background: var(--jaco-info-bg); color: var(--jaco-info); border: 1px solid var(--jaco-info); }
+.jaco-badge-neutral { background: rgba(255,255,255,.08); color: var(--jaco-text-muted); }
 
 .jaco-form-group { margin-bottom: 16px; }
 .jaco-form-group label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; color: var(--jaco-text-muted); }
 .jaco-input, .jaco-select {
     width: 100%; padding: 9px 12px; border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm);
-    font-size: 13.5px; background: #fff; color: var(--jaco-text);
+    font-size: 13.5px; background: rgba(255,255,255,.04); color: var(--jaco-text);
 }
-.jaco-input:focus, .jaco-select:focus { outline: none; border-color: var(--jaco-orange-600); box-shadow: 0 0 0 3px rgba(76,133,119,.14); }
+.jaco-input:focus, .jaco-select:focus { outline: none; border-color: var(--jaco-orange-600); box-shadow: 0 0 0 3px rgba(124,108,255,.2); }
 .jaco-check-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
 
-/* Password field show/hide toggle -- a plain text button overlaid on the input, used
-   wherever a password is entered (Login, Change Password, admin-set/reset password). */
 .jaco-password-wrap { position: relative; }
 .jaco-password-wrap input { padding-right: 64px; }
 .jaco-password-toggle {
@@ -209,62 +192,48 @@ a { color: inherit; text-decoration: none; }
 }
 .jaco-password-toggle:hover { color: var(--jaco-orange-600); }
 
-/* Checkboxes/radios default to the browser/OS accent color (blue on Windows) unless
-   told otherwise -- this is the one part of the palette a plain CSS reskin actually
-   controls cross-browser. Native <select> dropdown POPUP list styling (the open list's
-   row highlight) is rendered by the OS itself and cannot be recolored via CSS in any
-   browser -- that would need a custom JS-built dropdown, not attempted here. */
 input[type="checkbox"], input[type="radio"] { accent-color: var(--jaco-orange-600); }
 
 .jaco-table { width: 100%; border-collapse: collapse; }
 .jaco-table th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--jaco-text-muted); padding: 10px 14px; border-bottom: 1px solid var(--jaco-border); }
 .jaco-table td { padding: 12px 14px; border-bottom: 1px solid var(--jaco-border); font-size: 13.5px; }
 .jaco-table tr:last-child td { border-bottom: none; }
-.jaco-table tr:hover td { background: var(--jaco-bg); }
+.jaco-table tr:hover td { background: rgba(255,255,255,.03); }
 
 .jaco-alert { padding: 12px 14px; border-radius: var(--jaco-radius-sm); font-size: 13px; margin-bottom: 16px; }
 .jaco-alert-danger { background: var(--jaco-danger-bg); color: var(--jaco-danger); }
 
 .jaco-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
-/* Soft decorative blob in the corner -- purely visual, pointer-events:none so it never
-   blocks a click on a card that's also a filter link. */
-.jaco-stat-card { display: flex; align-items: center; gap: 14px; padding: 18px; position: relative; overflow: hidden; }
-.jaco-stat-card::after { content: ""; position: absolute; right: -18px; top: -18px; width: 70px; height: 70px; border-radius: 50%; background: var(--jaco-orange-600); opacity: .08; pointer-events: none; }
-.jaco-stat-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.jaco-stat-card { display: flex; align-items: center; gap: 14px; padding: 18px; }
+.jaco-stat-icon { width: 42px; height: 42px; border-radius: var(--jaco-radius-sm); display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .jaco-stat-value { font-size: 22px; font-weight: 700; line-height: 1; font-family: 'IBM Plex Mono', 'Consolas', monospace; }
 .jaco-stat-label { font-size: 12.5px; color: var(--jaco-text-muted); margin-top: 4px; }
 a.jaco-stat-card { cursor: pointer; transition: box-shadow .15s ease, transform .15s ease; }
-a.jaco-stat-card:hover { box-shadow: 0 2px 8px rgba(16,24,40,.12); transform: translateY(-1px); }
-a.jaco-stat-card.jaco-stat-active { box-shadow: inset 0 0 0 2px var(--jaco-primary, #f36f21); }
+a.jaco-stat-card:hover { box-shadow: 0 1px 1px rgba(0,0,0,.25), 0 26px 48px rgba(79,139,255,.25); transform: translateY(-2px); }
+a.jaco-stat-card.jaco-stat-active { box-shadow: inset 0 0 0 2px var(--jaco-orange-600); }
 
 .jaco-app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
 .jaco-app-card { padding: 22px; display: flex; flex-direction: column; gap: 12px; transition: transform .12s ease, box-shadow .12s ease; }
-.jaco-app-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(16,24,40,.1); }
-/* Circular icon chip -- the softest possible shape, matching the pill buttons and nav. */
-.jaco-app-icon { width: 46px; height: 46px; border-radius: 50%; background: var(--jaco-orange-600); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.jaco-app-card:hover { transform: translateY(-2px); box-shadow: 0 1px 1px rgba(0,0,0,.25), 0 20px 40px rgba(79,139,255,.22); }
+.jaco-app-icon { width: 46px; height: 46px; border-radius: var(--jaco-radius-md); background: linear-gradient(135deg,#7c6cff,#4f8bff); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; }
 .jaco-app-card h3 { margin: 0; font-size: 16px; }
 .jaco-app-card p { margin: 0; color: var(--jaco-text-muted); font-size: 13px; flex: 1; }
 
-/* ---------- Login (split screen) ---------- */
-
 .jaco-login-shell { display: flex; min-height: 100vh; }
 .jaco-login-hero {
-    flex: 1.1; background: linear-gradient(160deg, var(--jaco-navy-900), var(--jaco-navy-700));
+    flex: 1.1; background: linear-gradient(160deg, var(--jaco-navy-900), #14163a);
     background-size: cover; background-position: center;
     color: #fff; padding: 48px; display: flex; flex-direction: column; justify-content: space-between;
     position: relative;
 }
-/* Photo variant: a real showroom/building photo behind the gradient, set inline via
-   --hero-photo on the element (background-image can't be layered with the base rule's
-   plain color otherwise). Darkens toward the bottom so the tagline stays legible. */
 .jaco-login-hero.has-photo {
     background-image:
-        linear-gradient(185deg, rgba(11,28,51,.55) 0%, rgba(11,28,51,.75) 55%, rgba(11,28,51,.96) 100%),
+        linear-gradient(185deg, rgba(13,15,26,.6) 0%, rgba(13,15,26,.8) 55%, rgba(13,15,26,.97) 100%),
         var(--hero-photo);
 }
 .jaco-login-hero .tagline { font-size: 34px; font-weight: 700; line-height: 1.2; max-width: 380px; color: #fff; }
 .jaco-login-hero .sub { opacity: .7; font-size: 13px; letter-spacing: .03em; }
-.jaco-login-hero .sub.accent { opacity: 1; color: var(--jaco-warning); font-weight: 600; letter-spacing: .08em; }
+.jaco-login-hero .sub.accent { opacity: 1; color: #a99bff; font-weight: 600; letter-spacing: .08em; }
 .jaco-login-form-side { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px; background: var(--jaco-card); }
 .jaco-login-box { width: 100%; max-width: 380px; }
 .jaco-login-box h1 { font-size: 24px; margin: 0 0 4px; }
@@ -274,13 +243,6 @@ a.jaco-stat-card.jaco-stat-active { box-shadow: inset 0 0 0 2px var(--jaco-prima
     .jaco-login-hero { display: none; }
     .jaco-sidebar { display: none; }
 }
-
-/* ---------- Icons ----------
-   Monochrome line icons via CSS mask so they inherit currentColor (white on the
-   navy sidebar, tinted inside stat/app icon chips). Deliberately plain generic
-   shapes, not a copy of any specific icon library. Replaces emoji glyphs, which
-   render inconsistently across platforms and read as unpolished in a business app.
-*/
 
 .jaco-icon {
     display: inline-block; width: 18px; height: 18px; flex-shrink: 0;
@@ -312,27 +274,25 @@ a.jaco-stat-card.jaco-stat-active { box-shadow: inset 0 0 0 2px var(--jaco-prima
 
 .jaco-icon[class*="jaco-icon-"] { -webkit-mask-image: var(--i); mask-image: var(--i); }
 
-/* ---------- Dropdown button (e.g. "Create Approval" picking a type) ---------- */
-
 .jaco-dropdown { position: relative; display: inline-block; }
 .jaco-dropdown-menu {
     display: none; position: absolute; right: 0; top: calc(100% + 4px); min-width: 200px; z-index: 20;
-    background: var(--jaco-card); border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm);
-    box-shadow: 0 4px 14px rgba(16,24,40,.14); padding: 6px; flex-direction: column; gap: 2px;
+    background: var(--jaco-navy-800); border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm);
+    box-shadow: var(--jaco-shadow); padding: 6px; flex-direction: column; gap: 2px;
 }
 .jaco-dropdown.open .jaco-dropdown-menu { display: flex; }
 .jaco-dropdown-menu a {
     display: block; padding: 8px 10px; border-radius: var(--jaco-radius-sm); font-size: 13.5px; color: var(--jaco-text);
 }
-.jaco-dropdown-menu a:hover { background: var(--jaco-bg); color: var(--jaco-orange-600); }
+.jaco-dropdown-menu a:hover { background: rgba(255,255,255,.06); color: var(--jaco-orange-600); }
 
 /* Platform standard: in-app confirm modal (jaco-confirm.js) -- never window.confirm(). */
 .jaco-confirm-overlay {
-    position: fixed; inset: 0; background: rgba(10, 14, 22, .45);
+    position: fixed; inset: 0; background: rgba(0, 0, 0, .55);
     display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 16px;
 }
 .jaco-confirm-modal {
-    background: var(--jaco-card); border-radius: var(--jaco-radius-md); box-shadow: var(--jaco-shadow);
+    background: var(--jaco-navy-800); border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-md); box-shadow: var(--jaco-shadow);
     max-width: 420px; width: 100%; padding: 22px;
 }
 .jaco-confirm-modal p { margin: 0 0 20px; font-size: 14px; color: var(--jaco-text); line-height: 1.5; }

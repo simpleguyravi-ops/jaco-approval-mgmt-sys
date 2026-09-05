@@ -8,6 +8,20 @@
   real brand orange instead of replacing it with something else.
 */
 
+@font-face {
+    font-family: 'Archivo';
+    font-style: normal;
+    font-weight: 400 800;
+    font-display: swap;
+    src: url('../fonts/Archivo-Variable.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'Fraunces';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('../fonts/Fraunces-Variable.woff2') format('woff2');
+}
 
 :root {
     --jaco-navy-900: #0b0f1a;
@@ -150,7 +164,7 @@ a { color: inherit; text-decoration: none; }
 .jaco-card-pad { padding: 20px; }
 
 .jaco-page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
-.jaco-page-header h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+.jaco-page-header h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; font-family: 'Fraunces', Georgia, serif; }
 .jaco-page-header p { margin: 0; color: var(--jaco-text-muted); font-size: 13.5px; }
 
 .jaco-btn {
@@ -213,7 +227,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--jaco-orange-60
 .jaco-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
 .jaco-stat-card { display: flex; align-items: center; gap: 14px; padding: 18px; border-top: 2px solid var(--jaco-info); }
 .jaco-stat-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-.jaco-stat-value { font-size: 22px; font-weight: 700; line-height: 1; }
+.jaco-stat-value { font-size: 22px; font-weight: 700; line-height: 1; font-family: 'Fraunces', Georgia, serif; }
 .jaco-stat-label { font-size: 12.5px; color: var(--jaco-text-muted); margin-top: 4px; }
 a.jaco-stat-card { cursor: pointer; transition: box-shadow .15s ease, transform .15s ease; }
 a.jaco-stat-card:hover { box-shadow: 0 2px 8px rgba(16,24,40,.12); transform: translateY(-1px); }
@@ -248,7 +262,7 @@ a.jaco-stat-card.jaco-stat-active { box-shadow: inset 0 0 0 2px var(--jaco-prima
 .jaco-login-hero .sub.accent { opacity: 1; color: var(--jaco-info); font-weight: 600; letter-spacing: .08em; }
 .jaco-login-form-side { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px; background: var(--jaco-card); }
 .jaco-login-box { width: 100%; max-width: 380px; }
-.jaco-login-box h1 { font-size: 24px; margin: 0 0 4px; }
+.jaco-login-box h1 { font-size: 24px; margin: 0 0 4px; font-family: 'Fraunces', Georgia, serif; }
 .jaco-login-box .welcome { color: var(--jaco-text-muted); margin-bottom: 28px; font-size: 13.5px; }
 
 @media (max-width: 860px) {

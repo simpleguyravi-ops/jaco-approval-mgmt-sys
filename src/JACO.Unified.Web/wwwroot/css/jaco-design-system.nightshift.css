@@ -7,6 +7,20 @@
   Sharp corners, minimal shadow, deliberately technical -- nothing here is trying to be warm.
 */
 
+@font-face {
+    font-family: 'IBM Plex Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('../fonts/IBMPlexSans-Variable.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'IBM Plex Mono';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('../fonts/IBMPlexMono-Medium.woff2') format('woff2');
+}
 
 :root {
     --jaco-navy-900: #0a0c0a;
