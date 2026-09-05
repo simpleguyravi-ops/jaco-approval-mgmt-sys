@@ -9,6 +9,21 @@
         || Model.DateFrom is not null || Model.DateTo is not null || Model.PendingWithUserId is not null;
     var basePath = Model.IsAllView ? "/Requests/All" : "/Requests";
     var exportPath = Model.IsAllView ? "/Requests/ExportAll" : "/Requests/Export";
+    string ExportUrl()
+    {
+        var qs = new List<string>();
+        if (!string.IsNullOrWhiteSpace(Model.Search)) qs.Add($"search={Uri.EscapeDataString(Model.Search)}");
+        if (!string.IsNullOrWhiteSpace(Model.Status)) qs.Add($"status={Uri.EscapeDataString(Model.Status)}");
+        if (Model.ApprovalTypeId is not null) qs.Add($"approvalTypeId={Model.ApprovalTypeId}");
+        if (Model.PendingWithUserId is not null) qs.Add($"pendingWithUserId={Model.PendingWithUserId}");
+        if (Model.DateFrom is not null) qs.Add($"dateFrom={Model.DateFrom:yyyy-MM-dd}");
+        if (Model.DateTo is not null) qs.Add($"dateTo={Model.DateTo:yyyy-MM-dd}");
+        if (!Model.IsAllView) qs.Add($"focus={Model.Focus}");
+        // Selected extra columns are lost entirely without this -- the export controller
+        // action already knows how to include them, but only if the URL actually asks.
+        foreach (var c in Model.SelectedColumns) qs.Add($"columns={Uri.EscapeDataString(c)}");
+        return exportPath + "?" + string.Join("&", qs);
+    }
     string StatusClass(string status) => status switch
     {
         "Draft" => "status draft",
@@ -240,7 +255,7 @@
     {
         <button type="submit" form="bulkForm" id="reassignSelectedBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm" disabled>Reassign Selected</button>
     }
-    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="@exportPath?search=@Model.Search&status=@Model.Status&approvalTypeId=@Model.ApprovalTypeId@(focusQs)">Download CSV</a>
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="@ExportUrl()">Download CSV</a>
 </div>
 
 <form method="get" action="~/Requests/BulkReassign" id="bulkForm">
