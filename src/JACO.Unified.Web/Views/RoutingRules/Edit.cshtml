@@ -285,27 +285,66 @@
     }
 
     var sampleValues = {};
-    function renderSimulatorFields(rows) {
+    // Renders one bordered box per OR-group (matching the parenthesized expression above) so
+    // it's visually obvious which fields need to ALL match together vs. which are independent
+    // alternatives -- a flat list of fields with no grouping was the actual source of confusion
+    // reported here, not the underlying AND/OR evaluation (which was already correct). A field
+    // reused across more than one group still gets exactly one real input (one submitted value
+    // can't be two different things at once); later groups referencing it show a linked note
+    // pointing back at it instead of a second, independently-editable copy.
+    function renderSimulatorFields(groups) {
         var container = document.getElementById('simulatorFields');
-        var keys = [];
-        rows.forEach(function (r) { if (keys.indexOf(r.field) === -1) keys.push(r.field); });
-        if (keys.length === 0) { container.innerHTML = '<span class="chip-empty">Add a condition above to test it here.</span>'; return; }
+        if (groups.length === 0) { container.innerHTML = '<span class="chip-empty">Add a condition above to test it here.</span>'; return; }
         var focusedKey = document.activeElement && document.activeElement.getAttribute && document.activeElement.getAttribute('data-sim-field');
         container.innerHTML = '';
-        keys.forEach(function (key) {
-            var wrap = document.createElement('div');
-            wrap.className = 'sim-field';
-            var label = document.createElement('label');
-            label.textContent = fieldLabelFor(key);
-            var input = document.createElement('input');
-            input.className = 'jaco-input';
-            input.setAttribute('data-sim-field', key);
-            input.value = sampleValues[key] || '';
-            input.addEventListener('input', function () { sampleValues[key] = input.value; runSimulation(); });
-            wrap.appendChild(label);
-            wrap.appendChild(input);
-            container.appendChild(wrap);
-            if (key === focusedKey) input.focus();
+        var renderedFields = {};
+        groups.forEach(function (g, gi) {
+            if (gi > 0) {
+                var or = document.createElement('div');
+                or.className = 'sim-group-or';
+                or.textContent = 'OR';
+                container.appendChild(or);
+            }
+            var box = document.createElement('div');
+            box.className = 'sim-group';
+            var head = document.createElement('div');
+            head.className = 'sim-group-head';
+            head.innerHTML = '<span class="sim-group-caption">Group ' + (gi + 1) + (g.length > 1 ? ' — all must match' : '') + '</span><span class="sim-group-verdict" data-group-verdict="' + gi + '"></span>';
+            box.appendChild(head);
+
+            var fieldsRow = document.createElement('div');
+            fieldsRow.className = 'sim-group-fields';
+            g.forEach(function (r, ri) {
+                if (ri > 0) {
+                    var and = document.createElement('span');
+                    and.className = 'sim-group-and';
+                    and.textContent = 'AND';
+                    fieldsRow.appendChild(and);
+                }
+                if (renderedFields[r.field]) {
+                    var refWrap = document.createElement('div');
+                    refWrap.className = 'sim-field sim-field-linked';
+                    refWrap.innerHTML = '<label>' + fieldLabelFor(r.field) + '</label><span class="sim-field-linked-note">(same value as above)</span>';
+                    fieldsRow.appendChild(refWrap);
+                    return;
+                }
+                renderedFields[r.field] = true;
+                var wrap = document.createElement('div');
+                wrap.className = 'sim-field';
+                var label = document.createElement('label');
+                label.textContent = fieldLabelFor(r.field);
+                var input = document.createElement('input');
+                input.className = 'jaco-input';
+                input.setAttribute('data-sim-field', r.field);
+                input.value = sampleValues[r.field] || '';
+                input.addEventListener('input', function () { sampleValues[r.field] = input.value; runSimulation(); });
+                wrap.appendChild(label);
+                wrap.appendChild(input);
+                fieldsRow.appendChild(wrap);
+                if (r.field === focusedKey) input.focus();
+            });
+            box.appendChild(fieldsRow);
+            container.appendChild(box);
         });
     }
 
@@ -327,12 +366,12 @@
 
         if (!testModeOn) { clearMatchIndicators(); return; }
 
-        renderSimulatorFields(rows);
+        var groups = groupCriteria(rows);
+        renderSimulatorFields(groups);
         clearMatchIndicators();
 
-        var groups = groupCriteria(rows);
         var anyGroupTrue = groups.length === 0;
-        groups.forEach(function (g) {
+        groups.forEach(function (g, gi) {
             var groupTrue = true;
             g.forEach(function (r) {
                 var ok = evalCondition(r.op, sampleValues[r.field] || '', r.val);
@@ -341,6 +380,8 @@
                 if (indicator) { indicator.textContent = ok ? '✓' : '✗'; indicator.className = 'criteria-match-indicator ' + (ok ? 'match-yes' : 'match-no'); }
             });
             if (groupTrue) anyGroupTrue = true;
+            var groupVerdict = document.querySelector('[data-group-verdict="' + gi + '"]');
+            if (groupVerdict) { groupVerdict.textContent = groupTrue ? '✓' : '✗'; groupVerdict.className = 'sim-group-verdict ' + (groupTrue ? 'match-yes' : 'match-no'); }
         });
 
         var resultEl = document.getElementById('simulatorResult');
@@ -448,10 +489,21 @@
 .criteria-match-indicator.match-yes { color: var(--jaco-success); }
 .criteria-match-indicator.match-no { color: var(--jaco-danger); }
 .criteria-preview { font-size: 12.5px; color: var(--jaco-text-muted); font-style: italic; margin-top: 10px; }
-.simulator-fields { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
+.simulator-fields { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.sim-group { border: 1px solid var(--jaco-border); border-radius: var(--jaco-radius-sm); padding: 10px 12px; }
+.sim-group-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.sim-group-caption { font-size: 11px; font-weight: 700; color: var(--jaco-text-muted); text-transform: uppercase; letter-spacing: .02em; }
+.sim-group-verdict { font-size: 15px; font-weight: 700; min-width: 14px; text-align: center; }
+.sim-group-verdict.match-yes { color: var(--jaco-success); }
+.sim-group-verdict.match-no { color: var(--jaco-danger); }
+.sim-group-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.sim-group-and { align-self: center; font-size: 11px; font-weight: 700; color: var(--jaco-text-muted); padding-bottom: 8px; }
+.sim-group-or { text-align: center; font-size: 11px; font-weight: 700; color: var(--jaco-text-muted); margin: 2px 0; }
 .sim-field { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
 .sim-field label { font-size: 11.5px; font-weight: 600; color: var(--jaco-text-muted); }
 .sim-field input { margin: 0; }
+.sim-field-linked { opacity: .7; }
+.sim-field-linked-note { font-size: 11px; color: var(--jaco-text-muted); font-style: italic; }
 .sim-verdict { font-size: 13px; font-weight: 700; }
 .sim-verdict.sim-match { color: var(--jaco-success); }
 .sim-verdict.sim-no-match { color: var(--jaco-danger); }
