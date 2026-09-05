@@ -22,6 +22,17 @@ body{margin:0;background:var(--jaco-bg);color:var(--jaco-text)}
 .page-head p{margin:0;color:var(--jaco-text-muted);font-size:13.5px}
 .eyebrow{font-size:11px;letter-spacing:.04em;font-weight:700;color:var(--jaco-text-muted);text-transform:uppercase}
 
+/* A page like Administration groups many links under several headings -- without a visible
+   boundary per group it reads as one long undifferentiated scroll. A plain border (not the
+   same filled/shadowed surface as .metric below) keeps each group visible as its own section
+   while still letting the actual .metric tiles read as the foreground content, not a
+   card-inside-a-card. */
+.admin-section{border:1px solid var(--jaco-border);border-radius:var(--jaco-radius-md);padding:18px 20px;margin-bottom:16px}
+.admin-section:last-child{margin-bottom:0}
+.admin-section h2{font-size:15px;margin:0 0 4px;color:var(--jaco-text)}
+.admin-section h2 small{font-size:13px;font-weight:400;color:var(--jaco-text-muted)}
+.admin-section > p{color:var(--jaco-text-muted);margin:0 0 14px;font-size:13.5px}
+
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
 .metric,.panel,.status-panel{background:var(--jaco-card);border:1px solid var(--jaco-border);border-radius:var(--jaco-radius-md);padding:20px;margin-bottom:18px;box-shadow:var(--jaco-shadow)}
 .metric b{display:block;font-size:22px;color:var(--jaco-text)}
