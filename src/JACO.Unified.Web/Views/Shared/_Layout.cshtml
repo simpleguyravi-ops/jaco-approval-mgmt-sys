@@ -33,6 +33,14 @@
          long time otherwise. -->
     <link rel="stylesheet" href="~/css/jaco-design-system@(themeSuffix).css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/jaco.css" asp-append-version="true" />
+    <script>
+    // Applied before the sidebar itself is even parsed, so a collapsed preference never
+    // flashes open first -- toggling a class post-render (after the CSS/DOM already painted
+    // an expanded sidebar) would show a one-frame jump on every single page load.
+    if (localStorage.getItem('jaco-sidebar-collapsed') === '1') {
+        document.documentElement.classList.add('sidebar-collapsed');
+    }
+    </script>
 </head>
 <body>
     <div class="jaco-shell">
@@ -55,21 +63,24 @@
         </header>
         <div class="jaco-shell-body">
             <aside class="jaco-sidebar">
+                <button type="button" id="sidebarToggleBtn" class="jaco-sidebar-toggle" title="Collapse navigation">
+                    <span class="jaco-icon jaco-icon-chevron-left"></span>
+                </button>
                 <ul class="jaco-nav">
-                    <li><a class="@((path == "/" || IsActive("/Requests")) ? "active" : "")" href="~/Requests"><span class="jaco-icon jaco-icon-check-square"></span> My Work</a></li>
+                    <li><a class="@((path == "/" || IsActive("/Requests")) ? "active" : "")" href="~/Requests" title="My Work"><span class="jaco-icon jaco-icon-check-square"></span> <span class="jaco-nav-label">My Work</span></a></li>
                     @if (isAuditor)
                     {
-                        <li><a class="@(IsActive("/Reports") ? "active" : "")" href="~/Reports"><span class="jaco-icon jaco-icon-chart"></span> Reports</a></li>
+                        <li><a class="@(IsActive("/Reports") ? "active" : "")" href="~/Reports" title="Reports"><span class="jaco-icon jaco-icon-chart"></span> <span class="jaco-nav-label">Reports</span></a></li>
                     }
                     @if (isAdmin)
                     {
-                        <li><a class="@(IsActive("/Admin") || IsActive("/Cockpit") || IsActive("/Home/PpfMonitor") ? "active" : "")" href="~/Admin"><span class="jaco-icon jaco-icon-settings"></span> Administration</a></li>
+                        <li><a class="@(IsActive("/Admin") || IsActive("/Cockpit") || IsActive("/Home/PpfMonitor") ? "active" : "")" href="~/Admin" title="Administration"><span class="jaco-icon jaco-icon-settings"></span> <span class="jaco-nav-label">Administration</span></a></li>
                     }
                 </ul>
                 <div class="jaco-sidebar-footer">
                     <ul class="jaco-nav">
-                        <li><a href="~/Account/ChangePassword"><span class="jaco-icon jaco-icon-key"></span> Change Password</a></li>
-                        <li><a href="~/Account/Logout"><span class="jaco-icon jaco-icon-signout"></span> Sign Out</a></li>
+                        <li><a href="~/Account/ChangePassword" title="Change Password"><span class="jaco-icon jaco-icon-key"></span> <span class="jaco-nav-label">Change Password</span></a></li>
+                        <li><a href="~/Account/Logout" title="Sign Out"><span class="jaco-icon jaco-icon-signout"></span> <span class="jaco-nav-label">Sign Out</span></a></li>
                     </ul>
                 </div>
             </aside>
@@ -89,5 +100,16 @@
         </div>
     </div>
     <script src="~/js/jaco-confirm.js"></script>
+    <script>
+    (function () {
+        var btn = document.getElementById('sidebarToggleBtn');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            var collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+            localStorage.setItem('jaco-sidebar-collapsed', collapsed ? '1' : '0');
+            btn.title = collapsed ? 'Expand navigation' : 'Collapse navigation';
+        });
+    })();
+    </script>
 </body>
 </html>
