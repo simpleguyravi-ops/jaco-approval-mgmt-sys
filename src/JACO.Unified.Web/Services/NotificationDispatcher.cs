@@ -12,10 +12,12 @@ public sealed class NotificationDispatcher(NotificationQueue queue, IServiceScop
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        queue.MarkDispatcherStarted();
         try
         {
             await foreach (var (requestId, eventCode) in queue.Reader.ReadAllAsync(stoppingToken))
             {
+                var success = true;
                 try
                 {
                     using var scope = scopeFactory.CreateScope();
@@ -24,7 +26,12 @@ public sealed class NotificationDispatcher(NotificationQueue queue, IServiceScop
                 }
                 catch (Exception ex)
                 {
+                    success = false;
                     logger.LogError(ex, "Notification dispatch failed for Request {RequestId}, event {EventCode}.", requestId, eventCode);
+                }
+                finally
+                {
+                    queue.MarkProcessed(success);
                 }
             }
         }

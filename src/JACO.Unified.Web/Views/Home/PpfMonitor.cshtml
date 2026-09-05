@@ -44,6 +44,28 @@
     <div><h1>PPF Monitor</h1><p>Every action a Post-Processing Rule triggered &mdash; what fired, for which request, sent to whom, and whether it succeeded.</p></div>
 </div>
 
+@{
+    var qs = Model.QueueStatus;
+    // A handful of items waiting is completely normal (a click's notifications land here a
+    // moment before the dispatcher gets to them) -- only call it out once the backlog is big
+    // enough that something (not just timing) is actually behind.
+    var backlogWarning = qs.Pending > 20;
+}
+<div class="jaco-card jaco-card-pad" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:10px;height:10px;border-radius:50%;display:inline-block;background:@(backlogWarning ? "var(--jaco-warning)" : "var(--jaco-success)");"></span>
+        <strong>Background notification dispatcher</strong>
+        <span style="color:var(--jaco-text-muted);font-size:13px;">running since @qs.DispatcherStartedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</span>
+    </div>
+    <div style="display:flex;gap:22px;font-size:13.5px;flex-wrap:wrap;">
+        <div title="Queued but not yet dispatched"><strong style="@(backlogWarning ? "color:var(--jaco-warning);" : "")">@qs.Pending</strong> <span style="color:var(--jaco-text-muted);">pending</span></div>
+        <div title="Since this app instance started"><strong>@qs.EnqueuedCount</strong> <span style="color:var(--jaco-text-muted);">queued (since start)</span></div>
+        <div><strong>@qs.ProcessedCount</strong> <span style="color:var(--jaco-text-muted);">processed</span></div>
+        <div title="Dispatcher-level errors, not individual send failures -- those show in the Failed count below"><strong>@qs.FailedCount</strong> <span style="color:var(--jaco-text-muted);">dispatch errors</span></div>
+        <div><span style="color:var(--jaco-text-muted);">Last processed:</span> <strong>@(qs.LastProcessedAtUtc is not null ? qs.LastProcessedAtUtc.Value.ToLocalTime().ToString("HH:mm:ss") : "—")</strong></div>
+    </div>
+</div>
+
 <div class="jaco-stat-grid">
     <a class="jaco-card jaco-stat-card @(string.IsNullOrEmpty(f.Status) ? "jaco-stat-active" : "")" style="text-decoration:none;" href="@StatUrl(null)">
         <div class="jaco-stat-icon" style="background:var(--jaco-info-bg);color:var(--jaco-info);"><span class="jaco-icon jaco-icon-clipboard"></span></div>

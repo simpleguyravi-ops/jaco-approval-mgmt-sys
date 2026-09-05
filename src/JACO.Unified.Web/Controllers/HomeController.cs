@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace JACO.Unified.Web.Controllers;
 
-public sealed class HomeController(UnifiedDbContext db) : Controller
+public sealed class HomeController(UnifiedDbContext db, NotificationQueue notificationQueue) : Controller
 {
     public IActionResult Index() => RedirectToAction("Index", "Requests");
 
@@ -86,7 +86,8 @@ public sealed class HomeController(UnifiedDbContext db) : Controller
             Rows = SortPpfRows(rows, filter.Sort, filter.Dir),
             ApprovalTypes = (await db.ApprovalTypes.OrderBy(t => t.Name).ToListAsync()).Select(t => (t.Id, t.Name)).ToList(),
             EventCodes = PostProcessingRulesController.EventCodes.ToList(),
-            ActionTypes = ["Email"]
+            ActionTypes = ["Email"],
+            QueueStatus = notificationQueue.GetStatus()
         };
     }
 

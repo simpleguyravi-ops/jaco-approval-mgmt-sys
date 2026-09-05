@@ -375,6 +375,11 @@ public sealed class PpfMonitorViewModel
     public List<(int Id, string Name)> ApprovalTypes { get; set; } = [];
     public List<string> EventCodes { get; set; } = [];
     public List<string> ActionTypes { get; set; } = [];
+    // Live view of the in-memory background dispatcher (see NotificationQueue) -- distinct
+    // from the Sent/Failed/Skipped counts above, which come from PostProcessingExecutions
+    // (individual send outcomes). This answers "is the background system itself running and
+    // keeping up," not "did a given email succeed."
+    public required JACO.Unified.Infrastructure.NotificationQueueStatus QueueStatus { get; set; }
 }
 
 public sealed class RoutingLogFilter
