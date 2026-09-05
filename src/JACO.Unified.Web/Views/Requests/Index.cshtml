@@ -2,6 +2,11 @@
 @model RequestListViewModel
 @{
     ViewData["Title"] = Model.IsAllView ? "All Requests" : "My Requests";
+    // The search/filter panel stays collapsed by default to keep the landing screen clean --
+    // unless a filter is already active, in which case hiding it would leave the list looking
+    // filtered for no visible reason.
+    var hasActiveFilter = !string.IsNullOrWhiteSpace(Model.Search) || Model.ApprovalTypeId is not null
+        || Model.DateFrom is not null || Model.DateTo is not null || Model.PendingWithUserId is not null;
     var basePath = Model.IsAllView ? "/Requests/All" : "/Requests";
     var exportPath = Model.IsAllView ? "/Requests/ExportAll" : "/Requests/Export";
     string StatusClass(string status) => status switch
@@ -119,6 +124,10 @@
 </div>
 
 <div class="jaco-card jaco-card-pad" style="margin-bottom:14px;">
+    <button type="button" id="toggleFiltersBtn" style="background:none;border:none;padding:0;margin-bottom:14px;cursor:pointer;color:inherit;font:inherit;font-weight:600;display:flex;align-items:center;gap:6px;">
+        <span id="filtersCaret">@(hasActiveFilter ? "▾" : "▸")</span> Search &amp; Filter
+    </button>
+    <div id="filtersPanel" style="@(hasActiveFilter ? "" : "display:none;")">
     <form method="get" action="@basePath" id="filterForm">
         <div style="display:grid;grid-template-columns:@(Model.IsAllView ? "1.1fr 1fr 1fr 1fr 1fr" : "1.4fr 1fr 1fr");gap:12px;align-items:end;">
             <div class="jaco-form-group" style="margin:0;"><label>Search</label><input type="text" name="search" value="@Model.Search" class="jaco-input" style="margin:0;" placeholder="Request number or subject&hellip;" /></div>
@@ -193,7 +202,23 @@
             </div>
         }
     </form>
+    </div>
 </div>
+
+<script>
+(function () {
+    var btn = document.getElementById('toggleFiltersBtn');
+    var panel = document.getElementById('filtersPanel');
+    var caret = document.getElementById('filtersCaret');
+    if (btn && panel) {
+        btn.addEventListener('click', function () {
+            var showing = panel.style.display !== 'none';
+            panel.style.display = showing ? 'none' : 'block';
+            caret.textContent = showing ? '▸' : '▾';
+        });
+    }
+})();
+</script>
 
 @if (Model.Types.Count > 0)
 {
