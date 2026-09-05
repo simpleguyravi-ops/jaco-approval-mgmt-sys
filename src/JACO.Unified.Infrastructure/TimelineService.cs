@@ -15,14 +15,21 @@ public sealed class TimelineService(UnifiedDbContext db)
 
         var steps = await db.WorkflowSteps.Where(s => s.WorkflowVersionId == request.WorkflowVersionId && s.RoutingRuleId == request.RoutingRuleId).OrderBy(s => s.LevelNo).ToListAsync();
         var actions = await db.RequestActions.Where(a => a.RequestId == requestId).ToListAsync();
-        var userIds = actions.Select(a => a.UserId).Distinct().ToList();
+
+        // Batched once for every step instead of two queries (approver ids, then their
+        // names) per step inside the loop below -- this runs synchronously on every
+        // Submit/Decide (PpfExecutor builds the timeline HTML for the notification email),
+        // so a workflow with several levels meant that many round trips per click.
+        var stepIds = steps.Select(s => s.Id).ToList();
+        var stepApprovers = await db.WorkflowStepApprovers.Where(a => stepIds.Contains(a.WorkflowStepId)).ToListAsync();
+        var userIds = actions.Select(a => a.UserId).Concat(stepApprovers.Select(a => a.UserId)).Distinct().ToList();
         var userNames = await db.AppUsers.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.DisplayName);
 
         var result = new List<TimelineLevel>();
         foreach (var step in steps)
         {
-            var approverIds = await db.WorkflowStepApprovers.Where(a => a.WorkflowStepId == step.Id).Select(a => a.UserId).ToListAsync();
-            var approverNames = await db.AppUsers.Where(u => approverIds.Contains(u.Id)).Select(u => u.DisplayName).ToListAsync();
+            var approverNames = stepApprovers.Where(a => a.WorkflowStepId == step.Id)
+                .Select(a => userNames.GetValueOrDefault(a.UserId)).Where(n => n is not null).Select(n => n!).ToList();
             var decisions = actions.Where(a => a.LevelNo == step.LevelNo && a.ActionCode is not ("Nudge" or "NoLongerRequired"))
                 .Select(a => new TimelineDecision(userNames.GetValueOrDefault(a.UserId, $"User #{a.UserId}"), a.ActionCode, a.Comments, a.CreatedAt))
                 .OrderBy(d => d.AtUtc).ToList();

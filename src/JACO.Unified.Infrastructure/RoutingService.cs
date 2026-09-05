@@ -28,19 +28,33 @@ public sealed class RoutingService(UnifiedDbContext db)
         if (rules.Count == 0)
             return new RouteResult(false, "NoRulesConfigured", "No active routing rules configured.", null, null, null, new());
 
+        // Batched once for every candidate rule instead of one query per rule inside the loop
+        // below -- ResolveAsync runs synchronously on every fresh Submit, so an Approval Type
+        // with several routing rules used to mean that many round trips before even finding
+        // which one matches.
+        var ruleIds = rules.Select(r => r.Id).ToList();
+        var criteriaByRule = (await db.RoutingRuleCriteria.Where(c => ruleIds.Contains(c.RoutingRuleId)).ToListAsync())
+            .GroupBy(c => c.RoutingRuleId).ToDictionary(g => g.Key, g => (IReadOnlyList<RoutingRuleCriteria>)g.ToList());
+
         foreach (var rule in rules)
         {
-            var criteria = await db.RoutingRuleCriteria.Where(c => c.RoutingRuleId == rule.Id).ToListAsync();
+            var criteria = criteriaByRule.GetValueOrDefault(rule.Id, []);
             if (EvaluateAll(criteria, routingContext))
             {
                 var steps = await db.WorkflowSteps.Where(s => s.RoutingRuleId == rule.Id).OrderBy(s => s.LevelNo).ToListAsync();
                 if (steps.Count == 0)
                     return new RouteResult(false, "NoApproversConfigured", $"Rule '{rule.RuleName}' matched but has no approval levels configured.", rule.Id, version.Id, rule.RuleName, new());
 
+                // Same batching for this rule's levels -- one query for every step's
+                // approvers instead of one query per level.
+                var stepIds = steps.Select(s => s.Id).ToList();
+                var approversByStep = (await db.WorkflowStepApprovers.Where(a => stepIds.Contains(a.WorkflowStepId)).ToListAsync())
+                    .GroupBy(a => a.WorkflowStepId).ToDictionary(g => g.Key, g => g.Select(a => a.UserId).ToList());
+
                 var approverIds = new Dictionary<int, List<int>>();
                 foreach (var step in steps)
                 {
-                    var ids = await db.WorkflowStepApprovers.Where(a => a.WorkflowStepId == step.Id).Select(a => a.UserId).ToListAsync();
+                    var ids = approversByStep.GetValueOrDefault(step.Id, []);
                     if (ids.Count == 0)
                         return new RouteResult(false, "NoApproversConfigured", $"Level {step.LevelNo} of rule '{rule.RuleName}' has no approvers configured.", rule.Id, version.Id, rule.RuleName, new());
                     approverIds[step.LevelNo] = ids;

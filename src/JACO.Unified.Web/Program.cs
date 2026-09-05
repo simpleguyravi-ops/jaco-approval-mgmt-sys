@@ -55,6 +55,8 @@ builder.Services.AddScoped<RequestService>();
 builder.Services.AddScoped<ReportsService>();
 builder.Services.AddScoped<DigestService>();
 builder.Services.AddHostedService<JACO.Unified.Web.Services.DigestSchedulerHostedService>();
+builder.Services.AddSingleton<NotificationQueue>();
+builder.Services.AddHostedService<JACO.Unified.Web.Services.NotificationDispatcher>();
 builder.Services.AddSingleton(sp =>
 {
     var root = builder.Configuration["Attachments:RootPath"] ?? @"C:\JACO\_shared\unified-attachments";

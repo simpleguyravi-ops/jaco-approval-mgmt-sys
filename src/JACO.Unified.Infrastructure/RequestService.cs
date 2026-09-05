@@ -19,7 +19,7 @@ public sealed record ApprovalFieldSchema(int DisplayOrder, string FieldKey, stri
 // ChangeRequestController (create/edit/submit) used to split across two apps and two
 // database rows, now operating on ONE Request row for its entire lifecycle. No snapshot,
 // no resync -- editing IS updating the same row Submit will route again.
-public sealed class RequestService(UnifiedDbContext db, RoutingService routing, PpfExecutor ppf, TimelineService timeline)
+public sealed class RequestService(UnifiedDbContext db, RoutingService routing, NotificationQueue notifications, TimelineService timeline)
 {
     public const string AdminOverrideMarker = "[Admin override";
 
@@ -299,13 +299,16 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         db.AuditLogs.Add(new AuditLog { RequestId = request.Id, UserId = userId, ActionCode = isResubmit ? "Resubmit" : "Submit", Source = source, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
 
-        if (!isResubmit) await ppf.RaiseEventAsync(request.Id, "Created");
-        else await ppf.RaiseEventAsync(request.Id, "Resubmit");
+        // Notifications are queued, not awaited inline -- NotificationDispatcher sends them
+        // off the request thread, so the user's click isn't held up by however long SMTP
+        // takes for however many recipients/rules match this event.
+        if (!isResubmit) notifications.Enqueue(request.Id, "Created");
+        else notifications.Enqueue(request.Id, "Resubmit");
         // Separate from Created/Resubmit (which are about the request as a whole) -- this is
         // specifically "it's now your turn to decide," aimed at whoever the CURRENT level's
         // approver(s) are, whether that's level 1 on a fresh submit or wherever a resubmit
         // lands back on.
-        await ppf.RaiseEventAsync(request.Id, "LevelPending");
+        notifications.Enqueue(request.Id, "LevelPending");
 
         return (true, request.Status);
     }
@@ -421,8 +424,8 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         request.UpdatedAt = now;
         await db.SaveChangesAsync();
 
-        if (eventCode is not null) await ppf.RaiseEventAsync(requestId, eventCode);
-        if (eventCode == "Approved") await ppf.RaiseEventAsync(requestId, "Completed");
+        if (eventCode is not null) notifications.Enqueue(requestId, eventCode);
+        if (eventCode == "Approved") notifications.Enqueue(requestId, "Completed");
 
         return (true, request.Status);
     }
@@ -460,7 +463,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
 
         db.AuditLogs.Add(new AuditLog { RequestId = requestId, UserId = requesterUserId, ActionCode = "Nudge", CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
-        await ppf.RaiseEventAsync(requestId, "Nudged");
+        notifications.Enqueue(requestId, "Nudged");
         return (true, "Reminder sent.");
     }
 
@@ -502,12 +505,22 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         var pendingIds = requests.Where(r => r.Status == "Pending").Select(r => r.Id).ToList();
         if (pendingIds.Count == 0) return [];
         var steps = await db.WorkflowSteps.Where(s => db.Requests.Any(r => pendingIds.Contains(r.Id) && r.WorkflowVersionId == s.WorkflowVersionId && r.RoutingRuleId == s.RoutingRuleId && r.CurrentLevelNo == s.LevelNo)).ToListAsync();
+
+        // Batched once instead of one WorkflowStepApprovers query per pending request -- this
+        // runs on every My Requests page load now (the Pending My Action tab), so with
+        // hundreds/thousands of pending requests the old per-row query inside the loop below
+        // meant that many separate DB round trips on a single page view.
+        var stepIds = steps.Select(s => s.Id).ToList();
+        var approverStepIds = (await db.WorkflowStepApprovers
+            .Where(a => stepIds.Contains(a.WorkflowStepId) && a.UserId == userId)
+            .Select(a => a.WorkflowStepId)
+            .ToListAsync()).ToHashSet();
+
         var result = new List<long>();
         foreach (var r in requests.Where(r => pendingIds.Contains(r.Id)))
         {
             var step = steps.SingleOrDefault(s => s.WorkflowVersionId == r.WorkflowVersionId && s.RoutingRuleId == r.RoutingRuleId && s.LevelNo == r.CurrentLevelNo);
-            if (step is null) continue;
-            if (await db.WorkflowStepApprovers.AnyAsync(a => a.WorkflowStepId == step.Id && a.UserId == userId))
+            if (step is not null && approverStepIds.Contains(step.Id))
                 result.Add(r.Id);
         }
         return result;
