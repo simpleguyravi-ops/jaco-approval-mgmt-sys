@@ -74,7 +74,9 @@
 .level-block:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
 .level-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--jaco-text-muted); margin: 4px 0 6px; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; align-items: center; margin-bottom: 6px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--jaco-navy-900); color: #fff; border-radius: 999px; padding: 4px 7px 4px 11px; font-size: 11.5px; font-weight: 600; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--jaco-navy-900); color: #fff; border-radius: 999px; padding: 4px 7px 4px 4px; font-size: 11.5px; font-weight: 600; }
+.chip-avatar { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; }
+.option-avatar { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; }
 .chip button { all: unset; cursor: pointer; width: 15px; height: 15px; border-radius: 50%; background: rgba(255,255,255,.18); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; }
 .chip button:hover { background: var(--jaco-orange-600); }
 .chip-empty { color: var(--jaco-text-muted); font-size: 12px; font-style: italic; }
@@ -191,6 +193,7 @@ renderSharedCriteria();
 // ---------- field / user helpers ----------
 function fieldLabel(key) { return FIELDS.find(f => f.key === key)?.label || key; }
 function userName(id) { return USERS.find(u => u.id === id)?.name || ('User #' + id); }
+function userAvatar(id) { return USERS.find(u => u.id === id)?.avatar || ''; }
 function groupedUsers() {
     const byDept = {};
     USERS.forEach(u => { (byDept[u.dept] ||= []).push(u); });
@@ -346,7 +349,7 @@ function renderChips(levelId) {
     level.approvers.forEach(id => {
         const chip = document.createElement('span');
         chip.className = 'chip';
-        chip.innerHTML = `${userName(id)} <button>&times;</button>`;
+        chip.innerHTML = `<img class="chip-avatar" src="${userAvatar(id)}" alt="" /> ${userName(id)} <button>&times;</button>`;
         chip.querySelector('button').addEventListener('click', () => {
             level.approvers = level.approvers.filter(x => x !== id);
             renderChips(levelId);
@@ -375,7 +378,7 @@ function renderPickerList(root, levelId) {
             const checked = level.approvers.includes(u.id);
             const opt = document.createElement('label');
             opt.className = 'picker-option';
-            opt.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''}/> ${u.name}`;
+            opt.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''}/> <img class="option-avatar" src="${u.avatar}" alt="" /> ${u.name}`;
             opt.querySelector('input').addEventListener('change', (e) => {
                 if (e.target.checked) level.approvers.push(u.id);
                 else level.approvers = level.approvers.filter(x => x !== u.id);

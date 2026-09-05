@@ -1,3 +1,4 @@
+@using JACO.Unified.Web.Services
 @model RequestListViewModel
 @{
     ViewData["Title"] = Model.IsAllView ? "All Requests" : "My Requests";
@@ -184,7 +185,7 @@
                     @if (Model.IsAllView)
                     {
                         <td>@(Model.PendingWithNames.GetValueOrDefault(x.Request.Id, "—"))</td>
-                        <td>@x.Request.CreatorUserName</td>
+                        <td><img src="@IdenticonGenerator.DataUri(x.Request.CreatorUserName)" alt="" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;" /> @x.Request.CreatorUserName</td>
                     }
                     <td>@x.Request.CreatedAt.ToString("dd MMM yyyy")</td>
                     @foreach (var col in Model.AvailableColumns.Where(c => Model.SelectedColumns.Contains(c.FieldKey)))

@@ -1,3 +1,4 @@
+@using JACO.Unified.Web.Services
 @model RequestDetailsViewModel
 @{
     ViewData["Title"] = Model.Request.RequestNumber;
@@ -21,6 +22,10 @@
     };
     var compactFields = Model.Fields.Where(f => f.DataType != "TextArea").ToList();
     var longFields = Model.Fields.Where(f => f.DataType == "TextArea").ToList();
+    // Seeded from whatever name string is already on screen -- a per-person identicon doesn't
+    // need the numeric AppUser.Id, just something stable and unique enough to hash, and this
+    // view otherwise only carries names (CreatorUserName, ApproverNames, ActorName), not Ids.
+    string AvatarImg(string name, int size = 22) => $"<img src=\"{IdenticonGenerator.DataUri(name)}\" alt=\"\" style=\"width:{size}px;height:{size}px;border-radius:50%;flex-shrink:0;vertical-align:middle;\" />";
 }
 
 <a class="jaco-back-link" href="~/Requests">&larr; Back to My Requests</a>
@@ -62,7 +67,7 @@
     <div><span class="eyebrow">STATUS</span><span class="@StatusClass(Model.Request.Status)" style="display:block;margin-top:4px;width:fit-content;">@Model.Request.Status</span></div>
     <div><span class="eyebrow">CURRENT LEVEL</span><strong style="white-space:nowrap;">@(Model.Request.CurrentLevelNo?.ToString() ?? "-")@(Model.Timeline.Count > 0 ? $" of {Model.Timeline.Count}" : "")</strong></div>
     <div><span class="eyebrow">SUBMITTED ON</span><strong style="white-space:nowrap;">@Model.Request.CreatedAt.ToString("dd MMM yyyy HH:mm")</strong></div>
-    <div><span class="eyebrow">CREATED BY</span><strong style="white-space:nowrap;">@Model.Request.CreatorUserName</strong></div>
+    <div><span class="eyebrow">CREATED BY</span><strong style="white-space:nowrap;">@Html.Raw(AvatarImg(Model.Request.CreatorUserName)) @Model.Request.CreatorUserName</strong></div>
     <div><span class="eyebrow">APPROVAL TYPE</span><strong style="white-space:nowrap;">@Model.ApprovalType.Name</strong></div>
 </section>
 
@@ -111,7 +116,7 @@
                     {
                         <tr>
                             <td>@a.OriginalFileName</td>
-                            <td>@a.UploadedByUserName</td>
+                            <td>@Html.Raw(AvatarImg(a.UploadedByUserName, 20)) @a.UploadedByUserName</td>
                             <td>@a.UploadedAt.ToString("dd-MMM-yyyy HH:mm")</td>
                             <td><a class="link" href="~/Requests/DownloadAttachment/@a.Id">Download</a></td>
                         </tr>
@@ -174,11 +179,16 @@
                                     <strong style="font-size:13px;">Level @level.LevelNo</strong>
                                     <span class="@LevelClass(level.LevelStatus)">@statusLabel</span>
                                 </div>
-                                <div class="timeline-meta">@string.Join(", ", level.ApproverNames)</div>
+                                <div class="timeline-meta" style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;">
+                                    @foreach (var name in level.ApproverNames)
+                                    {
+                                        <span>@Html.Raw(AvatarImg(name, 18)) @name</span>
+                                    }
+                                </div>
                                 @foreach (var d in level.Decisions)
                                 {
                                     <div class="timeline-note">
-                                        <strong>@d.ActorName</strong> &middot; @d.AtUtc.ToString("dd MMM yyyy HH:mm")
+                                        @Html.Raw(AvatarImg(d.ActorName, 18)) <strong>@d.ActorName</strong> &middot; @d.AtUtc.ToString("dd MMM yyyy HH:mm")
                                         @if (!string.IsNullOrWhiteSpace(d.Comments))
                                         {
                                             <div>&ldquo;@d.Comments&rdquo;</div>

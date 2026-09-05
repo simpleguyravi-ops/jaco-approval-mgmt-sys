@@ -1,3 +1,4 @@
+@using JACO.Unified.Web.Services
 @model List<AppUser>
 @{
     ViewData["Title"] = "Users & Roles";
@@ -29,7 +30,12 @@
             {
                 var p = perms.GetValueOrDefault(u.Id);
                 <tr>
-                    <td>@u.DisplayName <span style="color:var(--jaco-text-muted);">(@u.UserName)</span></td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <img src="@IdenticonGenerator.DataUri(u.UserName)" alt="" style="width:24px;height:24px;border-radius:50%;flex-shrink:0;" />
+                            <span>@u.DisplayName <span style="color:var(--jaco-text-muted);">(@u.UserName)</span></span>
+                        </div>
+                    </td>
                     <td>@u.Department</td>
                     <td><input type="checkbox" name="canCreateUserIds" value="@u.Id" checked="@(p?.CanCreate ?? false)" /></td>
                     <td><input type="checkbox" name="canViewUserIds" value="@u.Id" checked="@(p?.CanView ?? false)" /></td>

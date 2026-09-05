@@ -236,8 +236,9 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
     public async Task<IActionResult> Bulk(int approvalTypeId)
     {
         var fields = await db.WorkflowFields.Where(f => f.ApprovalTypeId == approvalTypeId || f.ApprovalTypeId == null).OrderBy(f => f.DisplayOrder).ToListAsync();
-        var users = await db.AppUsers.Where(u => u.IsActive).OrderBy(u => u.DisplayName)
-            .Select(u => new { id = u.Id, name = u.DisplayName, dept = u.Department ?? "Other" }).ToListAsync();
+        var users = (await db.AppUsers.Where(u => u.IsActive).OrderBy(u => u.DisplayName)
+            .Select(u => new { id = u.Id, name = u.DisplayName, dept = u.Department ?? "Other", userName = u.UserName }).ToListAsync())
+            .Select(u => new { u.id, u.name, u.dept, avatar = IdenticonGenerator.DataUri(u.userName, 28) }).ToList();
 
         ViewBag.ApprovalTypeName = (await db.ApprovalTypes.FindAsync(approvalTypeId))?.Name ?? "";
         ViewBag.ApprovalTypeId = approvalTypeId;

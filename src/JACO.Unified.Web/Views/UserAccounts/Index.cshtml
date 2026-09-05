@@ -1,3 +1,4 @@
+@using JACO.Unified.Web.Services
 @model List<AppUser>
 @{
     ViewData["Title"] = "User Accounts";
@@ -56,7 +57,12 @@
         {
             var isLocked = u.LockedUntil is not null && u.LockedUntil > DateTime.UtcNow;
             <tr>
-                <td><a class="link" href="~/UserAccounts/Edit/@u.Id">@u.DisplayName</a></td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <img src="@IdenticonGenerator.DataUri(u.UserName)" alt="" style="width:24px;height:24px;border-radius:50%;flex-shrink:0;" />
+                        <a class="link" href="~/UserAccounts/Edit/@u.Id">@u.DisplayName</a>
+                    </div>
+                </td>
                 <td>@u.UserName</td>
                 <td>@(u.Department ?? "—")</td>
                 <td>@(u.PasswordHash is null ? "—" : "Yes")</td>
