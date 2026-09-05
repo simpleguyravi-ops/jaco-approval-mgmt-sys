@@ -123,7 +123,7 @@
                 </div>
             </div>
             <button type="submit" class="jaco-btn jaco-btn-outline">Filter</button>
-            @if (Model.AvailableColumns.Count > 0)
+            @if (Model.Types.Count > 0)
             {
                 <button type="button" id="toggleColumnsBtn" class="jaco-btn jaco-btn-outline">
                     Columns@(Model.SelectedColumns.Count > 0 ? $" ({Model.SelectedColumns.Count})" : "")
@@ -136,27 +136,36 @@
             <input type="hidden" name="focus" value="@Model.Focus" />
         }
 
-        @if (Model.AvailableColumns.Count > 0)
+        @if (Model.Types.Count > 0)
         {
             <div id="columnsPanel" style="margin-top:14px;@(Model.SelectedColumns.Count > 0 ? "" : "display:none;")">
-                <label style="font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);display:block;margin-bottom:6px;">
-                    Extra columns for @(Model.Types.FirstOrDefault(t => t.Id == Model.ApprovalTypeId)?.Name ?? "this type") &mdash; pick which fields this list should also show/export (includes fields common to all approval types):
-                </label>
-                <div style="display:flex;flex-wrap:wrap;gap:14px;">
-                    @foreach (var col in Model.AvailableColumns)
-                    {
-                        <label style="font-size:13px;font-weight:400;display:flex;align-items:center;gap:6px;">
-                            <input type="checkbox" name="columns" value="@col.FieldKey" checked="@Model.SelectedColumns.Contains(col.FieldKey)" onchange="this.form.requestSubmit()" />
-                            @col.FieldLabel
-                        </label>
-                    }
-                </div>
+                @if (Model.ApprovalTypeId is null)
+                {
+                    <p style="font-size:13px;color:var(--jaco-text-muted);margin:0;">
+                        Pick a specific Type above (not "All Types") to choose extra fields for that type's list &mdash; each approval type has its own fields, plus a few common to all of them.
+                    </p>
+                }
+                else
+                {
+                    <label style="font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);display:block;margin-bottom:6px;">
+                        Extra columns for @(Model.Types.FirstOrDefault(t => t.Id == Model.ApprovalTypeId)?.Name ?? "this type") &mdash; pick which fields this list should also show/export (includes fields common to all approval types):
+                    </label>
+                    <div style="display:flex;flex-wrap:wrap;gap:14px;">
+                        @foreach (var col in Model.AvailableColumns)
+                        {
+                            <label style="font-size:13px;font-weight:400;display:flex;align-items:center;gap:6px;">
+                                <input type="checkbox" name="columns" value="@col.FieldKey" checked="@Model.SelectedColumns.Contains(col.FieldKey)" onchange="this.form.requestSubmit()" />
+                                @col.FieldLabel
+                            </label>
+                        }
+                    </div>
+                }
             </div>
         }
     </form>
 </div>
 
-@if (Model.AvailableColumns.Count > 0)
+@if (Model.Types.Count > 0)
 {
     <script>
     (function () {
