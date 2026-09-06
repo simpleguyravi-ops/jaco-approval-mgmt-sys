@@ -1,0 +1,29 @@
+@{ ViewData["Title"] = "Config Sync"; }
+<a class="jaco-back-link" href="~/Admin">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Config Sync</h1>
+        <p>Move every Mail Template and Post-Processing Rule between environments (e.g. Dev &rarr; QA) as one JSON file. Every reference &mdash; mail template, Approval Type, user, Task Type &mdash; travels by name/code, not raw database Id, so the file applies cleanly to a database whose Ids differ from this one.</p>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+    <div class="jaco-card jaco-card-pad">
+        <h2 style="font-size:14px;margin-top:0;">Export from this environment</h2>
+        <p style="font-size:13px;color:var(--jaco-text-muted);">Downloads every current Mail Template and Post-Processing Rule (with its Approval Types and criteria) as one <code>.json</code> file.</p>
+        <a class="jaco-btn jaco-btn-primary" href="~/ConfigSync/Export">Download Config JSON</a>
+    </div>
+
+    <div class="jaco-card jaco-card-pad">
+        <h2 style="font-size:14px;margin-top:0;">Import into this environment</h2>
+        <p style="font-size:13px;color:var(--jaco-text-muted);">Upload a file exported from another environment (or this one). Nothing is written until you review the preview and confirm &mdash; a template or rule whose Name already matches here is updated in place, not duplicated; anything else is added.</p>
+        <form method="post" action="~/ConfigSync/ImportPreview" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <div class="jaco-form-group">
+                <label>Config JSON File</label>
+                <input class="jaco-input" type="file" name="file" accept=".json" required />
+            </div>
+            <button type="submit" class="jaco-btn jaco-btn-primary">Preview Import</button>
+        </form>
+    </div>
+</div>

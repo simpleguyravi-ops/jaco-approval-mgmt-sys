@@ -715,3 +715,89 @@ public sealed class TaskCompletionViewModel
     public DateTime? CompletedAtUtc { get; set; }
     public string? CompletedByName { get; set; }
 }
+
+// ============================================================
+// Config Sync -- moves Mail Templates + Post-Processing Rules between environments
+// (e.g. Dev -> QA) as one JSON file. Every reference is by human-readable identifier
+// (Approval Type Code, mail template Name, AppUser UserName, Task Type Code) rather than
+// raw database Id, since those Ids are never the same across two separately-seeded
+// databases -- see ConfigSyncController.
+// ============================================================
+public sealed class ConfigSyncExport
+{
+    public string ExportedAt { get; set; } = "";
+    public List<ConfigSyncMailTemplate> MailTemplates { get; set; } = [];
+    public List<ConfigSyncRule> PostProcessingRules { get; set; } = [];
+}
+
+public sealed class ConfigSyncMailTemplate
+{
+    public string Name { get; set; } = "";
+    public string Subject { get; set; } = "";
+    public string BodyHtml { get; set; } = "";
+    public bool IsTableTemplate { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
+public sealed class ConfigSyncCriteria
+{
+    public string FieldKey { get; set; } = "";
+    public string Operator { get; set; } = "=";
+    public string ComparisonValue { get; set; } = "";
+    public string LogicalOperator { get; set; } = "AND";
+}
+
+public sealed class ConfigSyncRule
+{
+    public string Name { get; set; } = "";
+    public string EventCode { get; set; } = "";
+    public string ActionType { get; set; } = "";
+    public int SequenceNo { get; set; }
+    public bool Active { get; set; } = true;
+    public List<string> ApprovalTypeCodes { get; set; } = [];
+    public List<ConfigSyncCriteria> Criteria { get; set; } = [];
+
+    // Email
+    public string? MailTemplateName { get; set; }
+    public string? ToMode { get; set; }
+    public string? ToAddress { get; set; }
+    public string? ToFieldKey { get; set; }
+    public string? ToUserName { get; set; }
+    public string? CcMode { get; set; }
+    public string? CcAddress { get; set; }
+    public string? CcFieldKey { get; set; }
+    public bool IncludeAttachments { get; set; }
+
+    // ApiCall
+    public string? ApiUrl { get; set; }
+    public string? ApiAuthHeaderValue { get; set; }
+
+    // AssignTask
+    public string? TaskTypeCode { get; set; }
+    public string? TaskTitle { get; set; }
+    public string? TaskAssignToMode { get; set; }
+    public string? TaskAssignToUserName { get; set; }
+    public string? TaskAssignToDepartment { get; set; }
+    public int? TaskDueInDays { get; set; }
+    public List<string> TaskContextFieldKeys { get; set; } = [];
+}
+
+public sealed class ConfigSyncPreviewItem
+{
+    public string Kind { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Action { get; set; } = "";
+    public string Summary { get; set; } = "";
+    public List<string> Errors { get; set; } = [];
+    public bool IsValid => Errors.Count == 0;
+}
+
+public sealed class ConfigSyncPreview
+{
+    public List<ConfigSyncPreviewItem> Templates { get; set; } = [];
+    public List<ConfigSyncPreviewItem> Rules { get; set; } = [];
+    public string EncodedFile { get; set; } = "";
+    public string FileName { get; set; } = "";
+    public int TotalCount => Templates.Count + Rules.Count;
+    public int ErrorCount => Templates.Count(t => !t.IsValid) + Rules.Count(r => !r.IsValid);
+}

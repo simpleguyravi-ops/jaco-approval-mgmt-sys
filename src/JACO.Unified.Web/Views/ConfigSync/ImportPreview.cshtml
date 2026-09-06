@@ -1,0 +1,63 @@
+@model ConfigSyncPreview
+@{ ViewData["Title"] = "Config Sync -- Import Preview"; }
+<a class="jaco-back-link" href="~/ConfigSync">&larr; Back to Config Sync</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Import Preview</h1>
+        <p>@Model.FileName &mdash; nothing has been saved yet. Review below, then confirm.</p>
+    </div>
+</div>
+
+<div class="jaco-stat-grid" style="margin-bottom:16px;">
+    <div class="jaco-card jaco-stat-card jaco-stat-active"><div><div class="jaco-stat-value">@Model.TotalCount</div><div class="jaco-stat-label">Items</div></div></div>
+    <div class="jaco-card jaco-stat-card"><div><div class="jaco-stat-value">@Model.Templates.Count</div><div class="jaco-stat-label">Mail Templates</div></div></div>
+    <div class="jaco-card jaco-stat-card"><div><div class="jaco-stat-value">@Model.Rules.Count</div><div class="jaco-stat-label">Post-Processing Rules</div></div></div>
+    <div class="jaco-card jaco-stat-card"><div><div class="jaco-stat-value">@Model.ErrorCount</div><div class="jaco-stat-label">Errors</div></div></div>
+</div>
+
+@if (Model.ErrorCount > 0)
+{
+    <div class="jaco-alert jaco-alert-danger" style="margin-bottom:14px;">
+        @Model.ErrorCount item(s) have errors &mdash; fix the file and re-upload. No changes have been applied.
+    </div>
+}
+else if (Model.TotalCount > 0)
+{
+    <form method="post" action="~/ConfigSync/ImportConfirm" style="margin-bottom:14px;" data-confirm="Apply this import? This writes to the live Mail Templates and Post-Processing Rules on this environment.">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="encodedFile" value="@Model.EncodedFile" />
+        <button type="submit" class="jaco-btn jaco-btn-primary">Confirm Import</button>
+    </form>
+}
+else
+{
+    <div class="jaco-alert jaco-alert-danger" style="margin-bottom:14px;">This file contained no Mail Templates and no Post-Processing Rules.</div>
+}
+
+<div class="jaco-card" style="margin-bottom:16px;">
+    <table class="jaco-table">
+        <thead><tr><th>Kind</th><th>Name</th><th>Action</th><th>Details</th><th>Status</th></tr></thead>
+        <tbody>
+        @foreach (var item in Model.Templates.Concat(Model.Rules))
+        {
+            <tr>
+                <td>@item.Kind</td>
+                <td>@item.Name</td>
+                <td>@item.Action</td>
+                <td style="font-size:12.5px;">@item.Summary</td>
+                <td>
+                    @if (item.IsValid)
+                    {
+                        <span class="jaco-badge jaco-badge-success">OK</span>
+                    }
+                    else
+                    {
+                        <span class="jaco-badge jaco-badge-danger" title="@string.Join("; ", item.Errors)">@item.Errors.Count error(s)</span>
+                        <div style="font-size:12px;color:var(--jaco-danger);margin-top:4px;">@string.Join("; ", item.Errors)</div>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
