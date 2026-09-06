@@ -37,6 +37,15 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
         // Same timeline HTML/logo for every recipient of this event -- built once, not
         // per-rule or per-recipient.
         var timelineHtml = BuildTimelineHtml(await timelineService.GetTimelineAsync(requestId));
+        // Generic "every submitted field, whatever this Approval Type's schema is" block --
+        // same safe-default filter (Active/Visible/never Sensitive) RequestDetailsMailer's
+        // own "Share via Email" feature already uses for an automated send to an arbitrary
+        // resolved recipient. Built once per event, reused by every rule/recipient below.
+        var submittedFields = await db.WorkflowFields
+            .Where(f => f.Active && f.IsVisible && !f.IsSensitive && (f.ApprovalTypeId == request.ApprovalTypeId || (f.ApprovalTypeId == null && f.TaskTypeId == null)))
+            .OrderBy(f => f.DisplayOrder)
+            .ToListAsync();
+        var submittedFieldsTableHtml = RequestDetailsMailer.BuildFieldsTableHtml(request, submittedFields);
         // "cid:jaco-logo" -- an inline attachment MailSender embeds when it sees this,
         // not a URL. An http(s) URL built from AppBaseUrl only ever resolves on the
         // machine running this app, so a real recipient's own mail client just shows a
@@ -110,7 +119,7 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                 var recipients = await GetCurrentApproverRecipientsAsync(request);
                 if (recipients.Count == 0)
                 {
-                    await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, null, ccAddress, new Dictionary<string, string> { ["{{ApprovalTimeline}}"] = timelineHtml, ["{{LogoUrl}}"] = logoUrl, ["{{TriggeredByUserName}}"] = triggeredByUserName }, attachmentsForThisRule);
+                    await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, null, ccAddress, new Dictionary<string, string> { ["{{ApprovalTimeline}}"] = timelineHtml, ["{{LogoUrl}}"] = logoUrl, ["{{TriggeredByUserName}}"] = triggeredByUserName, ["{{SubmittedFieldsTable}}"] = submittedFieldsTableHtml }, attachmentsForThisRule);
                     continue;
                 }
                 foreach (var (userId, email) in recipients)
@@ -119,6 +128,32 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                     tokens["{{ApprovalTimeline}}"] = timelineHtml;
                     tokens["{{LogoUrl}}"] = logoUrl;
                     tokens["{{TriggeredByUserName}}"] = triggeredByUserName;
+                    tokens["{{SubmittedFieldsTable}}"] = submittedFieldsTableHtml;
+                    await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, email, ccAddress, tokens, attachmentsForThisRule);
+                }
+            }
+            else if (toMode == "BypassedApprover")
+            {
+                // Only ever sends when the decision that just raised this event was an
+                // admin override -- reaches the assigned approver of the level that got
+                // decided (never the admin who actually clicked), never request.CurrentLevelNo
+                // (which has already advanced past that level by the time this runs).
+                var recipients = await GetBypassedApproverRecipientsAsync(request, requestId);
+                if (recipients.Count == 0)
+                {
+                    await LogSkippedAsync(rule, requestId, "Most recent decision on this request was not an admin override.");
+                    continue;
+                }
+                foreach (var (userId, email) in recipients)
+                {
+                    var tokens = new Dictionary<string, string>
+                    {
+                        ["{{RequestUrl}}"] = $"{baseUrl}/Requests/Details/{request.Id}",
+                        ["{{ApprovalTimeline}}"] = timelineHtml,
+                        ["{{LogoUrl}}"] = logoUrl,
+                        ["{{TriggeredByUserName}}"] = triggeredByUserName,
+                        ["{{SubmittedFieldsTable}}"] = submittedFieldsTableHtml,
+                    };
                     await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, email, ccAddress, tokens, attachmentsForThisRule);
                 }
             }
@@ -153,6 +188,7 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                     ["{{ApprovalTimeline}}"] = timelineHtml,
                     ["{{LogoUrl}}"] = logoUrl,
                     ["{{TriggeredByUserName}}"] = triggeredByUserName,
+                    ["{{SubmittedFieldsTable}}"] = submittedFieldsTableHtml,
                 };
                 await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, toAddress, ccAddress, extraTokens, attachmentsForThisRule);
             }
@@ -477,6 +513,33 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
             x.WorkflowVersionId == request.WorkflowVersionId &&
             x.RoutingRuleId == request.RoutingRuleId &&
             x.LevelNo == request.CurrentLevelNo);
+        if (step is null) return [];
+
+        var approverIds = await db.WorkflowStepApprovers.Where(a => a.WorkflowStepId == step.Id).Select(a => a.UserId).ToListAsync();
+        var users = await db.AppUsers.Where(u => approverIds.Contains(u.Id) && u.Email != null)
+            .Select(u => new { u.Id, Email = u.Email! })
+            .ToListAsync();
+        return users.Select(u => (u.Id, u.Email)).ToList();
+    }
+
+    // Same shape as GetCurrentApproverRecipientsAsync, but resolves the level an admin
+    // override just decided -- never request.CurrentLevelNo, which has already advanced
+    // past that level by the time this runs. Empty list means either there's no decision
+    // yet, or the most recent one was a real approver deciding for themselves, not an
+    // override -- both are legitimate "this rule doesn't fire" outcomes, not errors.
+    async Task<List<(int UserId, string Email)>> GetBypassedApproverRecipientsAsync(Core.Models.Request request, long requestId)
+    {
+        var lastDecision = await db.RequestActions
+            .Where(a => a.RequestId == requestId && (a.ActionCode == "Approve" || a.ActionCode == "Reject" || a.ActionCode == "SendBack"))
+            .OrderByDescending(a => a.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (lastDecision is null || !lastDecision.IsAdminOverride) return [];
+        if (request.WorkflowVersionId is null || request.RoutingRuleId is null) return [];
+
+        var step = await db.WorkflowSteps.SingleOrDefaultAsync(x =>
+            x.WorkflowVersionId == request.WorkflowVersionId &&
+            x.RoutingRuleId == request.RoutingRuleId &&
+            x.LevelNo == lastDecision.LevelNo);
         if (step is null) return [];
 
         var approverIds = await db.WorkflowStepApprovers.Where(a => a.WorkflowStepId == step.Id).Select(a => a.UserId).ToListAsync();

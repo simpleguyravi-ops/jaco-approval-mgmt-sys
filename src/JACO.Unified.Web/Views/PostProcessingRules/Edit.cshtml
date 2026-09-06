@@ -76,6 +76,7 @@
                         <option value="SpecificUser" selected="@(Model.ToMode == "SpecificUser")">A specific user (by account)</option>
                         <option value="DecisionTriggeredUser" selected="@(Model.ToMode == "DecisionTriggeredUser")">Whoever just triggered this event</option>
                         <option value="CurrentApprover" selected="@(Model.ToMode == "CurrentApprover")">Whoever's currently eligible to decide</option>
+                        <option value="BypassedApprover" selected="@(Model.ToMode == "BypassedApprover")">Whoever was bypassed by an admin override</option>
                     </select>
                 </div>
                 <div class="jaco-form-group ppf-tomode-field" data-for="Fixed">
@@ -101,6 +102,7 @@
                 </div>
                 <p class="ppf-tomode-field" data-for="DecisionTriggeredUser" style="margin:0 0 8px;font-size:12px;color:var(--jaco-text-muted);">The user whose action just caused this event -- e.g. whoever approved, rejected, sent back, or submitted the request. The template can use <code>{{TriggeredByUserName}}</code>.</p>
                 <p class="ppf-tomode-field" data-for="CurrentApprover" style="margin:0 0 8px;font-size:12px;color:var(--jaco-text-muted);">Sends one personalized email per eligible approver. The template can use <code>{{ApproveButton}}</code>, <code>{{RejectButton}}</code> and <code>{{SendBackButton}}</code> for one-click decisions.</p>
+                <p class="ppf-tomode-field" data-for="BypassedApprover" style="margin:0 0 8px;font-size:12px;color:var(--jaco-text-muted);">Only sends when the decision that just fired this event was an admin override -- reaches the approver(s) actually assigned to that level, not the admin who clicked. Silently skips (no email) on an ordinary decision. The template can use <code>{{TriggeredByUserName}}</code> for the admin's name.</p>
             </div>
 
             <div id="ppfApiFields" style="display:none;">

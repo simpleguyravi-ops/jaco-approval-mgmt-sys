@@ -85,13 +85,7 @@ public sealed class RequestDetailsMailer(UnifiedDbContext db, MailSender mailSen
         AppendRow(sb, "Created", request.CreatedAt.ToString("dd MMM yyyy HH:mm"));
         sb.Append("</table>");
 
-        if (fields.Count > 0)
-        {
-            sb.Append("<table role=\"presentation\" style=\"border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;\">");
-            foreach (var f in fields)
-                AppendRow(sb, f.FieldLabel, RequestService.ExtractField(request.DataJson, f.FieldKey) is { } v && v.Length > 0 ? v : "-");
-            sb.Append("</table>");
-        }
+        sb.Append(BuildFieldsTableHtml(request, fields));
 
         if (attachments.Count > 0)
         {
@@ -104,6 +98,21 @@ public sealed class RequestDetailsMailer(UnifiedDbContext db, MailSender mailSen
           .Append("\" style=\"display:inline-block;background:#f2600c;color:#ffffff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-family:Arial,sans-serif;font-size:13px;\">Open in JAMS</a></p>")
           .Append("<p style=\"color:#6b7280;font-size:12px;margin-top:16px;font-family:Arial,sans-serif;\">Shared from JAMS. The link above requires a JAMS login to view.</p>");
 
+        return sb.ToString();
+    }
+
+    // Reused by PpfExecutor for the {{SubmittedFieldsTable}} token -- same field-agnostic
+    // rendering, same safe-default caller contract: pass a field list that's already been
+    // filtered (Active && IsVisible && !IsSensitive, see this class's own query above) since
+    // this method renders whatever list it's given with no filtering of its own.
+    public static string BuildFieldsTableHtml(Request request, List<WorkflowField> fields)
+    {
+        if (fields.Count == 0) return "";
+        var sb = new StringBuilder();
+        sb.Append("<table role=\"presentation\" style=\"border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;\">");
+        foreach (var f in fields)
+            AppendRow(sb, f.FieldLabel, RequestService.ExtractField(request.DataJson, f.FieldKey) is { } v && v.Length > 0 ? v : "-");
+        sb.Append("</table>");
         return sb.ToString();
     }
 

@@ -126,6 +126,7 @@ public sealed class MailTemplatesController(UnifiedDbContext db) : Controller
             ["{{LogoUrl}}"] = "/img/jaco-logo-color.png",
             ["{{RequestUrl}}"] = Url.Action("Details", "Requests", new { id = 1 }) ?? "#",
             ["{{ApprovalTimeline}}"] = "<p style=\"color:#6b7280;font-size:13px;\">(the real approval timeline renders here)</p>",
+            ["{{SubmittedFieldsTable}}"] = "<p style=\"color:#6b7280;font-size:13px;\">(every submitted field renders here as a table)</p>",
             ["{{ApproveUrl}}"] = "#",
             ["{{RejectUrl}}"] = "#",
             ["{{SendBackUrl}}"] = "#",
