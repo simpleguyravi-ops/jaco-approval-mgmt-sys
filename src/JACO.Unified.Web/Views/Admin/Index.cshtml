@@ -51,9 +51,10 @@
 
 <section class="admin-section">
     <h2>System Mode <small>&mdash; environment flag for compliance guardrails</small></h2>
-    <p>Marks this environment Test or Production. Some guardrails (currently: the Clear Log minimum-retention floor) only apply in Production, so development/QA on this same database isn't blocked.</p>
+    <p>Marks this environment Test or Production. Some guardrails (currently: the Clear Log minimum-retention floor) only apply in Production, so development/QA on this same database isn't blocked. Every switch between Test and Production is recorded in the Request Audit Log.</p>
     <div class="cards">
         <a class="metric metric-link" href="~/SystemSettings"><b>System Mode</b><span>Test vs. Production</span><small>Configure &rarr;</small></a>
+        <a class="metric metric-link" href="~/TransactionalData"><b>Clear Transactional Data</b><span>Wipe all requests for one Approval Type &mdash; Test mode only</span><small>Manage &rarr;</small></a>
     </div>
 </section>
 

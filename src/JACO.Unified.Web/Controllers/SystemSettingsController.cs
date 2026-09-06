@@ -29,9 +29,27 @@ public sealed class SystemSettingsController(UnifiedDbContext db) : Controller
             db.SystemSettings.Add(settings);
         }
 
+        // Only worth recording when the value actually flips -- re-saving the same mode
+        // (e.g. clicking Save without changing the radio) isn't a real transition.
+        var previouslyProduction = settings.IsProduction;
         settings.IsProduction = isProduction;
         settings.UpdatedAt = DateTime.UtcNow;
         settings.UpdatedByUserName = User.Identity?.Name;
+
+        if (previouslyProduction != isProduction)
+        {
+            db.AuditLogs.Add(new AuditLog
+            {
+                ActionCode = "SystemModeChanged",
+                DetailsJson = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    from = previouslyProduction ? "Production" : "Test",
+                    to = isProduction ? "Production" : "Test",
+                    changedBy = User.Identity?.Name
+                }),
+                CreatedAt = DateTime.UtcNow
+            });
+        }
 
         await db.SaveChangesAsync();
         TempData["Success"] = isProduction

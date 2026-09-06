@@ -1,0 +1,64 @@
+@model TransactionalDataClearViewModel
+@{ ViewData["Title"] = "Clear Transactional Data"; }
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div><h1>Clear Transactional Data</h1><p>Permanently removes every request (and its attachments, decisions, and processing history) for one Approval Type &mdash; for resetting a test/UAT type back to empty between rounds. Not for production cleanup.</p></div>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="max-width:560px;">
+@if (Model.IsProduction)
+{
+    <div class="jaco-alert" style="background:var(--jaco-danger-bg);color:var(--jaco-danger);">
+        System is in <strong>Production</strong> mode &mdash; clearing transactional data is disabled. Switch to <a class="link" asp-controller="SystemSettings" asp-action="Index">System Mode &rarr; Test</a> first if this really is a test environment.
+    </div>
+}
+else
+{
+    <form method="get" asp-controller="TransactionalData" asp-action="Index">
+        <div class="jaco-form-group">
+            <label>Approval Type</label>
+            <select name="approvalTypeId" class="jaco-select" required onchange="this.form.submit()">
+                <option value="" disabled selected="@(Model.ApprovalTypeId is null)">-- Select Approval Type --</option>
+                @foreach (var t in Model.ApprovalTypes)
+                {
+                    <option value="@t.Id" selected="@(t.Id == Model.ApprovalTypeId)">@t.Name</option>
+                }
+            </select>
+        </div>
+        <noscript><button type="submit" class="jaco-btn jaco-btn-outline">Preview Count</button></noscript>
+    </form>
+
+    @if (Model.ApprovalTypeId is null)
+    {
+        <p style="margin-top:16px;color:var(--jaco-text-muted);font-size:13px;">Pick an Approval Type to see how many requests that would delete before anything is removed. There is no default &mdash; nothing is deleted until you choose one.</p>
+    }
+    else if (Model.Counts is null)
+    {
+        <div class="jaco-alert" style="margin-top:16px;background:var(--jaco-danger-bg);color:var(--jaco-danger);">Approval Type not found.</div>
+    }
+    else if (Model.Counts.Requests == 0)
+    {
+        <p style="margin-top:16px;color:var(--jaco-text-muted);font-size:13px;"><strong>@Model.ApprovalTypeName</strong> has no requests &mdash; nothing to clear.</p>
+    }
+    else
+    {
+        <div class="jaco-alert" style="margin-top:16px;background:var(--jaco-warning-bg);color:var(--jaco-warning);">
+            <strong>@Model.Counts.Requests</strong> request(s) for <strong>@Model.ApprovalTypeName</strong>, plus everything attached to them, will be archived then permanently removed:
+            <ul style="margin:8px 0 0;padding-left:20px;">
+                <li>@Model.Counts.Attachments uploaded file(s) &mdash; deleted from disk, <strong>not</strong> recoverable from the archive</li>
+                <li>@Model.Counts.Actions decision(s) (Approve/Reject/Send Back history)</li>
+                <li>@Model.Counts.PpfExecutions post-processing (email) execution record(s)</li>
+                <li>@Model.Counts.Reassignments approver reassignment(s)</li>
+                <li>@Model.Counts.Participants participant record(s)</li>
+            </ul>
+        </div>
+        <p style="margin-top:8px;font-size:12px;color:var(--jaco-text-muted);">Audit Log entries for these requests are kept, not deleted &mdash; they'll show a blank Request No. afterward.</p>
+        <form method="post" asp-controller="TransactionalData" asp-action="ClearConfirmed" style="margin-top:12px;" data-confirm="Permanently delete all @Model.Counts.Requests @Model.ApprovalTypeName request(s) and their attached files? This cannot be undone for the files, even from the archive.">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="approvalTypeId" value="@Model.ApprovalTypeId" />
+            <button type="submit" class="jaco-btn" style="background:var(--jaco-danger);color:#fff;border-color:var(--jaco-danger);">Archive &amp; Delete @Model.Counts.Requests Request(s)</button>
+            <a class="jaco-btn jaco-btn-outline" asp-controller="Admin" asp-action="Index">Cancel</a>
+        </form>
+    }
+}
+</div>

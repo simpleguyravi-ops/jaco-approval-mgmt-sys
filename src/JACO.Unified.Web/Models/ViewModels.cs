@@ -462,6 +462,26 @@ public sealed class ClearLogsResult
     public bool ExceedsMinRetention => BeforeDate is not null && BeforeDate.Value > MaxAllowedBeforeDate;
 }
 
+public sealed class TransactionalDataCounts
+{
+    public int Requests { get; set; }
+    public int Attachments { get; set; }
+    public int Actions { get; set; }
+    public int PpfExecutions { get; set; }
+    public int Reassignments { get; set; }
+    public int Participants { get; set; }
+    public int Total => Requests + Attachments + Actions + PpfExecutions + Reassignments + Participants;
+}
+
+public sealed class TransactionalDataClearViewModel
+{
+    public bool IsProduction { get; set; }
+    public List<(int Id, string Name)> ApprovalTypes { get; set; } = [];
+    public int? ApprovalTypeId { get; set; }
+    public string? ApprovalTypeName { get; set; }
+    public TransactionalDataCounts? Counts { get; set; }
+}
+
 public sealed class LogArchiveFilter
 {
     public string? LogType { get; set; }

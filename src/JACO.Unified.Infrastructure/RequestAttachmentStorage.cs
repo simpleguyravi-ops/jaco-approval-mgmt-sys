@@ -25,4 +25,8 @@ public sealed class RequestAttachmentStorage(string rootPath)
 
     public string GetPath(long requestId, string storedFileName) =>
         Path.Combine(rootPath, requestId.ToString(), storedFileName);
+
+    // The whole per-request folder -- used by Clear Transactional Data to remove every file
+    // a request ever had in one step, without the caller needing to know rootPath itself.
+    public string GetRequestDirectory(long requestId) => Path.Combine(rootPath, requestId.ToString());
 }
