@@ -24,6 +24,7 @@ public sealed class UnifiedDbContext(DbContextOptions<UnifiedDbContext> options)
     public DbSet<RoutingLogEntry> RoutingLog => Set<RoutingLogEntry>();
     public DbSet<MailTemplate> MailTemplates => Set<MailTemplate>();
     public DbSet<PostProcessingRule> PostProcessingRules => Set<PostProcessingRule>();
+    public DbSet<PostProcessingRuleApprovalType> PostProcessingRuleApprovalTypes => Set<PostProcessingRuleApprovalType>();
     public DbSet<PostProcessingRuleCriteria> PostProcessingRuleCriteria => Set<PostProcessingRuleCriteria>();
     public DbSet<PostProcessingExecution> PostProcessingExecutions => Set<PostProcessingExecution>();
     public DbSet<EmailSettings> EmailSettings => Set<EmailSettings>();
@@ -45,5 +46,6 @@ public sealed class UnifiedDbContext(DbContextOptions<UnifiedDbContext> options)
         modelBuilder.Entity<PicklistValue>().HasIndex(p => new { p.LookupType, p.Value });
         modelBuilder.Entity<ApiClient>().HasIndex(c => c.KeyPrefix);
         modelBuilder.Entity<DigestSchedule>().HasIndex(s => s.ApprovalTypeId).IsUnique();
+        modelBuilder.Entity<PostProcessingRuleApprovalType>().HasKey(x => new { x.PostProcessingRuleId, x.ApprovalTypeId });
     }
 }

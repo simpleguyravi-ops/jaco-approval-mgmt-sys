@@ -1,28 +1,38 @@
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Http;
 
 namespace JACO.Unified.Infrastructure;
 
-// Fires the "Email" action of any active PostProcessingRule configured for an
-// ApprovalType + Event. Every attempt is recorded in PostProcessingExecutions regardless
-// of outcome; a failure here never touches Request.Status.
-public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, ApprovalActionLinkService linkService, TimelineService timelineService, IConfiguration configuration, RequestAttachmentStorage attachmentStorage)
+// Fires the Email or ApiCall action of any active PostProcessingRule configured for one of
+// the request's Approval Type + this Event. Every attempt is recorded in
+// PostProcessingExecutions regardless of outcome; a failure here never touches
+// Request.Status.
+public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, ApprovalActionLinkService linkService, TimelineService timelineService, IConfiguration configuration, RequestAttachmentStorage attachmentStorage, IHttpClientFactory httpClientFactory)
 {
-    public async Task RaiseEventAsync(long requestId, string eventCode)
+    public async Task RaiseEventAsync(long requestId, string eventCode, int triggeredByUserId)
     {
         var request = await db.Requests.FindAsync(requestId);
         if (request is null) return;
 
         var rules = await db.PostProcessingRules
-            .Where(r => r.Active && r.ApprovalTypeId == request.ApprovalTypeId && r.EventCode == eventCode && r.ActionType == "Email")
+            .Where(r => r.Active && r.EventCode == eventCode && (r.ActionType == "Email" || r.ActionType == "ApiCall")
+                && db.PostProcessingRuleApprovalTypes.Any(pat => pat.PostProcessingRuleId == r.Id && pat.ApprovalTypeId == request.ApprovalTypeId))
             .OrderBy(r => r.SequenceNo)
             .ToListAsync();
 
         if (rules.Count == 0) return;
 
+        var type = await db.ApprovalTypes.FindAsync(request.ApprovalTypeId);
         var creator = await db.AppUsers.FindAsync(request.CreatorUserId);
         var creatorName = creator?.DisplayName ?? $"User #{request.CreatorUserId}";
+        // Whoever's action caused THIS firing -- the submitter, the decider, the nudger.
+        // Feeds both the "Decision-Triggered User" email recipient mode and the
+        // {{TriggeredByUserName}}/payload field available regardless of action type.
+        var triggeredByUser = await db.AppUsers.FindAsync(triggeredByUserId);
+        var triggeredByUserName = triggeredByUser?.DisplayName ?? $"User #{triggeredByUserId}";
         var baseUrl = (configuration["AppBaseUrl"] ?? "http://localhost:5004").TrimEnd('/');
         // Same timeline HTML/logo for every recipient of this event -- built once, not
         // per-rule or per-recipient.
@@ -56,6 +66,13 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
 
             using var config = JsonDocument.Parse(rule.ActionConfigJson ?? "{}");
             var root = config.RootElement;
+
+            if (rule.ActionType == "ApiCall")
+            {
+                await CallApiAndLogAsync(rule, request, requestId, root, type?.Name ?? "(unknown)", creatorName, eventCode, triggeredByUserName);
+                continue;
+            }
+
             var mailTemplateId = root.TryGetProperty("mailTemplateId", out var t) ? t.GetInt32() : (int?)null;
             var toMode = root.TryGetProperty("toMode", out var m) ? m.GetString() : "Creator";
             var includeAttachments = root.TryGetProperty("includeAttachments", out var ia) && ia.ValueKind == JsonValueKind.True;
@@ -87,7 +104,7 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                 var recipients = await GetCurrentApproverRecipientsAsync(request);
                 if (recipients.Count == 0)
                 {
-                    await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, null, ccAddress, new Dictionary<string, string> { ["{{ApprovalTimeline}}"] = timelineHtml, ["{{LogoUrl}}"] = logoUrl }, attachmentsForThisRule);
+                    await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, null, ccAddress, new Dictionary<string, string> { ["{{ApprovalTimeline}}"] = timelineHtml, ["{{LogoUrl}}"] = logoUrl, ["{{TriggeredByUserName}}"] = triggeredByUserName }, attachmentsForThisRule);
                     continue;
                 }
                 foreach (var (userId, email) in recipients)
@@ -95,6 +112,7 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                     var tokens = BuildActionTokens(request, userId, baseUrl);
                     tokens["{{ApprovalTimeline}}"] = timelineHtml;
                     tokens["{{LogoUrl}}"] = logoUrl;
+                    tokens["{{TriggeredByUserName}}"] = triggeredByUserName;
                     await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, email, ccAddress, tokens, attachmentsForThisRule);
                 }
             }
@@ -106,6 +124,10 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                     toAddress = root.TryGetProperty("toUserId", out var uid) && uid.TryGetInt32(out var toUserId)
                         ? (await db.AppUsers.FindAsync(toUserId))?.Email
                         : null;
+                }
+                else if (toMode == "DecisionTriggeredUser")
+                {
+                    toAddress = triggeredByUser?.Email;
                 }
                 else
                 {
@@ -124,6 +146,7 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                     ["{{RequestUrl}}"] = $"{baseUrl}/Requests/Details/{request.Id}",
                     ["{{ApprovalTimeline}}"] = timelineHtml,
                     ["{{LogoUrl}}"] = logoUrl,
+                    ["{{TriggeredByUserName}}"] = triggeredByUserName,
                 };
                 await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, toAddress, ccAddress, extraTokens, attachmentsForThisRule);
             }
@@ -222,6 +245,82 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
             AttemptNo = attemptNo,
             ActionType = rule.ActionType,
             Target = toAddress,
+            Status = status,
+            ErrorMessage = error,
+            StartedAt = startedAt,
+            FinishedAt = DateTime.UtcNow,
+            CreatedAt = startedAt
+        });
+    }
+
+    // Posts a JSON payload of standard fields + every Data.* field to a configured URL --
+    // deliberately no user-authored body template (unlike Mail Templates): there's nothing
+    // new to learn to configure one, just a URL and an optional auth header value.
+    async Task CallApiAndLogAsync(Core.Models.PostProcessingRule rule, Core.Models.Request request, long requestId, JsonElement root, string approvalTypeName, string creatorName, string eventCode, string triggeredByUserName)
+    {
+        var startedAt = DateTime.UtcNow;
+        var attemptNo = await NextAttemptNoAsync(rule.Id, requestId);
+        var apiUrl = root.TryGetProperty("apiUrl", out var u) ? u.GetString() : null;
+        var authHeaderValue = root.TryGetProperty("apiAuthHeaderValue", out var ah) ? ah.GetString() : null;
+
+        string status;
+        string? error = null;
+
+        if (string.IsNullOrWhiteSpace(apiUrl))
+        {
+            status = "Failed";
+            error = "Rule has no API URL configured.";
+        }
+        else
+        {
+            try
+            {
+                var payload = new Dictionary<string, object?>
+                {
+                    ["requestNumber"] = request.RequestNumber,
+                    ["subject"] = request.Subject,
+                    ["status"] = request.Status,
+                    ["approvalTypeName"] = approvalTypeName,
+                    ["currentLevel"] = request.CurrentLevelNo,
+                    ["createdAt"] = request.CreatedAt,
+                    ["creatorName"] = creatorName,
+                    ["eventCode"] = eventCode,
+                    ["triggeredByUserName"] = triggeredByUserName,
+                };
+                foreach (var (key, value) in MailMergeService.ExtractDataTokens(request.DataJson))
+                    payload[key] = value;
+
+                using var client = httpClientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromSeconds(10);
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = JsonContent.Create(payload) };
+                if (!string.IsNullOrWhiteSpace(authHeaderValue)) httpRequest.Headers.TryAddWithoutValidation("Authorization", authHeaderValue);
+
+                var response = await client.SendAsync(httpRequest);
+                if (response.IsSuccessStatusCode)
+                {
+                    status = "Sent";
+                }
+                else
+                {
+                    status = "Failed";
+                    var body = await response.Content.ReadAsStringAsync();
+                    error = $"HTTP {(int)response.StatusCode} -- {(body.Length > 500 ? body[..500] : body)}";
+                }
+            }
+            catch (Exception ex)
+            {
+                status = "Failed";
+                error = ex.Message;
+            }
+        }
+
+        db.PostProcessingExecutions.Add(new Core.Models.PostProcessingExecution
+        {
+            PostProcessingRuleId = rule.Id,
+            RequestId = requestId,
+            AttemptNo = attemptNo,
+            ActionType = rule.ActionType,
+            Target = apiUrl,
             Status = status,
             ErrorMessage = error,
             StartedAt = startedAt,

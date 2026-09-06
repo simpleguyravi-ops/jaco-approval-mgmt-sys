@@ -23,20 +23,24 @@ public sealed record NotificationQueueStatus(long EnqueuedCount, long ProcessedC
 // alive and keeping up (PPF Monitor renders them) -- not for anything the app logic reads.
 public sealed class NotificationQueue
 {
-    readonly Channel<(long RequestId, string EventCode)> channel = Channel.CreateUnbounded<(long, string)>();
+    readonly Channel<(long RequestId, string EventCode, int TriggeredByUserId)> channel = Channel.CreateUnbounded<(long, string, int)>();
     long enqueuedCount;
     long processedCount;
     long failedCount;
     DateTime? lastProcessedAtUtc;
     DateTime dispatcherStartedAtUtc = DateTime.UtcNow;
 
-    public void Enqueue(long requestId, string eventCode)
+    // triggeredByUserId: whoever's action caused this specific event (the submitter, the
+    // decider, the nudger, ...) -- always a real, currently-known user at every call site,
+    // since every one of these actions requires someone signed in to trigger it. Feeds the
+    // "Decision-Triggered User" PPF recipient mode.
+    public void Enqueue(long requestId, string eventCode, int triggeredByUserId)
     {
-        channel.Writer.TryWrite((requestId, eventCode));
+        channel.Writer.TryWrite((requestId, eventCode, triggeredByUserId));
         Interlocked.Increment(ref enqueuedCount);
     }
 
-    public ChannelReader<(long RequestId, string EventCode)> Reader => channel.Reader;
+    public ChannelReader<(long RequestId, string EventCode, int TriggeredByUserId)> Reader => channel.Reader;
 
     // Called by NotificationDispatcher once it started its read loop, so "started at"
     // reflects the loop actually running rather than just this object being constructed.

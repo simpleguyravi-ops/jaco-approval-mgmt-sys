@@ -44,20 +44,23 @@ public sealed class HomeController(UnifiedDbContext db, NotificationQueue notifi
         if (filter.ToDate is not null) query = query.Where(e => e.CreatedAt < filter.ToDate.Value.AddDays(1));
 
         var executions = await query.OrderByDescending(e => e.CreatedAt).ToListAsync();
-        var ruleEventCodes = await db.PostProcessingRules.ToDictionaryAsync(r => r.Id, r => (r.EventCode, r.ApprovalTypeId));
+        // A rule can apply to several Approval Types now, so it's no longer a reliable
+        // fallback for "which type was this" -- that's fine, the primary source
+        // (requestInfo, from the request itself) covers every case except a request that's
+        // since been deleted, which just shows "(unknown)" instead of guessing.
+        var ruleEventCodes = await db.PostProcessingRules.ToDictionaryAsync(r => r.Id, r => r.EventCode);
 
         var rows = executions.Select(e =>
         {
             var (requestNumber, approvalTypeId) = requestInfo.GetValueOrDefault(e.RequestId, ("(deleted)", 0));
-            var (eventCode, ruleApprovalTypeId) = ruleEventCodes.GetValueOrDefault(e.PostProcessingRuleId, ("(deleted rule)", approvalTypeId));
-            var effectiveTypeId = approvalTypeId == 0 ? ruleApprovalTypeId : approvalTypeId;
+            var eventCode = ruleEventCodes.GetValueOrDefault(e.PostProcessingRuleId, "(deleted rule)");
             return new PpfMonitorRow
             {
                 Id = e.Id,
                 RequestId = e.RequestId,
                 RequestNumber = requestNumber,
-                ApprovalTypeId = effectiveTypeId,
-                ApprovalTypeName = types.GetValueOrDefault(effectiveTypeId, "(unknown)"),
+                ApprovalTypeId = approvalTypeId,
+                ApprovalTypeName = types.GetValueOrDefault(approvalTypeId, "(unknown)"),
                 EventCode = eventCode,
                 ActionType = e.ActionType,
                 Target = e.Target,

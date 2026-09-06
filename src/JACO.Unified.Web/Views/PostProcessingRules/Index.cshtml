@@ -12,7 +12,7 @@
 }
 <a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
 <div class="jaco-page-header">
-    <div><h1>Post-Processing Rules</h1><p>Which mail template fires for each Approval Type + Event.</p></div>
+    <div><h1>Post-Processing Rules</h1><p>What fires -- an email or an API call -- when an event happens on a request, for whichever Approval Type(s) the rule applies to.</p></div>
     <a class="jaco-btn jaco-btn-primary" href="~/PostProcessingRules/Create">+ New Rule</a>
 </div>
 <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
@@ -21,9 +21,10 @@
 <div class="jaco-card">
     <table class="jaco-table">
         <thead><tr>
-            <th><a class="link" href="@SortUrl("ApprovalType")">Approval Type@(Html.Raw(SortArrow("ApprovalType")))</a></th>
+            <th><a class="link" href="@SortUrl("Name")">Name@(Html.Raw(SortArrow("Name")))</a></th>
+            <th><a class="link" href="@SortUrl("ApprovalType")">Applies To@(Html.Raw(SortArrow("ApprovalType")))</a></th>
             <th><a class="link" href="@SortUrl("Event")">Event@(Html.Raw(SortArrow("Event")))</a></th>
-            <th><a class="link" href="@SortUrl("Template")">Template@(Html.Raw(SortArrow("Template")))</a></th>
+            <th>Then</th>
             <th><a class="link" href="@SortUrl("Recipient")">Recipient@(Html.Raw(SortArrow("Recipient")))</a></th>
             <th>Criteria</th>
             <th>Attachments</th>
@@ -33,10 +34,11 @@
         @foreach (var r in Model)
         {
             <tr>
-                <td><a class="link" href="~/PostProcessingRules/Edit/@r.Id">@r.ApprovalTypeName</a></td>
+                <td><a class="link" href="~/PostProcessingRules/Edit/@r.Id">@r.Name</a></td>
+                <td>@r.ApprovalTypeNames</td>
                 <td>@r.EventCode</td>
-                <td>@r.TemplateName</td>
-                <td>@r.ToMode</td>
+                <td>@(r.ActionType == "ApiCall" ? "Call an API" : "Email: " + r.TemplateName)</td>
+                <td>@(r.ActionType == "ApiCall" ? "-" : r.ToMode)</td>
                 <td>@(r.CriteriaCount == 0 ? "Always" : $"{r.CriteriaCount} condition(s)")</td>
                 <td>@(r.IncludeAttachments ? "Yes" : "–")</td>
                 <td>
@@ -47,7 +49,7 @@
         }
         @if (Model.Count == 0)
         {
-            <tr><td colspan="7" style="text-align:center;color:var(--jaco-text-muted);">No post-processing rules yet.</td></tr>
+            <tr><td colspan="8" style="text-align:center;color:var(--jaco-text-muted);">No post-processing rules yet.</td></tr>
         }
         </tbody>
     </table>

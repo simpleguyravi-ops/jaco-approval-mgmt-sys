@@ -308,13 +308,13 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         // Notifications are queued, not awaited inline -- NotificationDispatcher sends them
         // off the request thread, so the user's click isn't held up by however long SMTP
         // takes for however many recipients/rules match this event.
-        if (!isResubmit) notifications.Enqueue(request.Id, "Created");
-        else notifications.Enqueue(request.Id, "Resubmit");
+        if (!isResubmit) notifications.Enqueue(request.Id, "Created", userId);
+        else notifications.Enqueue(request.Id, "Resubmit", userId);
         // Separate from Created/Resubmit (which are about the request as a whole) -- this is
         // specifically "it's now your turn to decide," aimed at whoever the CURRENT level's
         // approver(s) are, whether that's level 1 on a fresh submit or wherever a resubmit
         // lands back on.
-        notifications.Enqueue(request.Id, "LevelPending");
+        notifications.Enqueue(request.Id, "LevelPending", userId);
 
         return (true, request.Status);
     }
@@ -430,8 +430,8 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         request.UpdatedAt = now;
         await db.SaveChangesAsync();
 
-        if (eventCode is not null) notifications.Enqueue(requestId, eventCode);
-        if (eventCode == "Approved") notifications.Enqueue(requestId, "Completed");
+        if (eventCode is not null) notifications.Enqueue(requestId, eventCode, userId);
+        if (eventCode == "Approved") notifications.Enqueue(requestId, "Completed", userId);
 
         return (true, request.Status);
     }
@@ -469,7 +469,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
 
         db.AuditLogs.Add(new AuditLog { RequestId = requestId, UserId = requesterUserId, ActionCode = "Nudge", CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
-        notifications.Enqueue(requestId, "Nudged");
+        notifications.Enqueue(requestId, "Nudged", requesterUserId);
         return (true, "Reminder sent.");
     }
 

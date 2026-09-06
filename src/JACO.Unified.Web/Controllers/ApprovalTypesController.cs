@@ -149,7 +149,10 @@ public sealed class ApprovalTypesController(UnifiedDbContext db, RequestAttachme
             },
             WorkflowFieldCount = await db.WorkflowFields.CountAsync(f => f.ApprovalTypeId == id),
             RoutingRuleCount = await db.RoutingRules.CountAsync(r => db.WorkflowVersions.Where(v => v.ApprovalTypeId == id).Select(v => v.Id).Contains(r.WorkflowVersionId)),
-            PostProcessingRuleCount = await db.PostProcessingRules.CountAsync(r => r.ApprovalTypeId == id),
+            // A rule linked to this type AND another survives deletion (just loses this
+            // one association) -- this count is still every rule that references the type
+            // at all, for the admin's awareness, not just the ones that would be removed.
+            PostProcessingRuleCount = await db.PostProcessingRuleApprovalTypes.CountAsync(x => x.ApprovalTypeId == id),
             UserPermissionCount = await db.UserWorkflowPermissions.CountAsync(p => p.ApprovalTypeId == id),
             DigestScheduleCount = await db.DigestSchedules.CountAsync(d => d.ApprovalTypeId == id),
             RoutingLogCount = await db.RoutingLog.CountAsync(r => r.ApprovalTypeId == id),
@@ -191,7 +194,19 @@ public sealed class ApprovalTypesController(UnifiedDbContext db, RequestAttachme
         var workflowSteps = await db.WorkflowSteps.Where(s => ruleIds.Contains(s.RoutingRuleId)).ToListAsync();
         var stepIds = workflowSteps.Select(s => s.Id).ToList();
         var workflowStepApprovers = await db.WorkflowStepApprovers.Where(a => stepIds.Contains(a.WorkflowStepId)).ToListAsync();
-        var postProcessingRules = await db.PostProcessingRules.Where(r => r.ApprovalTypeId == id).ToListAsync();
+
+        // A PPF rule can now apply to several Approval Types at once -- one linked ONLY to
+        // this type is fully deleted (rule + its criteria); one also linked to another type
+        // just loses this one association and otherwise survives untouched.
+        var ruleLinksForType = await db.PostProcessingRuleApprovalTypes.Where(x => x.ApprovalTypeId == id).ToListAsync();
+        var linkedRuleIds = ruleLinksForType.Select(x => x.PostProcessingRuleId).Distinct().ToList();
+        var ruleIdsWithOtherTypes = (await db.PostProcessingRuleApprovalTypes
+            .Where(x => linkedRuleIds.Contains(x.PostProcessingRuleId) && x.ApprovalTypeId != id)
+            .Select(x => x.PostProcessingRuleId)
+            .ToListAsync()).ToHashSet();
+        var ruleIdsToFullyDelete = linkedRuleIds.Where(rid => !ruleIdsWithOtherTypes.Contains(rid)).ToList();
+        var postProcessingRules = await db.PostProcessingRules.Where(r => ruleIdsToFullyDelete.Contains(r.Id)).ToListAsync();
+        var postProcessingRuleCriteria = await db.PostProcessingRuleCriteria.Where(c => ruleIdsToFullyDelete.Contains(c.PostProcessingRuleId)).ToListAsync();
         var userPermissions = await db.UserWorkflowPermissions.Where(p => p.ApprovalTypeId == id).ToListAsync();
         var digestSchedules = await db.DigestSchedules.Where(d => d.ApprovalTypeId == id).ToListAsync();
         var digestRuns = await db.DigestRuns.Where(r => r.ApprovalTypeId == id).ToListAsync();
@@ -212,7 +227,7 @@ public sealed class ApprovalTypesController(UnifiedDbContext db, RequestAttachme
             {
                 approvalType = type, requests, attachments, actions, ppfExecutions, reassignments, participants,
                 workflowFields, workflowVersions, routingRules, routingRuleCriteria, workflowSteps, workflowStepApprovers,
-                postProcessingRules, userPermissions, digestSchedules, digestRuns, digestRunRecipients, routingLogEntries
+                postProcessingRules, postProcessingRuleCriteria, ruleLinksForType, userPermissions, digestSchedules, digestRuns, digestRunRecipients, routingLogEntries
             }),
             ClearedByUserName = User.Identity?.Name,
             ClearedAt = DateTime.UtcNow
@@ -230,6 +245,10 @@ public sealed class ApprovalTypesController(UnifiedDbContext db, RequestAttachme
         db.RoutingRules.RemoveRange(routingRules);
         db.WorkflowVersions.RemoveRange(workflowVersions);
         db.WorkflowFields.RemoveRange(workflowFields);
+        // Every link to this type goes regardless of whether the rule itself survives;
+        // only the rules that had no OTHER type left are then also deleted outright.
+        db.PostProcessingRuleApprovalTypes.RemoveRange(ruleLinksForType);
+        db.PostProcessingRuleCriteria.RemoveRange(postProcessingRuleCriteria);
         db.PostProcessingRules.RemoveRange(postProcessingRules);
         db.UserWorkflowPermissions.RemoveRange(userPermissions);
         db.DigestRunRecipients.RemoveRange(digestRunRecipients);

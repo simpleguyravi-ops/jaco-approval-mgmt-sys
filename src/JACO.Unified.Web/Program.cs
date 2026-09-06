@@ -44,6 +44,10 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddDbContext<UnifiedDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// PpfExecutor's "Call an API" action -- IHttpClientFactory manages pooling/lifetime, one
+// per call rather than a single injected HttpClient shared across requests.
+builder.Services.AddHttpClient();
+
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.AddScoped<RoutingService>();
 builder.Services.AddSingleton<EmailPasswordProtector>();

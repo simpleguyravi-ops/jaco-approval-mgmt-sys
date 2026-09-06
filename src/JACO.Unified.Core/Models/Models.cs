@@ -515,13 +515,24 @@ public sealed class MailTemplate
 public sealed class PostProcessingRule
 {
     public int Id { get; set; }
-    public int ApprovalTypeId { get; set; }
+    public string Name { get; set; } = "";
     public string EventCode { get; set; } = "";
+    // "Email" or "ApiCall" -- ApiCall's config (apiUrl, apiAuthHeaderValue) lives in the
+    // same ActionConfigJson blob as Email's, same convention either way.
     public string ActionType { get; set; } = "";
     public string? Target { get; set; }
     public string? ActionConfigJson { get; set; }
     public int SequenceNo { get; set; }
     public bool Active { get; set; }
+}
+
+// Which Approval Type(s) a rule applies to -- a rule fires for an event on ANY of its
+// linked types, e.g. one "Notify IT department" rule covering both Sales Discount and
+// Service Discount instead of needing a near-duplicate rule per type.
+public sealed class PostProcessingRuleApprovalType
+{
+    public int PostProcessingRuleId { get; set; }
+    public int ApprovalTypeId { get; set; }
 }
 
 // Optional condition on a PostProcessingRule -- e.g. "only email Faisal if Branch =

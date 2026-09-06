@@ -133,7 +133,7 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
         }
 
         var ppfCountsByEvent = await db.PostProcessingRules
-            .Where(r => r.ApprovalTypeId == approvalTypeId && r.Active)
+            .Where(r => r.Active && db.PostProcessingRuleApprovalTypes.Any(pat => pat.PostProcessingRuleId == r.Id && pat.ApprovalTypeId == approvalTypeId))
             .GroupBy(r => r.EventCode)
             .Select(g => new { g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Key, x => x.Count);

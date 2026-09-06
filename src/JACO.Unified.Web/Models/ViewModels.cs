@@ -297,8 +297,10 @@ public sealed class MailTemplateEditViewModel
 public sealed class PpfRuleListItem
 {
     public int Id { get; set; }
-    public string ApprovalTypeName { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string ApprovalTypeNames { get; set; } = "";
     public string EventCode { get; set; } = "";
+    public string ActionType { get; set; } = "Email";
     public string TemplateName { get; set; } = "";
     public string ToMode { get; set; } = "";
     public bool IncludeAttachments { get; set; }
@@ -317,8 +319,14 @@ public sealed class PpfCriteriaRow
 public sealed class PpfRuleEditViewModel
 {
     public int Id { get; set; }
-    public int ApprovalTypeId { get; set; }
+    public string Name { get; set; } = "";
+    // Which Approval Type(s) this rule applies to -- one rule can now cover several at
+    // once ("bulk"), e.g. the same "Notify IT" rule for both Sales Discount and Service
+    // Discount instead of a near-duplicate rule per type.
+    public List<int> ApprovalTypeIds { get; set; } = [];
     public string EventCode { get; set; } = "Created";
+    // "Email" or "ApiCall".
+    public string ActionType { get; set; } = "Email";
     public int MailTemplateId { get; set; }
     public string ToMode { get; set; } = "Creator";
     public string? ToAddress { get; set; }
@@ -328,13 +336,16 @@ public sealed class PpfRuleEditViewModel
     public string? CcAddress { get; set; }
     public string? CcFieldKey { get; set; }
     public bool IncludeAttachments { get; set; }
+    public string? ApiUrl { get; set; }
+    public string? ApiAuthHeaderValue { get; set; }
     public int SequenceNo { get; set; } = 10;
     public bool Active { get; set; } = true;
     public List<(int Id, string Name)> ApprovalTypes { get; set; } = [];
     public List<(int Id, string Name)> MailTemplates { get; set; } = [];
     public List<(int Id, string DisplayName)> Users { get; set; } = [];
-    // Every Active field this Approval Type has -- feeds the criteria builder's Field Key
-    // suggestions (a <datalist>, not a hard <select>, matching Routing Rules' own builder).
+    // Union of every Active field across all SELECTED Approval Type(s) (plus generic
+    // fields) -- feeds the criteria builder's Field Key suggestions (a <datalist>, not a
+    // hard <select>, matching Routing Rules' own builder).
     public List<(string FieldKey, string FieldLabel)> AvailableFields { get; set; } = [];
     public List<PpfCriteriaRow> Criteria { get; set; } = [];
 }

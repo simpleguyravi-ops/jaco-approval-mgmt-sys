@@ -15,14 +15,14 @@ public sealed class NotificationDispatcher(NotificationQueue queue, IServiceScop
         queue.MarkDispatcherStarted();
         try
         {
-            await foreach (var (requestId, eventCode) in queue.Reader.ReadAllAsync(stoppingToken))
+            await foreach (var (requestId, eventCode, triggeredByUserId) in queue.Reader.ReadAllAsync(stoppingToken))
             {
                 var success = true;
                 try
                 {
                     using var scope = scopeFactory.CreateScope();
                     var ppf = scope.ServiceProvider.GetRequiredService<PpfExecutor>();
-                    await ppf.RaiseEventAsync(requestId, eventCode);
+                    await ppf.RaiseEventAsync(requestId, eventCode, triggeredByUserId);
                 }
                 catch (Exception ex)
                 {
