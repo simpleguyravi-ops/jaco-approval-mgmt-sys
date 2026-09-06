@@ -6,7 +6,7 @@
 }
 <a class="jaco-back-link" href="~/PostProcessingRules">&larr; Back to Post-Processing Rules</a>
 <div class="jaco-page-header">
-    <div><h1>@ViewData["Title"]</h1><p>When the event fires for one of the selected Approval Types <b>and</b> the conditions match (or there are none), this rule sends an email or calls an API.</p></div>
+    <div><h1>@ViewData["Title"]</h1><p>When the event fires for one of the selected Approval Types <b>and</b> the conditions match (or there are none), this rule sends an email, calls an API, or assigns a task.</p></div>
 </div>
 <form method="post" action="~/PostProcessingRules/Save">
     @Html.AntiForgeryToken()
@@ -46,10 +46,13 @@
             <label>Then</label>
             <div style="display:flex;gap:16px;margin-bottom:10px;">
                 <label style="font-size:13px;font-weight:400;display:flex;align-items:center;gap:6px;">
-                    <input type="radio" name="ActionType" value="Email" class="ppf-action-radio" checked="@(Model.ActionType != "ApiCall")" /> Send an email
+                    <input type="radio" name="ActionType" value="Email" class="ppf-action-radio" checked="@(Model.ActionType is not ("ApiCall" or "AssignTask"))" /> Send an email
                 </label>
                 <label style="font-size:13px;font-weight:400;display:flex;align-items:center;gap:6px;">
                     <input type="radio" name="ActionType" value="ApiCall" class="ppf-action-radio" checked="@(Model.ActionType == "ApiCall")" /> Call an API
+                </label>
+                <label style="font-size:13px;font-weight:400;display:flex;align-items:center;gap:6px;">
+                    <input type="radio" name="ActionType" value="AssignTask" class="ppf-action-radio" checked="@(Model.ActionType == "AssignTask")" /> Assign a task
                 </label>
             </div>
 
@@ -110,6 +113,82 @@
                     <input name="ApiAuthHeaderValue" class="jaco-input" value="@Model.ApiAuthHeaderValue" placeholder="Bearer abc123" />
                 </div>
                 <p style="margin:0 0 8px;font-size:12px;color:var(--jaco-text-muted);">POSTs a JSON body built from the request's standard fields (request number, subject, status, approval type, level, dates, creator, event, triggering user) plus every field submitted on the request -- nothing further to configure.</p>
+            </div>
+
+            <div id="ppfTaskFields" style="display:none;">
+                <div class="jaco-form-group">
+                    <label>Task Type</label>
+                    <select name="TaskTypeId" class="jaco-select">
+                        <option value="0" disabled selected="@(Model.TaskTypeId == 0)">-- Select Task Type --</option>
+                        @foreach (var t in Model.TaskTypes)
+                        {
+                            <option value="@t.Id" selected="@(t.Id == Model.TaskTypeId)">@t.Name</option>
+                        }
+                    </select>
+                    @if (Model.TaskTypes.Count == 0)
+                    {
+                        <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">No Task Types yet -- create one under Administration &rarr; Task Types first.</p>
+                    }
+                </div>
+                <div class="jaco-form-group">
+                    <label>Task Title</label>
+                    <input name="TaskTitle" class="jaco-input" value="@Model.TaskTitle" placeholder="e.g. Update UAT date and SAP reference" />
+                </div>
+                <div class="jaco-form-group">
+                    <label>Assign To</label>
+                    <div style="display:flex;gap:16px;margin-bottom:8px;">
+                        <label style="font-size:13px;font-weight:400;display:flex;align-items:center;gap:6px;">
+                            <input type="radio" name="TaskAssignToMode" value="SpecificUser" class="ppf-taskassign-radio" checked="@(Model.TaskAssignToMode != "Department")" /> A specific user
+                        </label>
+                        <label style="font-size:13px;font-weight:400;display:flex;align-items:center;gap:6px;">
+                            <input type="radio" name="TaskAssignToMode" value="Department" class="ppf-taskassign-radio" checked="@(Model.TaskAssignToMode == "Department")" /> Whole department (queue)
+                        </label>
+                    </div>
+                    <div class="ppf-taskassign-field" data-for="SpecificUser">
+                        <select name="TaskAssignToUserId" class="jaco-select">
+                            <option value="">-- Select User --</option>
+                            @foreach (var u in Model.Users)
+                            {
+                                <option value="@u.Id" selected="@(u.Id == Model.TaskAssignToUserId)">@u.DisplayName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="ppf-taskassign-field" data-for="Department">
+                        <select name="TaskAssignToDepartment" class="jaco-select">
+                            <option value="">-- Select Department --</option>
+                            @foreach (var d in Model.Departments)
+                            {
+                                <option value="@d" selected="@(d == Model.TaskAssignToDepartment)">@d</option>
+                            }
+                        </select>
+                        <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">A queue -- everyone in that department sees it in My Tasks; whoever completes it first claims it.</p>
+                    </div>
+                </div>
+                <div class="jaco-form-group">
+                    <label>Due Within (days, optional)</label>
+                    <input name="TaskDueInDays" type="number" min="1" class="jaco-input" style="max-width:120px;" value="@Model.TaskDueInDays" placeholder="e.g. 5" />
+                    <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">Leave blank for no due date -- a task without one never triggers "Task overdue".</p>
+                </div>
+                <div class="jaco-form-group">
+                    <label>Context fields to show the assignee (optional)</label>
+                    <p style="margin:0 0 8px;font-size:12px;color:var(--jaco-text-muted);">The assignee always sees this request's number, subject and status, plus this Task Type's own fields. Nothing else from the request is shown unless picked here -- the assignee may be outside the approval chain entirely.</p>
+                    @if (Model.AvailableFields.Count == 0)
+                    {
+                        <p style="margin:0;font-size:12px;color:var(--jaco-text-muted);">Pick an Approval Type above to choose from its fields.</p>
+                    }
+                    else
+                    {
+                        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                            @foreach (var f in Model.AvailableFields)
+                            {
+                                <label style="font-size:13px;font-weight:400;display:flex;align-items:center;gap:6px;">
+                                    <input type="checkbox" name="TaskContextFieldKeys" value="@f.FieldKey" checked="@Model.TaskContextFieldKeys.Contains(f.FieldKey)" />
+                                    @f.FieldLabel
+                                </label>
+                            }
+                        </div>
+                    }
+                </div>
             </div>
         </div>
 
@@ -198,9 +277,11 @@
 <script>
 (function () {
     function setActionType() {
-        var isApi = document.querySelector('.ppf-action-radio[value="ApiCall"]').checked;
-        document.getElementById('ppfEmailFields').style.display = isApi ? 'none' : '';
-        document.getElementById('ppfApiFields').style.display = isApi ? '' : 'none';
+        var checked = document.querySelector('.ppf-action-radio:checked');
+        var action = checked ? checked.value : 'Email';
+        document.getElementById('ppfEmailFields').style.display = action === 'Email' ? '' : 'none';
+        document.getElementById('ppfApiFields').style.display = action === 'ApiCall' ? '' : 'none';
+        document.getElementById('ppfTaskFields').style.display = action === 'AssignTask' ? '' : 'none';
     }
     document.querySelectorAll('.ppf-action-radio').forEach(function (r) { r.addEventListener('change', setActionType); });
     setActionType();
@@ -213,6 +294,16 @@
     }
     var toModeSelect = document.getElementById('ppfToMode');
     if (toModeSelect) { toModeSelect.addEventListener('change', setToMode); setToMode(); }
+
+    function setTaskAssignMode() {
+        var checked = document.querySelector('.ppf-taskassign-radio:checked');
+        var mode = checked ? checked.value : 'SpecificUser';
+        document.querySelectorAll('.ppf-taskassign-field').forEach(function (el) {
+            el.style.display = el.getAttribute('data-for') === mode ? '' : 'none';
+        });
+    }
+    document.querySelectorAll('.ppf-taskassign-radio').forEach(function (r) { r.addEventListener('change', setTaskAssignMode); });
+    setTaskAssignMode();
 
     function wireToggle(btnId, panelId, caretId) {
         var btn = document.getElementById(btnId), panel = document.getElementById(panelId), caret = document.getElementById(caretId);

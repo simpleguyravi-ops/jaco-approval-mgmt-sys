@@ -50,6 +50,10 @@ public sealed class UnifiedDbContext(DbContextOptions<UnifiedDbContext> options)
         modelBuilder.Entity<ApiClient>().HasIndex(c => c.KeyPrefix);
         modelBuilder.Entity<DigestSchedule>().HasIndex(s => s.ApprovalTypeId).IsUnique();
         modelBuilder.Entity<PostProcessingRuleApprovalType>().HasKey(x => new { x.PostProcessingRuleId, x.ApprovalTypeId });
+        // DbSet property is AssignedTasks (avoids colliding with System.Threading.Tasks.Task)
+        // but the actual table, per Database/015_..., is named Tasks -- EF Core's default
+        // convention maps to the DbSet property name, so this needs to be explicit.
+        modelBuilder.Entity<AssignedTask>().ToTable("Tasks");
         modelBuilder.Entity<AssignedTask>().HasIndex(t => new { t.AssignedToUserId, t.Status });
         modelBuilder.Entity<AssignedTask>().HasIndex(t => t.NextOverdueCheckAtUtc);
     }

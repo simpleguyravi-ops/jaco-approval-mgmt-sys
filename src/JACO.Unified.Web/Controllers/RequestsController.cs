@@ -360,6 +360,24 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
         var isEligible = await requests.IsEligibleApproverAsync(id, user.Id);
         var requestAttachments = await db.RequestAttachments.Where(a => a.RequestId == id).OrderByDescending(a => a.UploadedAt).ToListAsync();
 
+        var relatedTasks = await db.AssignedTasks.Where(t => t.RequestId == id).ToListAsync();
+        var taskTypeNames = await db.TaskTypes.ToDictionaryAsync(t => t.Id, t => t.Name);
+        var taskAssigneeIds = relatedTasks.Where(t => t.AssignedToUserId.HasValue).Select(t => t.AssignedToUserId!.Value).Distinct().ToList();
+        var taskAssigneeNames = await db.AppUsers.Where(u => taskAssigneeIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.DisplayName);
+        var tasks = relatedTasks.Select(t => new RequestTaskSummary
+        {
+            Id = t.Id,
+            Title = t.Title,
+            TaskTypeName = taskTypeNames.GetValueOrDefault(t.TaskTypeId, "(unknown)"),
+            AssignedLabel = t.AssignedToUserId.HasValue ? taskAssigneeNames.GetValueOrDefault(t.AssignedToUserId.Value, "(deleted user)") : $"{t.AssignedToDepartment} (queue)",
+            Status = t.Status,
+            // Same access rule as TasksController.CanAccess -- only the assignee, someone in
+            // the assigned department, or an admin can open the task's own page.
+            CanOpen = t.AssignedToUserId == user.Id
+                || (t.AssignedToUserId is null && t.AssignedToDepartment is not null && t.AssignedToDepartment == user.Department)
+                || IsAdmin
+        }).ToList();
+
         var model = new RequestDetailsViewModel
         {
             Request = reqRow,
@@ -372,7 +390,8 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
             IsAdminOverride = !isEligible && IsAdmin && reqRow.Status == "Pending",
             CanWithdraw = isCreator && reqRow.Status is "Pending" or "Sent Back",
             CanEdit = isCreator && RequestService.IsEditable(reqRow.Status),
-            IsAdmin = IsAdmin
+            IsAdmin = IsAdmin,
+            Tasks = tasks
         };
         return View(model);
     }

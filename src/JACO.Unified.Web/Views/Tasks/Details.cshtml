@@ -1,0 +1,81 @@
+@model TaskCompletionViewModel
+@{
+    ViewData["Title"] = Model.Title;
+    string InputType(string dataType) => dataType switch
+    {
+        FieldDataType.Number => "number",
+        FieldDataType.Currency => "number",
+        FieldDataType.Date => "date",
+        _ => "text"
+    };
+}
+<a class="jaco-back-link" href="~/Tasks">&larr; Back to My Tasks</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>@Model.Title</h1>
+        <p><a class="link" href="~/Requests/Details/@Model.RequestId">@Model.RequestNumber</a> <span style="color:var(--jaco-text-muted);">(@Model.ApprovalTypeName)</span>@(Model.DueAtUtc.HasValue ? $" · Due {Model.DueAtUtc:dd MMM yyyy}" : "")</p>
+    </div>
+</div>
+
+@if (Model.ContextFields.Count > 0)
+{
+    <div class="jaco-card jaco-card-pad" style="max-width:560px;margin-bottom:16px;">
+        <p style="margin:0 0 8px;font-size:12px;font-weight:600;color:var(--jaco-text-muted);">FROM THE REQUEST</p>
+        @foreach (var (label, value) in Model.ContextFields)
+        {
+            <p style="margin:0 0 8px;font-size:14px;"><span style="color:var(--jaco-text-muted);">@label:</span> @(string.IsNullOrEmpty(value) ? "-" : value)</p>
+        }
+    </div>
+}
+
+@if (Model.Status == "Done")
+{
+    <div class="jaco-card jaco-card-pad" style="max-width:560px;">
+        <span class="jaco-badge jaco-badge-success">DONE</span>
+        <p style="margin:8px 0 16px;font-size:13px;color:var(--jaco-text-muted);">Completed by @Model.CompletedByName on @Model.CompletedAtUtc?.ToString("dd MMM yyyy HH:mm").</p>
+        @foreach (var f in Model.Fields)
+        {
+            <p style="margin:0 0 8px;font-size:14px;"><span style="color:var(--jaco-text-muted);">@f.FieldLabel:</span> @(string.IsNullOrEmpty(Model.Values.GetValueOrDefault(f.FieldKey)) ? "-" : Model.Values[f.FieldKey])</p>
+        }
+    </div>
+}
+else
+{
+    <form method="post" action="~/Tasks/Complete/@Model.Id" class="jaco-card jaco-card-pad" style="max-width:560px;" data-confirm="Mark this task complete? This can't be undone.">
+        @Html.AntiForgeryToken()
+        @foreach (var f in Model.Fields)
+        {
+            var value = Model.Values.GetValueOrDefault(f.FieldKey);
+            <div class="jaco-form-group">
+                <label>@f.FieldLabel@(f.IsRequired ? " *" : "")</label>
+                @if (f.DataType == FieldDataType.Dropdown)
+                {
+                    var options = f.LookupType is not null && Model.Picklists.TryGetValue(f.LookupType, out var list) ? list : [];
+                    <select class="jaco-select" name="Fields[@f.FieldKey]" required="@f.IsRequired">
+                        <option value="">-- Select --</option>
+                        @foreach (var o in options)
+                        {
+                            <option value="@o.Value" selected="@(o.Value == value)">@o.DisplayText</option>
+                        }
+                    </select>
+                }
+                else if (f.DataType == FieldDataType.TextArea)
+                {
+                    <textarea class="jaco-input" name="Fields[@f.FieldKey]" rows="3" required="@f.IsRequired">@value</textarea>
+                }
+                else
+                {
+                    <input class="jaco-input" type="@InputType(f.DataType)" step="@(f.DataType == FieldDataType.Currency ? "0.01" : null)" name="Fields[@f.FieldKey]" value="@value" required="@f.IsRequired" />
+                }
+            </div>
+        }
+        @if (Model.Fields.Count == 0)
+        {
+            <p style="margin:0 0 12px;color:var(--jaco-text-muted);">This Task Type has no fields configured -- just mark it complete once done.</p>
+        }
+        <div style="display:flex;gap:10px;margin-top:12px;">
+            <button type="submit" class="jaco-btn jaco-btn-primary">Mark Complete</button>
+            <a class="jaco-btn jaco-btn-outline" href="~/Tasks">Cancel</a>
+        </div>
+    </form>
+}

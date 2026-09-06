@@ -1,6 +1,9 @@
 @using JACO.Unified.Web.Controllers
 @using JACO.Unified.Web.Services
+@using JACO.Unified.Infrastructure
+@using Microsoft.EntityFrameworkCore
 @inject IConfiguration Configuration
+@inject UnifiedDbContext Db
 @{
     var path = Context.Request.Path.Value ?? "/";
     bool IsActive(string prefix) => path.Equals(prefix, StringComparison.OrdinalIgnoreCase) || path.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase);
@@ -19,6 +22,13 @@
     var claimTheme = User.FindFirst("Theme")?.Value == "fiori" ? "fiori" : "orange";
     var theme = ThemeCatalog.IsValid(cookieTheme) ? cookieTheme! : claimTheme;
     var themeSuffix = theme == "orange" ? "" : $".{theme}";
+    // Open-task count next to "My Tasks" -- the same claims already resolved above
+    // (no extra AppUser lookup), just a cheap indexed COUNT against AssignedTasks.
+    var myOpenTaskCount = 0;
+    if (User.Identity?.IsAuthenticated == true && int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var myUserId))
+    {
+        myOpenTaskCount = await Db.AssignedTasks.CountAsync(t => t.Status == "Open" && (t.AssignedToUserId == myUserId || (t.AssignedToUserId == null && t.AssignedToDepartment == department)));
+    }
 }
 <!doctype html>
 <html lang="en">
@@ -68,6 +78,7 @@
                 </button>
                 <ul class="jaco-nav">
                     <li><a class="@((path == "/" || IsActive("/Requests")) ? "active" : "")" href="~/Requests" title="My Work"><span class="jaco-icon jaco-icon-check-square"></span> <span class="jaco-nav-label">My Work</span></a></li>
+                    <li><a class="@(IsActive("/Tasks") ? "active" : "")" href="~/Tasks" title="My Tasks"><span class="jaco-icon jaco-icon-clipboard"></span> <span class="jaco-nav-label">My Tasks@(myOpenTaskCount > 0 ? $" ({myOpenTaskCount})" : "")</span></a></li>
                     @if (isAuditor)
                     {
                         <li><a class="@(IsActive("/Reports") ? "active" : "")" href="~/Reports" title="Reports"><span class="jaco-icon jaco-icon-chart"></span> <span class="jaco-nav-label">Reports</span></a></li>

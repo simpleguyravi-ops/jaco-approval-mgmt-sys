@@ -60,6 +60,22 @@ public sealed class RequestDetailsViewModel
     public required bool CanWithdraw { get; init; }
     public required bool CanEdit { get; init; }
     public required bool IsAdmin { get; init; }
+    // Post-approval (or any-event) work items an "Assign a task" PPF rule created for this
+    // request -- so a creator/approver can see one is in flight without needing My Tasks
+    // access themselves.
+    public required List<RequestTaskSummary> Tasks { get; init; }
+}
+
+public sealed class RequestTaskSummary
+{
+    public long Id { get; set; }
+    public string Title { get; set; } = "";
+    public string TaskTypeName { get; set; } = "";
+    public string AssignedLabel { get; set; } = "";
+    public string Status { get; set; } = "";
+    // Whether the current viewer is the assignee/department/an admin -- only then does this
+    // link through to the task's own completion page.
+    public bool CanOpen { get; set; }
 }
 
 public sealed class RequestListRow
@@ -325,7 +341,7 @@ public sealed class PpfRuleEditViewModel
     // Discount instead of a near-duplicate rule per type.
     public List<int> ApprovalTypeIds { get; set; } = [];
     public string EventCode { get; set; } = "Created";
-    // "Email" or "ApiCall".
+    // "Email", "ApiCall", or "AssignTask".
     public string ActionType { get; set; } = "Email";
     public int MailTemplateId { get; set; }
     public string ToMode { get; set; } = "Creator";
@@ -338,14 +354,32 @@ public sealed class PpfRuleEditViewModel
     public bool IncludeAttachments { get; set; }
     public string? ApiUrl { get; set; }
     public string? ApiAuthHeaderValue { get; set; }
+    // AssignTask config.
+    public int TaskTypeId { get; set; }
+    public string TaskTitle { get; set; } = "";
+    // "SpecificUser" or "Department" -- a Department task is a queue, whoever completes it
+    // first claims it.
+    public string TaskAssignToMode { get; set; } = "SpecificUser";
+    public int? TaskAssignToUserId { get; set; }
+    public string? TaskAssignToDepartment { get; set; }
+    public int? TaskDueInDays { get; set; }
+    // Deliberately opt-in, not opt-out: a Task assignee is often outside the approval chain
+    // entirely (IT, Finance), so by default they see only the Task Type's own fields plus
+    // bare identifying context (Request Number/Subject/Type/Status) -- never the full
+    // submitted Request.DataJson. An admin explicitly picks which Request fields (if any)
+    // the assignee also needs to see for context, from the same field union used below.
+    public List<string> TaskContextFieldKeys { get; set; } = [];
     public int SequenceNo { get; set; } = 10;
     public bool Active { get; set; } = true;
     public List<(int Id, string Name)> ApprovalTypes { get; set; } = [];
     public List<(int Id, string Name)> MailTemplates { get; set; } = [];
     public List<(int Id, string DisplayName)> Users { get; set; } = [];
+    public List<(int Id, string Name)> TaskTypes { get; set; } = [];
+    public List<string> Departments { get; set; } = [];
     // Union of every Active field across all SELECTED Approval Type(s) (plus generic
     // fields) -- feeds the criteria builder's Field Key suggestions (a <datalist>, not a
-    // hard <select>, matching Routing Rules' own builder).
+    // hard <select>, matching Routing Rules' own builder), and the AssignTask context-field
+    // checkboxes above.
     public List<(string FieldKey, string FieldLabel)> AvailableFields { get; set; } = [];
     public List<PpfCriteriaRow> Criteria { get; set; } = [];
 }
@@ -606,4 +640,49 @@ public sealed class BulkReassignViewModel
     public int NewUserId { get; set; }
     public string Reason { get; set; } = "";
     public List<(int Id, string Name, string? Department)> Users { get; set; } = [];
+}
+
+public sealed class TaskListRow
+{
+    public long Id { get; set; }
+    public long RequestId { get; set; }
+    public string RequestNumber { get; set; } = "";
+    public string ApprovalTypeName { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string TaskTypeName { get; set; } = "";
+    // "you" or the department name -- who this shows up for.
+    public string AssignedLabel { get; set; } = "";
+    public string Status { get; set; } = "";
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime? DueAtUtc { get; set; }
+}
+
+public sealed class TaskListViewModel
+{
+    public List<TaskListRow> Rows { get; set; } = [];
+    public int OpenCount { get; set; }
+    public int DoneCount { get; set; }
+    public string? Sort { get; set; }
+    public string Dir { get; set; } = "asc";
+}
+
+// The completion screen: the Task Type's own fields (rendered as inputs, same dynamic-form
+// idea RequestFormViewModel already uses for a submission) plus whichever Request fields the
+// rule's admin explicitly opted in as context -- see PpfRuleEditViewModel.TaskContextFieldKeys
+// for why this is an allow-list, not the full Request.DataJson.
+public sealed class TaskCompletionViewModel
+{
+    public long Id { get; set; }
+    public long RequestId { get; set; }
+    public string RequestNumber { get; set; } = "";
+    public string ApprovalTypeName { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Status { get; set; } = "";
+    public required List<WorkflowField> Fields { get; init; }
+    public required Dictionary<string, string?> Values { get; init; }
+    public required Dictionary<string, List<PicklistValue>> Picklists { get; init; }
+    public required List<(string Label, string? Value)> ContextFields { get; init; }
+    public DateTime? DueAtUtc { get; set; }
+    public DateTime? CompletedAtUtc { get; set; }
+    public string? CompletedByName { get; set; }
 }

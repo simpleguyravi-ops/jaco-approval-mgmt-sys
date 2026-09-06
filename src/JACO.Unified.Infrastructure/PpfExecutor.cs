@@ -18,7 +18,7 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
         if (request is null) return;
 
         var rules = await db.PostProcessingRules
-            .Where(r => r.Active && r.EventCode == eventCode && (r.ActionType == "Email" || r.ActionType == "ApiCall")
+            .Where(r => r.Active && r.EventCode == eventCode && (r.ActionType == "Email" || r.ActionType == "ApiCall" || r.ActionType == "AssignTask")
                 && db.PostProcessingRuleApprovalTypes.Any(pat => pat.PostProcessingRuleId == r.Id && pat.ApprovalTypeId == request.ApprovalTypeId))
             .OrderBy(r => r.SequenceNo)
             .ToListAsync();
@@ -70,6 +70,12 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
             if (rule.ActionType == "ApiCall")
             {
                 await CallApiAndLogAsync(rule, request, requestId, root, type?.Name ?? "(unknown)", creatorName, eventCode, triggeredByUserName);
+                continue;
+            }
+
+            if (rule.ActionType == "AssignTask")
+            {
+                await AssignTaskAsync(rule, request, requestId, root);
                 continue;
             }
 
@@ -321,6 +327,80 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
             AttemptNo = attemptNo,
             ActionType = rule.ActionType,
             Target = apiUrl,
+            Status = status,
+            ErrorMessage = error,
+            StartedAt = startedAt,
+            FinishedAt = DateTime.UtcNow,
+            CreatedAt = startedAt
+        });
+    }
+
+    // Creates an AssignedTask row for a human to pick up in My Tasks and complete -- unlike
+    // Email/ApiCall this doesn't "send" anything itself, just persists a work item.
+    async Task AssignTaskAsync(Core.Models.PostProcessingRule rule, Core.Models.Request request, long requestId, JsonElement root)
+    {
+        var startedAt = DateTime.UtcNow;
+        var attemptNo = await NextAttemptNoAsync(rule.Id, requestId);
+        var taskTypeId = root.TryGetProperty("taskTypeId", out var tt) && tt.ValueKind == JsonValueKind.Number ? tt.GetInt32() : (int?)null;
+        var title = root.TryGetProperty("taskTitle", out var t) ? t.GetString() : null;
+        var assignToMode = root.TryGetProperty("assignToMode", out var am) ? am.GetString() : "SpecificUser";
+        int? assignToUserId = null;
+        string? assignToDepartment = null;
+        string target;
+
+        if (assignToMode == "Department")
+        {
+            assignToDepartment = root.TryGetProperty("assignToDepartment", out var dep) ? dep.GetString() : null;
+            target = $"Dept: {assignToDepartment ?? "(unassigned)"}";
+        }
+        else
+        {
+            assignToUserId = root.TryGetProperty("assignToUserId", out var au) && au.ValueKind == JsonValueKind.Number ? au.GetInt32() : (int?)null;
+            var assignedUser = assignToUserId.HasValue ? await db.AppUsers.FindAsync(assignToUserId.Value) : null;
+            target = assignedUser?.DisplayName ?? "(unassigned)";
+        }
+
+        string status;
+        string? error = null;
+
+        if (taskTypeId is null || string.IsNullOrWhiteSpace(title))
+        {
+            status = "Failed";
+            error = "Rule is missing a Task Type or Title.";
+        }
+        else
+        {
+            DateTime? dueAtUtc = null;
+            DateTime? nextOverdueCheckAtUtc = null;
+            if (root.TryGetProperty("dueInDays", out var did) && did.ValueKind == JsonValueKind.Number)
+            {
+                dueAtUtc = startedAt.AddDays(did.GetInt32());
+                nextOverdueCheckAtUtc = dueAtUtc;
+            }
+
+            db.AssignedTasks.Add(new Core.Models.AssignedTask
+            {
+                RequestId = requestId,
+                PostProcessingRuleId = rule.Id,
+                TaskTypeId = taskTypeId.Value,
+                Title = title,
+                AssignedToUserId = assignToUserId,
+                AssignedToDepartment = assignToDepartment,
+                Status = "Open",
+                CreatedAtUtc = startedAt,
+                DueAtUtc = dueAtUtc,
+                NextOverdueCheckAtUtc = nextOverdueCheckAtUtc
+            });
+            status = "Sent";
+        }
+
+        db.PostProcessingExecutions.Add(new Core.Models.PostProcessingExecution
+        {
+            PostProcessingRuleId = rule.Id,
+            RequestId = requestId,
+            AttemptNo = attemptNo,
+            ActionType = rule.ActionType,
+            Target = target,
             Status = status,
             ErrorMessage = error,
             StartedAt = startedAt,

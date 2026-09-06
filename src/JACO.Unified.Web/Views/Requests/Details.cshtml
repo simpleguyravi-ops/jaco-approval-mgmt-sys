@@ -159,6 +159,39 @@
                 </table>
             }
         </section>
+
+        @if (Model.Tasks.Count > 0)
+        {
+            <section class="panel">
+                <h2>Tasks</h2>
+                <table>
+                    <thead><tr><th>Task</th><th>Assigned To</th><th>Status</th></tr></thead>
+                    <tbody>
+                    @foreach (var t in Model.Tasks)
+                    {
+                        <tr>
+                            <td>
+                                @if (t.CanOpen)
+                                {
+                                    <a class="link" href="~/Tasks/Details/@t.Id">@t.Title</a>
+                                }
+                                else
+                                {
+                                    @t.Title
+                                }
+                                <span style="color:#65727d;font-size:12px;"> &mdash; @t.TaskTypeName</span>
+                            </td>
+                            <td>@t.AssignedLabel</td>
+                            <td>
+                                @if (t.Status == "Done") { <span class="jaco-badge jaco-badge-success">DONE</span> }
+                                else { <span class="jaco-badge jaco-badge-warning">OPEN</span> }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </section>
+        }
     </div>
 
     <div>

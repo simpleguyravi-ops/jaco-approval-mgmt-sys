@@ -1,0 +1,55 @@
+@model TaskListViewModel
+@{
+    ViewData["Title"] = "My Tasks";
+    var sort = Model.Sort;
+    var dir = Model.Dir;
+    string SortUrl(string field)
+    {
+        var newDir = sort == field && dir == "asc" ? "desc" : "asc";
+        return $"{Context.Request.PathBase}/Tasks?sort={field}&dir={newDir}";
+    }
+    string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
+}
+<div class="jaco-page-header">
+    <div><h1>My Tasks</h1><p>Work items assigned to you, or to your department's queue, by a Post-Processing Rule.</p></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px;max-width:400px;">
+    <a class="jaco-card jaco-stat-card" href="~/Tasks">
+        <b style="font-size:24px;">@Model.OpenCount</b>
+        <span>Open</span>
+    </a>
+    <a class="jaco-card jaco-stat-card" href="~/Tasks">
+        <b style="font-size:24px;">@Model.DoneCount</b>
+        <span>Done</span>
+    </a>
+</div>
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("Request")">Request@(Html.Raw(SortArrow("Request")))</a></th>
+            <th><a class="link" href="@SortUrl("Title")">Task@(Html.Raw(SortArrow("Title")))</a></th>
+            <th>Assigned To</th>
+            <th><a class="link" href="@SortUrl("Due")">Due@(Html.Raw(SortArrow("Due")))</a></th>
+            <th><a class="link" href="@SortUrl("Status")">Status@(Html.Raw(SortArrow("Status")))</a></th>
+        </tr></thead>
+        <tbody>
+        @foreach (var r in Model.Rows)
+        {
+            <tr>
+                <td><a class="link" href="~/Requests/Details/@r.RequestId">@r.RequestNumber</a> <span style="color:var(--jaco-text-muted);">(@r.ApprovalTypeName)</span></td>
+                <td><a class="link" href="~/Tasks/Details/@r.Id">@r.Title</a> <span style="color:var(--jaco-text-muted);font-size:12px;">&mdash; @r.TaskTypeName</span></td>
+                <td>@r.AssignedLabel</td>
+                <td>@(r.DueAtUtc?.ToString("dd MMM yyyy") ?? "-")</td>
+                <td>
+                    @if (r.Status == "Done") { <span class="jaco-badge jaco-badge-success">DONE</span> }
+                    else { <span class="jaco-badge jaco-badge-warning">OPEN</span> }
+                </td>
+            </tr>
+        }
+        @if (Model.Rows.Count == 0)
+        {
+            <tr><td colspan="5" style="text-align:center;color:var(--jaco-text-muted);">Nothing assigned to you right now.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

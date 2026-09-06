@@ -89,7 +89,7 @@ public sealed class HomeController(UnifiedDbContext db, NotificationQueue notifi
             Rows = SortPpfRows(rows, filter.Sort, filter.Dir),
             ApprovalTypes = (await db.ApprovalTypes.OrderBy(t => t.Name).ToListAsync()).Select(t => (t.Id, t.Name)).ToList(),
             EventCodes = PostProcessingRulesController.EventCodes.ToList(),
-            ActionTypes = ["Email"],
+            ActionTypes = ["Email", "ApiCall", "AssignTask"],
             QueueStatus = notificationQueue.GetStatus()
         };
     }

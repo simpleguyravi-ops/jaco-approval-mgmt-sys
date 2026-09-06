@@ -37,8 +37,8 @@
                 <td><a class="link" href="~/PostProcessingRules/Edit/@r.Id">@r.Name</a></td>
                 <td>@r.ApprovalTypeNames</td>
                 <td>@r.EventCode</td>
-                <td>@(r.ActionType == "ApiCall" ? "Call an API" : "Email: " + r.TemplateName)</td>
-                <td>@(r.ActionType == "ApiCall" ? "-" : r.ToMode)</td>
+                <td>@(r.ActionType switch { "ApiCall" => "Call an API", "AssignTask" => "Assign a task: " + r.TemplateName, _ => "Email: " + r.TemplateName })</td>
+                <td>@(r.ActionType is "ApiCall" or "AssignTask" ? "-" : r.ToMode)</td>
                 <td>@(r.CriteriaCount == 0 ? "Always" : $"{r.CriteriaCount} condition(s)")</td>
                 <td>@(r.IncludeAttachments ? "Yes" : "–")</td>
                 <td>

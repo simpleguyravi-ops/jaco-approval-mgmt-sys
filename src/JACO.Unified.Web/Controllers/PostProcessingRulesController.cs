@@ -19,7 +19,10 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
     // it with ToMode=CurrentApprover to notify whoever needs to act right now; unlike the
     // other events it sends one personalized email per approver with working one-click
     // Approve/Send Back/Reject links, not a single combined email.
-    public static readonly string[] EventCodes = ["Created", "Resubmit", "Approved", "Completed", "Rejected", "SentBack", "Nudged", "LevelPending"];
+    // TaskCompleted fires once, synchronously, when a task's assignee marks it done
+    // (TasksController.Complete). TaskOverdue fires from TaskOverdueSchedulerHostedService's
+    // periodic scan, repeating daily for as long as the task stays open past its due date.
+    public static readonly string[] EventCodes = ["Created", "Resubmit", "Approved", "Completed", "Rejected", "SentBack", "Nudged", "LevelPending", "TaskCompleted", "TaskOverdue"];
 
     public async Task<IActionResult> Index(string? sort, string dir = "asc")
     {
@@ -54,6 +57,7 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
         var types = await db.ApprovalTypes.ToDictionaryAsync(t => t.Id, t => t.Name);
         var templates = await db.MailTemplates.ToDictionaryAsync(t => t.Id, t => t.Name);
         var users = await db.AppUsers.ToDictionaryAsync(u => u.Id, u => u.DisplayName);
+        var taskTypes = await db.TaskTypes.ToDictionaryAsync(t => t.Id, t => t.Name);
         var rules = await db.PostProcessingRules.OrderBy(r => r.SequenceNo).ToListAsync();
         var typesByRule = (await db.PostProcessingRuleApprovalTypes.ToListAsync())
             .GroupBy(x => x.PostProcessingRuleId).ToDictionary(g => g.Key, g => g.Select(x => x.ApprovalTypeId).ToList());
@@ -68,12 +72,23 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
             var toMode = "Creator";
             var includeAttachments = false;
             var apiUrl = "";
+            var taskSummary = "";
             try
             {
                 using var doc = JsonDocument.Parse(r.ActionConfigJson ?? "{}");
                 if (r.ActionType == "ApiCall")
                 {
                     apiUrl = doc.RootElement.TryGetProperty("apiUrl", out var u) ? u.GetString() ?? "" : "";
+                }
+                else if (r.ActionType == "AssignTask")
+                {
+                    var taskTypeName = doc.RootElement.TryGetProperty("taskTypeId", out var tt) && tt.ValueKind == JsonValueKind.Number
+                        ? taskTypes.GetValueOrDefault(tt.GetInt32(), "(deleted Task Type)") : "(unknown)";
+                    var assignToMode = doc.RootElement.TryGetProperty("assignToMode", out var am) ? am.GetString() : "SpecificUser";
+                    var assignToLabel = assignToMode == "Department"
+                        ? (doc.RootElement.TryGetProperty("assignToDepartment", out var dep) ? dep.GetString() : "(unknown)")
+                        : (doc.RootElement.TryGetProperty("assignToUserId", out var au) && au.ValueKind == JsonValueKind.Number ? users.GetValueOrDefault(au.GetInt32(), "(deleted user)") : "(unknown)");
+                    taskSummary = $"{taskTypeName} → {assignToLabel}";
                 }
                 else
                 {
@@ -93,8 +108,8 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
                 ApprovalTypeNames = string.Join(", ", typeNames),
                 EventCode = r.EventCode,
                 ActionType = r.ActionType,
-                TemplateName = r.ActionType == "ApiCall" ? apiUrl : (templateId.HasValue ? templates.GetValueOrDefault(templateId.Value, "(deleted template)") : "(none)"),
-                ToMode = r.ActionType == "ApiCall" ? "-" : toMode,
+                TemplateName = r.ActionType switch { "ApiCall" => apiUrl, "AssignTask" => taskSummary, _ => templateId.HasValue ? templates.GetValueOrDefault(templateId.Value, "(deleted template)") : "(none)" },
+                ToMode = r.ActionType is "ApiCall" or "AssignTask" ? "-" : toMode,
                 IncludeAttachments = includeAttachments,
                 CriteriaCount = criteriaCounts.GetValueOrDefault(r.Id, 0),
                 Active = r.Active
@@ -146,6 +161,9 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
             refreshed.ToFieldKey = model.ToFieldKey; refreshed.ToUserId = model.ToUserId; refreshed.SequenceNo = model.SequenceNo; refreshed.Active = model.Active;
             refreshed.CcMode = model.CcMode; refreshed.CcAddress = model.CcAddress; refreshed.CcFieldKey = model.CcFieldKey;
             refreshed.IncludeAttachments = model.IncludeAttachments; refreshed.ApiUrl = model.ApiUrl; refreshed.ApiAuthHeaderValue = model.ApiAuthHeaderValue;
+            refreshed.TaskTypeId = model.TaskTypeId; refreshed.TaskTitle = model.TaskTitle; refreshed.TaskAssignToMode = model.TaskAssignToMode;
+            refreshed.TaskAssignToUserId = model.TaskAssignToUserId; refreshed.TaskAssignToDepartment = model.TaskAssignToDepartment;
+            refreshed.TaskDueInDays = model.TaskDueInDays; refreshed.TaskContextFieldKeys = model.TaskContextFieldKeys;
             refreshed.Criteria = PostedCriteria();
             return View("Edit", refreshed);
         }
@@ -155,15 +173,27 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
         if (model.ActionType == "Email" && model.MailTemplateId == 0) return await Reject("Mail Template is required for a Send Email rule.");
         if (model.ActionType == "Email" && model.ToMode == "SpecificUser" && model.ToUserId is null) return await Reject("Pick which user should receive this email.");
         if (model.ActionType == "ApiCall" && string.IsNullOrWhiteSpace(model.ApiUrl)) return await Reject("API URL is required for a Call an API rule.");
+        if (model.ActionType == "AssignTask" && model.TaskTypeId == 0) return await Reject("Pick which Task Type this rule assigns.");
+        if (model.ActionType == "AssignTask" && string.IsNullOrWhiteSpace(model.TaskTitle)) return await Reject("Give the task a title.");
+        if (model.ActionType == "AssignTask" && model.TaskAssignToMode == "SpecificUser" && model.TaskAssignToUserId is null) return await Reject("Pick which user this task is assigned to.");
+        if (model.ActionType == "AssignTask" && model.TaskAssignToMode == "Department" && string.IsNullOrWhiteSpace(model.TaskAssignToDepartment)) return await Reject("Pick which department this task is assigned to.");
 
-        var config = model.ActionType == "ApiCall"
-            ? JsonSerializer.Serialize(new { apiUrl = model.ApiUrl, apiAuthHeaderValue = model.ApiAuthHeaderValue })
-            : JsonSerializer.Serialize(new
+        var config = model.ActionType switch
+        {
+            "ApiCall" => JsonSerializer.Serialize(new { apiUrl = model.ApiUrl, apiAuthHeaderValue = model.ApiAuthHeaderValue }),
+            "AssignTask" => JsonSerializer.Serialize(new
+            {
+                taskTypeId = model.TaskTypeId, taskTitle = model.TaskTitle, assignToMode = model.TaskAssignToMode,
+                assignToUserId = model.TaskAssignToUserId, assignToDepartment = model.TaskAssignToDepartment,
+                dueInDays = model.TaskDueInDays, contextFieldKeys = model.TaskContextFieldKeys
+            }),
+            _ => JsonSerializer.Serialize(new
             {
                 mailTemplateId = model.MailTemplateId, toMode = model.ToMode, toAddress = model.ToAddress, toFieldKey = model.ToFieldKey, toUserId = model.ToUserId,
                 ccMode = model.CcMode, ccAddress = model.CcAddress, ccFieldKey = model.CcFieldKey,
                 includeAttachments = model.IncludeAttachments
-            });
+            })
+        };
 
         PostProcessingRule rule;
         if (model.Id == 0)
@@ -234,12 +264,17 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
         var templates = await db.MailTemplates.Where(t => t.IsActive).OrderBy(t => t.Name).Select(t => new { t.Id, t.Name }).ToListAsync();
         var users = await db.AppUsers.Where(u => u.IsActive && u.Email != null && u.Email != "").OrderBy(u => u.DisplayName)
             .Select(u => new { u.Id, u.DisplayName }).ToListAsync();
+        var taskTypes = await db.TaskTypes.Where(t => t.Active).OrderBy(t => t.Name).Select(t => new { t.Id, t.Name }).ToListAsync();
+        var departments = await db.AppUsers.Where(u => u.IsActive && u.Department != null && u.Department != "")
+            .Select(u => u.Department!).Distinct().OrderBy(d => d).ToListAsync();
 
         var model = new PpfRuleEditViewModel
         {
             ApprovalTypes = types.Select(t => (t.Id, t.Name)).ToList(),
             MailTemplates = templates.Select(t => (t.Id, t.Name)).ToList(),
-            Users = users.Select(u => (u.Id, u.DisplayName)).ToList()
+            Users = users.Select(u => (u.Id, u.DisplayName)).ToList(),
+            TaskTypes = taskTypes.Select(t => (t.Id, t.Name)).ToList(),
+            Departments = departments
         };
 
         if (id is null)
@@ -266,6 +301,17 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
                 {
                     if (doc.RootElement.TryGetProperty("apiUrl", out var au)) model.ApiUrl = au.GetString();
                     if (doc.RootElement.TryGetProperty("apiAuthHeaderValue", out var ah)) model.ApiAuthHeaderValue = ah.GetString();
+                }
+                else if (rule.ActionType == "AssignTask")
+                {
+                    if (doc.RootElement.TryGetProperty("taskTypeId", out var ttid) && ttid.ValueKind == JsonValueKind.Number) model.TaskTypeId = ttid.GetInt32();
+                    if (doc.RootElement.TryGetProperty("taskTitle", out var tt)) model.TaskTitle = tt.GetString() ?? "";
+                    if (doc.RootElement.TryGetProperty("assignToMode", out var atm)) model.TaskAssignToMode = atm.GetString() ?? "SpecificUser";
+                    if (doc.RootElement.TryGetProperty("assignToUserId", out var atu) && atu.ValueKind == JsonValueKind.Number) model.TaskAssignToUserId = atu.GetInt32();
+                    if (doc.RootElement.TryGetProperty("assignToDepartment", out var atd)) model.TaskAssignToDepartment = atd.GetString();
+                    if (doc.RootElement.TryGetProperty("dueInDays", out var did) && did.ValueKind == JsonValueKind.Number) model.TaskDueInDays = did.GetInt32();
+                    if (doc.RootElement.TryGetProperty("contextFieldKeys", out var cfk) && cfk.ValueKind == JsonValueKind.Array)
+                        model.TaskContextFieldKeys = cfk.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0).ToList();
                 }
                 else
                 {
