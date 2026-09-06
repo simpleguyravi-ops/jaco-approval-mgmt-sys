@@ -5,7 +5,8 @@
     <div>
         <h1>@ViewData["Title"]</h1>
         <p>Merge fields: <code>{{RequestNumber}}</code> <code>{{Subject}}</code> <code>{{Status}}</code> <code>{{CurrentLevel}}</code> <code>{{CreatorName}}</code> <code>{{CreatedAt}}</code> <code>{{Data.fieldKey}}</code> (any submitted field), <code>{{ApprovalTimeline}}</code>, <code>{{LogoUrl}}</code>.
-        Table (digest) templates additionally support <code>{{RecipientName}}</code>, <code>{{PendingCount}}</code> and <code>{{TableRows}}</code>.
+        Table (digest) templates additionally support <code>{{RecipientName}}</code>, <code>{{PendingCount}}</code> and <code>{{TableRows}}</code> (columns: Request No. / Subject / Current Level / Created).
+        A Data Completion Reminder template instead supports <code>{{ApprovalTypeName}}</code>, <code>{{MatchingCount}}</code> and its own <code>{{TableRows}}</code> (columns: Request No., linked / Subject / Missing fields / Approved On) &mdash; don't mix the two <code>{{TableRows}}</code> shapes across features.
         When the rule's Recipient is <b>not</b> "Whoever's currently eligible to decide", <code>{{RequestUrl}}</code> is also available &mdash; a plain link to the request's Details page (login required, no Approve/Reject buttons). When it <b>is</b> that recipient, use <code>{{ApproveButton}}</code> / <code>{{RejectButton}}</code> (or the bare <code>{{ApproveUrl}}</code> / <code>{{RejectUrl}}</code>) instead &mdash; those are tokened to that specific approver and only make sense for them.
         A rule can also be set to attach the request's uploaded files to the email (see Post-Processing Rules) &mdash; that's independent of which tokens this template uses.</p>
     </div>

@@ -440,6 +440,51 @@ public sealed class EmailSettings
 }
 
 // ============================================================
+// Data Completion Reminder -- "these Approved requests are still missing field X, someone
+// outside the approval chain (IT, Finance, ...) needs to go fill it in." Deliberately
+// separate from the Pending Approvals Digest: that one is personalized per-user based on
+// who has a decision to make; this one has ONE fixed recipient and looks at fields on
+// already-decided requests, not at who's holding up a decision.
+// ============================================================
+public sealed class DataCompletionReminderRule
+{
+    public int Id { get; set; }
+    public int ApprovalTypeId { get; set; }
+    // JSON array of WorkflowField.FieldKey values that must be non-blank on an Approved
+    // request of this type, e.g. ["sapReferenceId","UATDate"] -- a request missing ANY one
+    // of these is included, with only the specific missing ones named in the email.
+    public string FieldKeysJson { get; set; } = "[]";
+    public string? RecipientAddress { get; set; }
+    public int? MailTemplateId { get; set; }
+    public bool Enabled { get; set; }
+    public string RecurrenceType { get; set; } = "EveryNDays";
+    public int IntervalDays { get; set; } = 7;
+    public TimeSpan StartTime { get; set; } = new(9, 0, 0);
+    public DateTime? NextRunAtUtc { get; set; }
+    public DateTime? LastRunAtUtc { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public string? UpdatedByUserName { get; set; }
+}
+
+// One row per send attempt (scheduled or manual "Send Now") -- single recipient, so unlike
+// DigestRun there's no separate per-recipient table.
+public sealed class DataCompletionReminderRun
+{
+    public long Id { get; set; }
+    public int RuleId { get; set; }
+    public string ApprovalTypeName { get; set; } = "";
+    public DateTime RunAtUtc { get; set; }
+    public string TriggeredBy { get; set; } = "Scheduled"; // "Scheduled" or "Manual"
+    public string? TriggeredByUserName { get; set; }
+    public int MatchingCount { get; set; }
+    public string? RecipientAddress { get; set; }
+    public string? Subject { get; set; }
+    public string? BodyHtml { get; set; }
+    public string Status { get; set; } = ""; // Sent, Failed, Skipped
+    public string? ErrorMessage { get; set; }
+}
+
+// ============================================================
 // PPF (unchanged in shape -- already fully generic)
 // ============================================================
 public sealed class MailTemplate

@@ -1,0 +1,142 @@
+@model DataCompletionReminderEditViewModel
+@{ ViewData["Title"] = Model.Id == 0 ? "New Data Completion Reminder" : "Edit Data Completion Reminder"; }
+<a class="jaco-back-link" href="~/DataCompletionReminders">&larr; Back to Data Completion Reminders</a>
+<div class="jaco-page-header">
+    <div><h1>@ViewData["Title"]</h1><p>Emails the recipient below whenever an Approved request of this type is still missing any of the checked fields.</p></div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+<div class="jaco-card jaco-card-pad">
+    @if (Model.Id == 0)
+    {
+        <form method="get" asp-controller="DataCompletionReminders" asp-action="Create" style="margin-bottom:16px;">
+            <div class="jaco-form-group">
+                <label>Approval Type</label>
+                <select name="approvalTypeId" class="jaco-select" required onchange="this.form.submit()">
+                    <option value="0" disabled selected="@(Model.ApprovalTypeId == 0)">-- Select Approval Type --</option>
+                    @foreach (var t in Model.ApprovalTypes)
+                    {
+                        <option value="@t.Id" selected="@(t.Id == Model.ApprovalTypeId)">@t.Name</option>
+                    }
+                </select>
+            </div>
+            <noscript><button type="submit" class="jaco-btn jaco-btn-outline jaco-btn-sm">Load Fields</button></noscript>
+        </form>
+    }
+    else
+    {
+        <div class="jaco-form-group"><label>Approval Type</label><p style="margin:0;font-weight:600;">@Model.ApprovalTypes.FirstOrDefault(t => t.Id == Model.ApprovalTypeId).Name</p></div>
+    }
+
+    @if (Model.ApprovalTypeId == 0)
+    {
+        <p style="color:var(--jaco-text-muted);font-size:13px;">Pick an Approval Type to choose which fields to check.</p>
+    }
+    else
+    {
+        <form method="post" action="~/DataCompletionReminders/Save">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <input type="hidden" name="approvalTypeId" value="@Model.ApprovalTypeId" />
+
+            <div class="jaco-form-group">
+                <label>Fields that must not be blank</label>
+                @foreach (var f in Model.AvailableFields)
+                {
+                    <div class="jaco-check-row"><input type="checkbox" name="fieldKeys" value="@f.FieldKey" checked="@Model.FieldKeys.Contains(f.FieldKey)" id="fk_@f.FieldKey" /><label for="fk_@f.FieldKey" style="margin:0;font-weight:400;">@f.FieldLabel</label></div>
+                }
+                @if (Model.AvailableFields.Count == 0)
+                {
+                    <p style="color:var(--jaco-text-muted);font-size:12.5px;">This type has no active fields configured yet.</p>
+                }
+            </div>
+
+            <div class="jaco-form-group">
+                <label>Recipient Address</label>
+                <input name="recipientAddress" class="jaco-input" value="@Model.RecipientAddress" placeholder="it-team@yourcompany.com" />
+                <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">More than one? Separate addresses with a comma or semicolon.</p>
+            </div>
+
+            <div class="jaco-form-group">
+                <label>Mail Template</label>
+                <select name="mailTemplateId" class="jaco-select">
+                    <option value="">-- None (Send Now disabled until set) --</option>
+                    @foreach (var t in Model.MailTemplates)
+                    {
+                        <option value="@t.Id" selected="@(t.Id == Model.MailTemplateId)">@t.Name</option>
+                    }
+                </select>
+                <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">Use <code>{{ApprovalTypeName}}</code>, <code>{{MatchingCount}}</code>, <code>{{TableRows}}</code> (Request No. linked / Subject / Missing / Approved On) in the template.</p>
+            </div>
+
+            @* Hidden "false" sibling -- an unchecked checkbox posts nothing, and DataCompletionReminderRule.Enabled
+               has no explicit default (so it's already false either way), but the sibling is added anyway to
+               match every other Active/Enabled toggle in this app and stay correct if that ever changes. *@
+            <div class="jaco-check-row"><input type="checkbox" name="enabled" value="true" checked="@Model.Enabled" id="enabled" /><input type="hidden" name="enabled" value="false" /><label for="enabled" style="margin:0;font-weight:400;">Send automatically on a schedule</label></div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px;">
+                <div class="jaco-form-group">
+                    <label>Recurrence</label>
+                    <select name="recurrenceType" class="jaco-select">
+                        <option value="EveryNDays" selected="@(Model.RecurrenceType == "EveryNDays")">Every N days</option>
+                        <option value="Weekdays" selected="@(Model.RecurrenceType == "Weekdays")">Every weekday</option>
+                    </select>
+                </div>
+                <div class="jaco-form-group"><label>Every N Days</label><input class="jaco-input" type="number" min="1" name="intervalDays" value="@Model.IntervalDays" /></div>
+            </div>
+            <div class="jaco-form-group"><label>Time of Day (server local time)</label><input class="jaco-input" type="time" name="startTime" value="@Model.StartTime.ToString(@"hh\:mm")" /></div>
+
+            @if (Model.NextRunAtUtc is not null)
+            {
+                <p style="font-size:12px;color:var(--jaco-text-muted);">Next scheduled send: @Model.NextRunAtUtc.Value.ToString("dd MMM yyyy HH:mm") UTC.</p>
+            }
+
+            <div style="display:flex;gap:10px;margin-top:12px;">
+                <button type="submit" class="jaco-btn jaco-btn-primary">Save</button>
+                <a class="jaco-btn jaco-btn-outline" href="~/DataCompletionReminders">Cancel</a>
+            </div>
+        </form>
+
+        @if (Model.Id != 0)
+        {
+            <form method="post" action="~/DataCompletionReminders/RunNow" style="margin-top:12px;" data-confirm="Send this reminder right now, with whatever is currently saved (save first if you just made changes)?">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button type="submit" class="jaco-btn jaco-btn-outline">Send Now</button>
+            </form>
+        }
+    }
+</div>
+
+@if (Model.Id != 0)
+{
+    <div class="jaco-card jaco-card-pad">
+        <label style="display:block;font-size:12.5px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:10px;">Recent Sends</label>
+        @if (Model.RecentRuns.Count == 0)
+        {
+            <p style="color:var(--jaco-text-muted);font-size:13px;">No sends yet.</p>
+        }
+        else
+        {
+            <table class="jaco-table">
+                <thead><tr><th>When</th><th>Trigger</th><th>Matches</th><th>Status</th></tr></thead>
+                <tbody>
+                @foreach (var run in Model.RecentRuns)
+                {
+                    <tr>
+                        <td>@run.RunAtUtc.ToString("dd MMM yyyy HH:mm")</td>
+                        <td>@run.TriggeredBy@(string.IsNullOrEmpty(run.TriggeredByUserName) ? "" : $" ({run.TriggeredByUserName})")</td>
+                        <td>@run.MatchingCount</td>
+                        <td title="@run.ErrorMessage">
+                            @if (run.Status == "Sent") { <span class="jaco-badge jaco-badge-success">SENT</span> }
+                            else if (run.Status == "Skipped") { <span class="jaco-badge jaco-badge-neutral">SKIPPED</span> }
+                            else { <span class="jaco-badge jaco-badge-danger">FAILED</span> }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+</div>

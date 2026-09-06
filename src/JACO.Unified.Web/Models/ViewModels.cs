@@ -498,6 +498,38 @@ public sealed class ApprovalTypeDeleteViewModel
     public int RoutingLogCount { get; set; }
 }
 
+public sealed class DataCompletionReminderListItem
+{
+    public int Id { get; set; }
+    public string ApprovalTypeName { get; set; } = "";
+    public List<string> FieldLabels { get; set; } = [];
+    public string? RecipientAddress { get; set; }
+    public bool Enabled { get; set; }
+    public DateTime? NextRunAtUtc { get; set; }
+    public DateTime? LastRunAtUtc { get; set; }
+}
+
+public sealed class DataCompletionReminderEditViewModel
+{
+    public int Id { get; set; }
+    public int ApprovalTypeId { get; set; }
+    public List<string> FieldKeys { get; set; } = [];
+    public string? RecipientAddress { get; set; }
+    public int? MailTemplateId { get; set; }
+    public bool Enabled { get; set; }
+    public string RecurrenceType { get; set; } = "EveryNDays";
+    public int IntervalDays { get; set; } = 7;
+    public TimeSpan StartTime { get; set; } = new(9, 0, 0);
+    public DateTime? NextRunAtUtc { get; set; }
+    public DateTime? LastRunAtUtc { get; set; }
+    public List<(int Id, string Name)> ApprovalTypes { get; set; } = [];
+    public List<(int Id, string Name)> MailTemplates { get; set; } = [];
+    // Every Active field this Approval Type has -- rendered as checkboxes so an admin
+    // picks from what the type actually has, rather than typing Field Keys freehand.
+    public List<(string FieldKey, string FieldLabel)> AvailableFields { get; set; } = [];
+    public List<DataCompletionReminderRun> RecentRuns { get; set; } = [];
+}
+
 public sealed class LogArchiveFilter
 {
     public string? LogType { get; set; }

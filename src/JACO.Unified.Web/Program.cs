@@ -55,6 +55,8 @@ builder.Services.AddScoped<RequestService>();
 builder.Services.AddScoped<ReportsService>();
 builder.Services.AddScoped<DigestService>();
 builder.Services.AddHostedService<JACO.Unified.Web.Services.DigestSchedulerHostedService>();
+builder.Services.AddScoped<DataCompletionReminderService>();
+builder.Services.AddHostedService<JACO.Unified.Web.Services.DataCompletionReminderSchedulerHostedService>();
 builder.Services.AddSingleton<NotificationQueue>();
 builder.Services.AddHostedService<JACO.Unified.Web.Services.NotificationDispatcher>();
 builder.Services.AddSingleton(sp =>

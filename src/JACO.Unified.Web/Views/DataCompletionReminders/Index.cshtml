@@ -1,0 +1,42 @@
+@model List<DataCompletionReminderListItem>
+@{ ViewData["Title"] = "Data Completion Reminders"; }
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Data Completion Reminders</h1>
+        <p>Email a fixed recipient (e.g. IT) a list of Approved requests still missing specific fields &mdash; e.g. a Change Request approved without a SAP Reference ID or Tentative UAT Date yet.</p>
+    </div>
+    <a class="jaco-btn jaco-btn-primary" href="~/DataCompletionReminders/Create">+ New Reminder</a>
+</div>
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th>Approval Type</th>
+            <th>Checks For</th>
+            <th>Recipient</th>
+            <th>Schedule</th>
+            <th>Last Sent</th>
+            <th>Status</th>
+        </tr></thead>
+        <tbody>
+        @foreach (var r in Model)
+        {
+            <tr>
+                <td><a class="link" href="~/DataCompletionReminders/Edit/@r.Id">@r.ApprovalTypeName</a></td>
+                <td>@string.Join(", ", r.FieldLabels)</td>
+                <td>@(string.IsNullOrWhiteSpace(r.RecipientAddress) ? "(not set)" : r.RecipientAddress)</td>
+                <td>@(r.Enabled && r.NextRunAtUtc is not null ? $"Next: {r.NextRunAtUtc:dd MMM yyyy HH:mm} UTC" : "Manual only")</td>
+                <td>@(r.LastRunAtUtc is null ? "Never" : r.LastRunAtUtc.Value.ToString("dd MMM yyyy HH:mm") + " UTC")</td>
+                <td>
+                    @if (r.Enabled) { <span class="jaco-badge jaco-badge-success">ENABLED</span> }
+                    else { <span class="jaco-badge jaco-badge-neutral">DISABLED</span> }
+                </td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="6" style="text-align:center;color:var(--jaco-text-muted);">No reminders configured yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

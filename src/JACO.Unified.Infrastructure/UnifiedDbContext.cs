@@ -34,6 +34,8 @@ public sealed class UnifiedDbContext(DbContextOptions<UnifiedDbContext> options)
     public DbSet<DigestRunRecipient> DigestRunRecipients => Set<DigestRunRecipient>();
     public DbSet<LogArchive> LogArchives => Set<LogArchive>();
     public DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
+    public DbSet<DataCompletionReminderRule> DataCompletionReminderRules => Set<DataCompletionReminderRule>();
+    public DbSet<DataCompletionReminderRun> DataCompletionReminderRuns => Set<DataCompletionReminderRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
