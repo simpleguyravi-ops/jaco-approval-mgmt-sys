@@ -11,7 +11,9 @@
     </div>
     <div class="jaco-form-group"><label>Name</label><input class="jaco-input" name="Name" value="@Model.Name" placeholder="e.g. Change Request" required /></div>
     <div class="jaco-form-group"><label>Description</label><textarea class="jaco-input" name="Description" rows="2">@Model.Description</textarea></div>
-    <div class="jaco-check-row"><input type="checkbox" name="Active" value="true" checked="@Model.Active" id="active" /><label for="active" style="margin:0;font-weight:400;">Active</label></div>
+    @* Hidden "false" sibling -- without it, unchecking Active before Create silently
+       creates the type as active anyway (ApprovalType.Active defaults to true). *@
+    <div class="jaco-check-row"><input type="checkbox" name="Active" value="true" checked="@Model.Active" id="active" /><input type="hidden" name="Active" value="false" /><label for="active" style="margin:0;font-weight:400;">Active</label></div>
     <div style="display:flex;gap:10px;margin-top:12px;">
         <button type="submit" class="jaco-btn jaco-btn-primary">Create</button>
         <a class="jaco-btn jaco-btn-outline" href="~/ApprovalTypes">Cancel</a>

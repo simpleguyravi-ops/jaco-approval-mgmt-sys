@@ -11,7 +11,11 @@
     </div>
     <div class="jaco-form-group"><label>Name</label><input class="jaco-input" name="Name" value="@Model.Name" required /></div>
     <div class="jaco-form-group"><label>Description</label><textarea class="jaco-input" name="Description" rows="2">@Model.Description</textarea></div>
-    <div class="jaco-check-row"><input type="checkbox" name="Active" value="true" checked="@Model.Active" id="active" /><label for="active" style="margin:0;font-weight:400;">Active</label></div>
+    @* A plain unchecked checkbox posts nothing at all -- without the hidden "false"
+       sibling, unchecking Active and saving silently left it true (ApprovalType.Active
+       defaults to true, and the binder never had a form value to override that default
+       with). *@
+    <div class="jaco-check-row"><input type="checkbox" name="Active" value="true" checked="@Model.Active" id="active" /><input type="hidden" name="Active" value="false" /><label for="active" style="margin:0;font-weight:400;">Active</label></div>
     <div style="display:flex;gap:10px;margin-top:12px;">
         <button type="submit" class="jaco-btn jaco-btn-primary">Save</button>
         <a class="jaco-btn jaco-btn-outline" href="~/ApprovalTypes">Cancel</a>

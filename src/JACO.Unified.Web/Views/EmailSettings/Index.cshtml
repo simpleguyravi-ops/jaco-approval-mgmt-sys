@@ -15,10 +15,18 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div class="jaco-form-group"><label>Port</label><input class="jaco-input" type="number" name="Port" value="@Model.Port" /></div>
         <div class="jaco-form-group" style="display:flex;align-items:flex-end;">
-            <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin:0;"><input type="checkbox" name="UseTls" value="true" checked="@Model.UseTls" /> Use TLS</label>
+            @* Hidden "false" sibling -- without it, unchecking Use TLS and saving silently
+               left it true (EmailSettings.UseTls defaults to true, and the binder never
+               had a form value to override that default with). *@
+            <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin:0;"><input type="checkbox" name="UseTls" value="true" checked="@Model.UseTls" /><input type="hidden" name="UseTls" value="false" /> Use TLS</label>
         </div>
     </div>
-    <div class="jaco-form-group"><label>From Address</label><input class="jaco-input" type="email" name="From" value="@Model.From" placeholder="noreply@yourcompany.com" /></div>
+    @* type="text", not "email" -- this field legitimately holds the display-name format
+       ("No-reply <noreply@yourcompany.com>"), which is valid for an SMTP From header but
+       fails the browser's native type="email" validation (rejects the "<"/">" and the
+       space before them). That silently blocked the ENTIRE form's submit with no visible
+       error tied to this field until you scrolled up to notice the browser's own tooltip. *@
+    <div class="jaco-form-group"><label>From Address</label><input class="jaco-input" type="text" name="From" value="@Model.From" placeholder="No-reply &lt;noreply@yourcompany.com&gt;" /></div>
     <div class="jaco-form-group"><label>Username (optional)</label><input class="jaco-input" name="Username" value="@Model.Username" autocomplete="off" /></div>
     <div class="jaco-form-group">
         <label>Password (leave blank to keep current)</label>
