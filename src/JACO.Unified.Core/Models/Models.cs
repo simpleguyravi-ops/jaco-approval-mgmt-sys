@@ -86,6 +86,13 @@ public sealed class WorkflowField
 {
     public int Id { get; set; }
     public int? ApprovalTypeId { get; set; }
+    // A field belongs to EITHER an Approval Type OR a Task Type, never both -- Task Types
+    // reuse this exact same catalog (FieldKey/DataType/Required/LookupType, ...) so the
+    // field builder, the criteria engine, and PicklistValue lookups all work identically for
+    // both without a second field-definition system. Every query that treats
+    // ApprovalTypeId == null as "generic field for all Approval Types" must also check
+    // TaskTypeId == null, or a Task Type's fields leak into Approval Type suggestions.
+    public int? TaskTypeId { get; set; }
     public string FieldKey { get; set; } = "";
     public string FieldLabel { get; set; } = "";
     public string DataType { get; set; } = FieldDataType.Text;
@@ -563,4 +570,47 @@ public sealed class PostProcessingExecution
     public DateTime? StartedAt { get; set; }
     public DateTime? FinishedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+// ============================================================
+// Task Types -- a peer of ApprovalType in the same WorkflowField/PicklistValue catalog, but
+// for post-approval (or any-event-triggered) work items instead of request submissions. E.g.
+// "Post-approval SAP update" owning fields like Tentative UAT date / SAP reference ID.
+// ============================================================
+public sealed class TaskType
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public bool Active { get; set; } = true;
+}
+
+// One assigned work item, created by a PostProcessingRule whose ActionType is "AssignTask".
+// Deliberately not named "Task" -- collides with System.Threading.Tasks.Task, used
+// throughout this async codebase.
+public sealed class AssignedTask
+{
+    public long Id { get; set; }
+    public long RequestId { get; set; }
+    public int PostProcessingRuleId { get; set; }
+    public int TaskTypeId { get; set; }
+    public string Title { get; set; } = "";
+    // Assigned to exactly one of these -- a specific user, or a whole department queue where
+    // whoever completes it first claims it (both nullable; validated at Save time, not by a
+    // DB constraint, matching this schema's existing convention of app-managed invariants).
+    public int? AssignedToUserId { get; set; }
+    public string? AssignedToDepartment { get; set; }
+    // Values the assignee filled in for this Task Type's fields, keyed by FieldKey -- same
+    // flat JSON-object convention as Request.DataJson.
+    public string? DataJson { get; set; }
+    public string Status { get; set; } = "Open"; // Open, Done
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime? DueAtUtc { get; set; }
+    // Next time the TaskOverdue background scan should re-check this task -- null means
+    // either no due date was set, or the task is already Done. Advances by a fixed cadence
+    // each time it fires (see TaskOverdueSchedulerHostedService), so an overdue task nudges
+    // repeatedly rather than firing once and going silent.
+    public DateTime? NextOverdueCheckAtUtc { get; set; }
+    public DateTime? CompletedAtUtc { get; set; }
+    public int? CompletedByUserId { get; set; }
 }

@@ -38,14 +38,19 @@ public sealed class UnifiedDbContext(DbContextOptions<UnifiedDbContext> options)
     public DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
     public DbSet<DataCompletionReminderRule> DataCompletionReminderRules => Set<DataCompletionReminderRule>();
     public DbSet<DataCompletionReminderRun> DataCompletionReminderRuns => Set<DataCompletionReminderRun>();
+    public DbSet<TaskType> TaskTypes => Set<TaskType>();
+    public DbSet<AssignedTask> AssignedTasks => Set<AssignedTask>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Request>().HasIndex(r => r.RequestNumber).IsUnique();
         modelBuilder.Entity<WorkflowField>().HasIndex(f => new { f.ApprovalTypeId, f.FieldKey });
+        modelBuilder.Entity<WorkflowField>().HasIndex(f => new { f.TaskTypeId, f.FieldKey });
         modelBuilder.Entity<PicklistValue>().HasIndex(p => new { p.LookupType, p.Value });
         modelBuilder.Entity<ApiClient>().HasIndex(c => c.KeyPrefix);
         modelBuilder.Entity<DigestSchedule>().HasIndex(s => s.ApprovalTypeId).IsUnique();
         modelBuilder.Entity<PostProcessingRuleApprovalType>().HasKey(x => new { x.PostProcessingRuleId, x.ApprovalTypeId });
+        modelBuilder.Entity<AssignedTask>().HasIndex(t => new { t.AssignedToUserId, t.Status });
+        modelBuilder.Entity<AssignedTask>().HasIndex(t => t.NextOverdueCheckAtUtc);
     }
 }
