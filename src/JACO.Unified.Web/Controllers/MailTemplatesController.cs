@@ -114,7 +114,12 @@ public sealed class MailTemplatesController(UnifiedDbContext db) : Controller
         // "cid:jaco-logo" -- an inline email attachment reference a browser can't resolve.
         // This preview renders directly in the admin's own browser on this app's own
         // origin, so a normal root-relative path is what actually loads here.
-        var extraTokens = new Dictionary<string, string> { ["{{LogoUrl}}"] = "/img/jaco-logo-color.png" };
+        var extraTokens = new Dictionary<string, string>
+        {
+            ["{{LogoUrl}}"] = "/img/jaco-logo-color.png",
+            ["{{RequestUrl}}"] = Url.Action("Details", "Requests", new { id = 1 }) ?? "#",
+            ["{{ApprovalTimeline}}"] = "<p style=\"color:#6b7280;font-size:13px;\">(the real approval timeline renders here)</p>",
+        };
         var (subject, body) = model.IsTableTemplate
             ? MailMergeService.RenderTable(sample, "Approving Manager", SampleRequests())
             : MailMergeService.RenderSingle(sample, SampleRequests()[0], "Test Creator", extraTokens);

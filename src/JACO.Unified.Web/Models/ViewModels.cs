@@ -301,6 +301,7 @@ public sealed class PpfRuleListItem
     public string EventCode { get; set; } = "";
     public string TemplateName { get; set; } = "";
     public string ToMode { get; set; } = "";
+    public bool IncludeAttachments { get; set; }
     public bool Active { get; set; }
 }
 
@@ -316,6 +317,7 @@ public sealed class PpfRuleEditViewModel
     public string CcMode { get; set; } = "None";
     public string? CcAddress { get; set; }
     public string? CcFieldKey { get; set; }
+    public bool IncludeAttachments { get; set; }
     public int SequenceNo { get; set; } = 10;
     public bool Active { get; set; } = true;
     public List<(int Id, string Name)> ApprovalTypes { get; set; } = [];

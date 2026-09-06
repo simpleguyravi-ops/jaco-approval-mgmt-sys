@@ -43,8 +43,8 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
     {
         var items = await BuildItemsAsync();
         var bytes = CsvHelper.ToCsvBytes(items,
-            ["Approval Type", "Event", "Template", "Recipient", "Status"],
-            r => [r.ApprovalTypeName, r.EventCode, r.TemplateName, r.ToMode, r.Active ? "Active" : "Disabled"]);
+            ["Approval Type", "Event", "Template", "Recipient", "Attachments", "Status"],
+            r => [r.ApprovalTypeName, r.EventCode, r.TemplateName, r.ToMode, r.IncludeAttachments ? "Yes" : "No", r.Active ? "Active" : "Disabled"]);
         return File(bytes, "text/csv", $"post-processing-rules-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
     }
 
@@ -58,11 +58,13 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
         {
             int? templateId = null;
             var toMode = "Creator";
+            var includeAttachments = false;
             try
             {
                 using var doc = JsonDocument.Parse(r.ActionConfigJson ?? "{}");
                 if (doc.RootElement.TryGetProperty("mailTemplateId", out var t)) templateId = t.GetInt32();
                 if (doc.RootElement.TryGetProperty("toMode", out var m)) toMode = m.GetString() ?? "Creator";
+                includeAttachments = doc.RootElement.TryGetProperty("includeAttachments", out var ia) && ia.ValueKind == JsonValueKind.True;
             }
             catch { /* malformed config renders as "unknown" below rather than failing the whole list */ }
 
@@ -73,6 +75,7 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
                 EventCode = r.EventCode,
                 TemplateName = templateId.HasValue ? templates.GetValueOrDefault(templateId.Value, "(deleted template)") : "(none)",
                 ToMode = toMode,
+                IncludeAttachments = includeAttachments,
                 Active = r.Active
             };
         }).ToList();
@@ -101,13 +104,15 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
             refreshed.MailTemplateId = model.MailTemplateId; refreshed.ToMode = model.ToMode; refreshed.ToAddress = model.ToAddress;
             refreshed.ToFieldKey = model.ToFieldKey; refreshed.SequenceNo = model.SequenceNo; refreshed.Active = model.Active;
             refreshed.CcMode = model.CcMode; refreshed.CcAddress = model.CcAddress; refreshed.CcFieldKey = model.CcFieldKey;
+            refreshed.IncludeAttachments = model.IncludeAttachments;
             return View("Edit", refreshed);
         }
 
         var config = JsonSerializer.Serialize(new
         {
             mailTemplateId = model.MailTemplateId, toMode = model.ToMode, toAddress = model.ToAddress, toFieldKey = model.ToFieldKey,
-            ccMode = model.CcMode, ccAddress = model.CcAddress, ccFieldKey = model.CcFieldKey
+            ccMode = model.CcMode, ccAddress = model.CcAddress, ccFieldKey = model.CcFieldKey,
+            includeAttachments = model.IncludeAttachments
         });
 
         PostProcessingRule rule;
@@ -163,6 +168,7 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
             if (doc.RootElement.TryGetProperty("ccMode", out var cm)) model.CcMode = cm.GetString() ?? "None";
             if (doc.RootElement.TryGetProperty("ccAddress", out var ca)) model.CcAddress = ca.GetString();
             if (doc.RootElement.TryGetProperty("ccFieldKey", out var cfk)) model.CcFieldKey = cfk.GetString();
+            model.IncludeAttachments = doc.RootElement.TryGetProperty("includeAttachments", out var ia) && ia.ValueKind == JsonValueKind.True;
         }
         catch { /* leave defaults */ }
 

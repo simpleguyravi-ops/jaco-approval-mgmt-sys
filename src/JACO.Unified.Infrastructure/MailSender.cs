@@ -18,7 +18,7 @@ public sealed class MailSender(UnifiedDbContext db, IOptions<EmailOptions> optio
     const string LogoContentId = "jaco-logo";
     static readonly string LogoPath = Path.Combine(AppContext.BaseDirectory, "wwwroot", "img", "jaco-logo-color.png");
 
-    public async Task<(bool sent, string? error)> SendAsync(string toAddress, string subject, string bodyHtml, string? ccAddress = null)
+    public async Task<(bool sent, string? error)> SendAsync(string toAddress, string subject, string bodyHtml, string? ccAddress = null, IReadOnlyList<AttachmentFile>? attachments = null)
     {
         var saved = await db.EmailSettings.AsNoTracking().SingleOrDefaultAsync(s => s.Id == 1);
         var enabled = saved?.Enabled ?? options.Value.Enabled;
@@ -57,6 +57,13 @@ public sealed class MailSender(UnifiedDbContext db, IOptions<EmailOptions> optio
                 message.IsBodyHtml = true;
             }
 
+            // Skip a file that's gone missing from disk rather than failing the whole send --
+            // the recipient still gets the email (just short one file) instead of nothing.
+            if (attachments is not null)
+                foreach (var a in attachments)
+                    if (File.Exists(a.FilePath))
+                        message.Attachments.Add(new Attachment(a.FilePath, a.ContentType) { Name = a.FileName });
+
             await client.SendMailAsync(message);
             return (true, null);
         }
@@ -88,3 +95,5 @@ public sealed class MailSender(UnifiedDbContext db, IOptions<EmailOptions> optio
         return string.Join(" -- ", messages);
     }
 }
+
+public sealed record AttachmentFile(string FileName, string FilePath, string ContentType);

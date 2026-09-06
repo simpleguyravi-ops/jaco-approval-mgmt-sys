@@ -7,7 +7,7 @@ namespace JACO.Unified.Infrastructure;
 // Fires the "Email" action of any active PostProcessingRule configured for an
 // ApprovalType + Event. Every attempt is recorded in PostProcessingExecutions regardless
 // of outcome; a failure here never touches Request.Status.
-public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, ApprovalActionLinkService linkService, TimelineService timelineService, IConfiguration configuration)
+public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, ApprovalActionLinkService linkService, TimelineService timelineService, IConfiguration configuration, RequestAttachmentStorage attachmentStorage)
 {
     public async Task RaiseEventAsync(long requestId, string eventCode)
     {
@@ -32,6 +32,10 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
         // machine running this app, so a real recipient's own mail client just shows a
         // broken image; embedding travels the actual file with the email instead.
         var logoUrl = "cid:jaco-logo";
+        // Built once and reused across every rule for this event -- an "Approved" firing
+        // with 3 rules attaching files shouldn't re-hit the DB and re-resolve disk paths 3
+        // times for the same, unchanging set of files.
+        List<AttachmentFile>? requestAttachments = null;
 
         foreach (var rule in rules)
         {
@@ -39,6 +43,7 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
             var root = config.RootElement;
             var mailTemplateId = root.TryGetProperty("mailTemplateId", out var t) ? t.GetInt32() : (int?)null;
             var toMode = root.TryGetProperty("toMode", out var m) ? m.GetString() : "Creator";
+            var includeAttachments = root.TryGetProperty("includeAttachments", out var ia) && ia.ValueKind == JsonValueKind.True;
             var ccMode = root.TryGetProperty("ccMode", out var cm) ? cm.GetString() : "None";
             string? ccAddress = ccMode switch
             {
@@ -46,6 +51,17 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                 "Field" => root.TryGetProperty("ccFieldKey", out var cfk) ? RequestService.ExtractField(request.DataJson, cfk.GetString() ?? "") : null,
                 _ => null
             };
+
+            IReadOnlyList<AttachmentFile>? attachmentsForThisRule = null;
+            if (includeAttachments)
+            {
+                if (requestAttachments is null)
+                {
+                    var rows = await db.RequestAttachments.Where(a => a.RequestId == requestId).ToListAsync();
+                    requestAttachments = rows.Select(a => new AttachmentFile(a.OriginalFileName, attachmentStorage.GetPath(a.RequestId, a.StoredFileName), a.ContentType)).ToList();
+                }
+                attachmentsForThisRule = requestAttachments;
+            }
 
             if (toMode == "CurrentApprover")
             {
@@ -56,7 +72,7 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                 var recipients = await GetCurrentApproverRecipientsAsync(request);
                 if (recipients.Count == 0)
                 {
-                    await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, null, ccAddress, new Dictionary<string, string> { ["{{ApprovalTimeline}}"] = timelineHtml, ["{{LogoUrl}}"] = logoUrl });
+                    await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, null, ccAddress, new Dictionary<string, string> { ["{{ApprovalTimeline}}"] = timelineHtml, ["{{LogoUrl}}"] = logoUrl }, attachmentsForThisRule);
                     continue;
                 }
                 foreach (var (userId, email) in recipients)
@@ -64,7 +80,7 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                     var tokens = BuildActionTokens(request, userId, baseUrl);
                     tokens["{{ApprovalTimeline}}"] = timelineHtml;
                     tokens["{{LogoUrl}}"] = logoUrl;
-                    await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, email, ccAddress, tokens);
+                    await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, email, ccAddress, tokens, attachmentsForThisRule);
                 }
             }
             else
@@ -84,14 +100,14 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                     ["{{ApprovalTimeline}}"] = timelineHtml,
                     ["{{LogoUrl}}"] = logoUrl,
                 };
-                await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, toAddress, ccAddress, extraTokens);
+                await SendAndLogAsync(rule, request, requestId, mailTemplateId, creatorName, toAddress, ccAddress, extraTokens, attachmentsForThisRule);
             }
         }
 
         await db.SaveChangesAsync();
     }
 
-    async Task SendAndLogAsync(Core.Models.PostProcessingRule rule, Core.Models.Request request, long requestId, int? mailTemplateId, string creatorName, string? toAddress, string? ccAddress, IReadOnlyDictionary<string, string> extraTokens)
+    async Task SendAndLogAsync(Core.Models.PostProcessingRule rule, Core.Models.Request request, long requestId, int? mailTemplateId, string creatorName, string? toAddress, string? ccAddress, IReadOnlyDictionary<string, string> extraTokens, IReadOnlyList<AttachmentFile>? attachments)
     {
         var startedAt = DateTime.UtcNow;
         var attemptNo = 1 + await db.PostProcessingExecutions
@@ -124,7 +140,7 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
                 else
                 {
                     var (subject, body) = MailMergeService.RenderSingle(template, request, creatorName, extraTokens);
-                    var (sent, sendError) = await mailSender.SendAsync(toAddress, subject, body, ccAddress);
+                    var (sent, sendError) = await mailSender.SendAsync(toAddress, subject, body, ccAddress, attachments);
                     status = sent ? "Sent" : sendError == "Email disabled in configuration" ? "Skipped" : "Failed";
                     error = sendError;
                 }
