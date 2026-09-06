@@ -642,6 +642,20 @@ public sealed class BulkReassignViewModel
     public List<(int Id, string Name, string? Department)> Users { get; set; } = [];
 }
 
+// The full request+task journey for one Approval Type, rendered as a single flowchart on
+// its own page. Computed from whatever Routing/Post-Processing Rules already exist for this
+// type -- not an authoring canvas, just a read-only view of the resulting chain, so rules
+// are still created individually exactly as today.
+public sealed class ApprovalTypeJourneyViewModel
+{
+    public required ApprovalType ApprovalType { get; init; }
+    public required Dictionary<string, int> PpfCountsByEvent { get; init; }
+    // Count of active "Assign a task" rules for this type, across whichever events they're
+    // configured on -- distinct from PpfCountsByEvent (which is keyed by event, not action
+    // type) since the Task-assigned node isn't tied to one specific event in this diagram.
+    public required int AssignTaskRuleCount { get; init; }
+}
+
 public sealed class TaskListRow
 {
     public long Id { get; set; }

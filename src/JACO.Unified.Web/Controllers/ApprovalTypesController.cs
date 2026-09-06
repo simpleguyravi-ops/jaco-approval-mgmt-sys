@@ -123,6 +123,33 @@ public sealed class ApprovalTypesController(UnifiedDbContext db, RequestAttachme
         return RedirectToAction(nameof(Index));
     }
 
+    // Read-only, computed from whatever Routing/Post-Processing Rules already exist for this
+    // type -- see RoutingRulesController.BuildFormModelAsync for the same PpfCountsByEvent
+    // query, generalized here across every event (not just one routing rule's own).
+    [HttpGet]
+    public async Task<IActionResult> Journey(int id)
+    {
+        var type = await db.ApprovalTypes.FindAsync(id);
+        if (type is null) return NotFound();
+
+        var ppfCountsByEvent = await db.PostProcessingRules
+            .Where(r => r.Active && db.PostProcessingRuleApprovalTypes.Any(pat => pat.PostProcessingRuleId == r.Id && pat.ApprovalTypeId == id))
+            .GroupBy(r => r.EventCode)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count);
+
+        var assignTaskRuleCount = await db.PostProcessingRules
+            .Where(r => r.Active && r.ActionType == "AssignTask" && db.PostProcessingRuleApprovalTypes.Any(pat => pat.PostProcessingRuleId == r.Id && pat.ApprovalTypeId == id))
+            .CountAsync();
+
+        return View(new ApprovalTypeJourneyViewModel
+        {
+            ApprovalType = type,
+            PpfCountsByEvent = ppfCountsByEvent,
+            AssignTaskRuleCount = assignTaskRuleCount
+        });
+    }
+
     [HttpGet]
     public async Task<IActionResult> Delete(int id)
     {
