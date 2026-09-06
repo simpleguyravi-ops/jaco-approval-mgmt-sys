@@ -364,7 +364,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
         var now = DateTime.UtcNow;
         var effectiveComments = adminOverride ? $"{AdminOverrideMarker} -- decided on behalf of the assigned approver(s)] {comments}".TrimEnd() : comments;
 
-        db.RequestActions.Add(new RequestAction { RequestId = requestId, LevelNo = step.LevelNo, UserId = userId, ActionCode = decision, Comments = effectiveComments, CreatedAt = now });
+        db.RequestActions.Add(new RequestAction { RequestId = requestId, LevelNo = step.LevelNo, UserId = userId, ActionCode = decision, Comments = effectiveComments, IsAdminOverride = adminOverride, CreatedAt = now });
         db.AuditLogs.Add(new AuditLog { RequestId = requestId, UserId = userId, ActionCode = decision, DetailsJson = effectiveComments, Source = source, CreatedAt = now });
         await AddParticipantIfMissingAsync(requestId, userId, "Approver");
 

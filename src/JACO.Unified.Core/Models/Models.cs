@@ -242,6 +242,11 @@ public sealed class RequestAction
     public int UserId { get; set; }
     public string ActionCode { get; set; } = ""; // Approve, Reject, SendBack
     public string? Comments { get; set; }
+    // True when UserId (an admin) decided on behalf of this level's actual assigned
+    // approver(s) rather than one of them clicking it themselves -- previously only
+    // recoverable by string-matching Comments for the "[Admin override" marker; see
+    // RequestService.DecideAsync. Drives PpfExecutor's "BypassedApprover" recipient mode.
+    public bool IsAdminOverride { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
