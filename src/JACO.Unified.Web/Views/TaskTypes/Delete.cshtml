@@ -1,0 +1,33 @@
+@model TaskTypeDeleteViewModel
+@{ ViewData["Title"] = "Delete Task Type"; }
+<a class="jaco-back-link" href="~/TaskTypes">&larr; Back to Task Types</a>
+<div class="jaco-page-header">
+    <div><h1>Delete '@Model.Name'</h1><p>Permanently removes this Task Type and everything that belongs to it &mdash; its fields, completed tasks, and any "Assign a task" rules that target it.</p></div>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="max-width:600px;">
+@if (Model.OpenTaskCount > 0)
+{
+    <div class="jaco-alert" style="background:var(--jaco-danger-bg);color:var(--jaco-danger);">
+        Can't delete &mdash; <strong>@Model.OpenTaskCount</strong> task(s) of type '@Model.Name' are still open. Complete them first (see My Tasks, or ask the assignee), then come back here.
+    </div>
+}
+else
+{
+    <div class="jaco-alert" style="background:var(--jaco-warning-bg);color:var(--jaco-warning);">
+        No open tasks &mdash; this type can be deleted. Everything below will be archived, then permanently removed:
+        <ul style="margin:8px 0 0;padding-left:20px;">
+            <li>@Model.WorkflowFieldCount field(s)</li>
+            <li>@Model.ClosedTaskCount completed task(s)</li>
+            <li>@Model.PostProcessingRuleCount "Assign a task" rule(s) that target this type &mdash; deleted outright, since a rule always names exactly one Task Type</li>
+        </ul>
+    </div>
+    <p style="margin-top:8px;font-size:12px;color:var(--jaco-text-muted);">Audit Log entries and PPF Monitor history for these tasks/rules are kept, not deleted &mdash; they'll show as referencing a deleted rule afterward, same as any other deleted Post-Processing Rule.</p>
+    <form method="post" asp-controller="TaskTypes" asp-action="DeleteConfirmed" style="margin-top:12px;" data-confirm="Permanently delete the Task Type '@Model.Name' and everything attached to it? This cannot be undone.">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@Model.Id" />
+        <button type="submit" class="jaco-btn" style="background:var(--jaco-danger);color:#fff;border-color:var(--jaco-danger);">Archive &amp; Delete '@Model.Name'</button>
+        <a class="jaco-btn jaco-btn-outline" href="~/TaskTypes">Cancel</a>
+    </form>
+}
+</div>

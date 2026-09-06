@@ -245,9 +245,12 @@ public sealed class ApprovalTypesController(UnifiedDbContext db, RequestAttachme
         // Clear Transactional Data's archive, just covering the type's configuration too
         // (fields, routing, PPF rules, permissions, digest schedule) since none of that
         // survives the type itself. Restorable from Archived Clears short of the files.
+        // LogType is NVARCHAR(50) -- truncate rather than let a long type name overflow it.
+        var logType = $"ApprovalTypeDeleted:{type.Name}";
+        if (logType.Length > 50) logType = logType[..50];
         db.LogArchives.Add(new LogArchive
         {
-            LogType = $"ApprovalTypeDeleted:{type.Name}",
+            LogType = logType,
             BeforeDate = DateTime.UtcNow,
             EntryCount = requests.Count,
             ContentJson = JsonSerializer.Serialize(new

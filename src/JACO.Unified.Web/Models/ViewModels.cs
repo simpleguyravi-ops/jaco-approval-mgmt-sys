@@ -558,6 +558,21 @@ public sealed class ApprovalTypeDeleteViewModel
     public int RoutingLogCount { get; set; }
 }
 
+public sealed class TaskTypeDeleteViewModel
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    // Not yet Done -- deletion is refused outright while this is above zero, no override,
+    // same philosophy as ApprovalTypeDeleteViewModel.OpenRequestCount.
+    public int OpenTaskCount { get; set; }
+    public int ClosedTaskCount { get; set; }
+    public int WorkflowFieldCount { get; set; }
+    // "Assign a task" rules that target this Task Type specifically -- these become
+    // meaningless without it, so they're deleted outright (unlike an Approval Type's PPF
+    // rules, an AssignTask rule names exactly one Task Type, never several).
+    public int PostProcessingRuleCount { get; set; }
+}
+
 public sealed class DataCompletionReminderListItem
 {
     public int Id { get; set; }
