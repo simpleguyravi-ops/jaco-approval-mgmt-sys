@@ -1,0 +1,48 @@
+@model List<TaskType>
+@{
+    ViewData["Title"] = "Task Types";
+    var sort = (string?)ViewBag.Sort;
+    var dir = (string)ViewBag.Dir;
+    string SortUrl(string field)
+    {
+        var newDir = sort == field && dir == "asc" ? "desc" : "asc";
+        return $"{Context.Request.PathBase}/TaskTypes?sort={field}&dir={newDir}";
+    }
+    string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
+}
+<a class="jaco-back-link" asp-controller="Admin" asp-action="Index">&larr; Back to Administration</a>
+<div class="jaco-page-header">
+    <div>
+        <h1>Task Types</h1>
+        <p>Kinds of post-approval work items a Post-Processing Rule's "Assign a task" action can create. <b>Code</b> is stored on every assigned task of this type. Fields (e.g. Tentative UAT Date, SAP Reference ID) are configured separately under Criteria Fields.</p>
+    </div>
+    <a class="jaco-btn jaco-btn-primary" href="~/TaskTypes/Create">+ New Task Type</a>
+</div>
+<div class="jaco-card">
+    <table class="jaco-table">
+        <thead><tr>
+            <th><a class="link" href="@SortUrl("Code")">Code@(Html.Raw(SortArrow("Code")))</a></th>
+            <th><a class="link" href="@SortUrl("Name")">Name@(Html.Raw(SortArrow("Name")))</a></th>
+            <th><a class="link" href="@SortUrl("Status")">Status@(Html.Raw(SortArrow("Status")))</a></th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        @foreach (var t in Model)
+        {
+            <tr>
+                <td><code>@t.Code</code></td>
+                <td><a class="link" href="~/TaskTypes/Edit/@t.Id">@t.Name</a></td>
+                <td>
+                    @if (t.Active) { <span class="jaco-badge jaco-badge-success">ACTIVE</span> }
+                    else { <span class="jaco-badge jaco-badge-neutral">DISABLED</span> }
+                </td>
+                <td><a class="link" href="~/WorkflowFields?taskTypeId=@t.Id">Fields</a></td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="4" style="text-align:center;color:var(--jaco-text-muted);">No Task Types yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

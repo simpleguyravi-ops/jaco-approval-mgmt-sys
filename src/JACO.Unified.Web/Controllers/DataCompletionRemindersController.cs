@@ -26,7 +26,7 @@ public sealed class DataCompletionRemindersController(UnifiedDbContext db, DataC
             List<string> keys;
             try { keys = JsonSerializer.Deserialize<List<string>>(r.FieldKeysJson) ?? []; }
             catch { keys = []; }
-            var labels = keys.Select(k => allFieldsByKey.FirstOrDefault(f => f.FieldKey == k && (f.ApprovalTypeId == r.ApprovalTypeId || f.ApprovalTypeId == null))?.FieldLabel ?? k).ToList();
+            var labels = keys.Select(k => allFieldsByKey.FirstOrDefault(f => f.FieldKey == k && (f.ApprovalTypeId == r.ApprovalTypeId || (f.ApprovalTypeId == null && f.TaskTypeId == null)))?.FieldLabel ?? k).ToList();
 
             return new DataCompletionReminderListItem
             {
@@ -161,7 +161,7 @@ public sealed class DataCompletionRemindersController(UnifiedDbContext db, DataC
         if (model.ApprovalTypeId != 0)
         {
             var fields = await db.WorkflowFields
-                .Where(f => f.Active && (f.ApprovalTypeId == model.ApprovalTypeId || f.ApprovalTypeId == null))
+                .Where(f => f.Active && (f.ApprovalTypeId == model.ApprovalTypeId || (f.ApprovalTypeId == null && f.TaskTypeId == null)))
                 .OrderBy(f => f.DisplayOrder)
                 .Select(f => new { f.FieldKey, f.FieldLabel })
                 .ToListAsync();

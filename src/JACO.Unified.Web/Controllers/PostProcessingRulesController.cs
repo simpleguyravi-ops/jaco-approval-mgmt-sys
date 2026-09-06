@@ -290,7 +290,7 @@ public sealed class PostProcessingRulesController(UnifiedDbContext db) : Control
         if (model.ApprovalTypeIds.Count > 0)
         {
             var fields = await db.WorkflowFields
-                .Where(f => f.Active && (f.ApprovalTypeId == null || model.ApprovalTypeIds.Contains(f.ApprovalTypeId.Value)))
+                .Where(f => f.Active && f.TaskTypeId == null && (f.ApprovalTypeId == null || model.ApprovalTypeIds.Contains(f.ApprovalTypeId.Value)))
                 .OrderBy(f => f.DisplayOrder)
                 .Select(f => new { f.FieldKey, f.FieldLabel })
                 .ToListAsync();

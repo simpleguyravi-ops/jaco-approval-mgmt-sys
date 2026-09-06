@@ -47,7 +47,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
     // Fields offered on the Create/Edit form -- IsVisible=true, Active=true, ordered.
     public async Task<List<WorkflowField>> GetFormFieldsAsync(int approvalTypeId) =>
         await db.WorkflowFields
-            .Where(f => f.Active && f.IsVisible && (f.ApprovalTypeId == approvalTypeId || f.ApprovalTypeId == null))
+            .Where(f => f.Active && f.IsVisible && (f.ApprovalTypeId == approvalTypeId || (f.ApprovalTypeId == null && f.TaskTypeId == null)))
             .OrderBy(f => f.DisplayOrder)
             .ToListAsync();
 
@@ -58,7 +58,7 @@ public sealed class RequestService(UnifiedDbContext db, RoutingService routing, 
     public async Task<List<SubmittedField>> GetSubmittedFieldsAsync(Request request)
     {
         var fields = await db.WorkflowFields
-            .Where(f => f.Active && f.IsVisible && (f.ApprovalTypeId == request.ApprovalTypeId || f.ApprovalTypeId == null))
+            .Where(f => f.Active && f.IsVisible && (f.ApprovalTypeId == request.ApprovalTypeId || (f.ApprovalTypeId == null && f.TaskTypeId == null)))
             .OrderBy(f => f.DisplayOrder)
             .ToListAsync();
 

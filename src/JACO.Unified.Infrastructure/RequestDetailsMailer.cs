@@ -37,7 +37,7 @@ public sealed class RequestDetailsMailer(UnifiedDbContext db, MailSender mailSen
         // the recipient of this email is an arbitrary address typed in at send time, not a
         // known system role, so there's no reliable basis for deciding they should see them.
         var fields = await db.WorkflowFields
-            .Where(f => f.Active && f.IsVisible && !f.IsSensitive && (f.ApprovalTypeId == request.ApprovalTypeId || f.ApprovalTypeId == null))
+            .Where(f => f.Active && f.IsVisible && !f.IsSensitive && (f.ApprovalTypeId == request.ApprovalTypeId || (f.ApprovalTypeId == null && f.TaskTypeId == null)))
             .OrderBy(f => f.DisplayOrder)
             .ToListAsync();
 

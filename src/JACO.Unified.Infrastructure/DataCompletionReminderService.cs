@@ -37,7 +37,7 @@ public sealed class DataCompletionReminderService(UnifiedDbContext db, MailSende
         {
             var fieldKeys = JsonSerializer.Deserialize<List<string>>(rule.FieldKeysJson) ?? [];
             var fieldLabels = await db.WorkflowFields
-                .Where(f => fieldKeys.Contains(f.FieldKey) && (f.ApprovalTypeId == rule.ApprovalTypeId || f.ApprovalTypeId == null))
+                .Where(f => fieldKeys.Contains(f.FieldKey) && (f.ApprovalTypeId == rule.ApprovalTypeId || (f.ApprovalTypeId == null && f.TaskTypeId == null)))
                 .ToDictionaryAsync(f => f.FieldKey, f => f.FieldLabel);
 
             var approved = await db.Requests.Where(r => r.ApprovalTypeId == rule.ApprovalTypeId && r.Status == "Approved").ToListAsync();

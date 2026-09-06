@@ -2,13 +2,16 @@
 @{
     ViewData["Title"] = "Criteria Fields";
     var types = (List<ApprovalType>)ViewBag.Types;
+    var taskTypes = (List<TaskType>)ViewBag.TaskTypes;
     int selectedTypeId = ViewBag.SelectedTypeId;
+    int selectedTaskTypeId = ViewBag.SelectedTaskTypeId;
+    var isTaskScope = selectedTaskTypeId > 0;
     var sort = (string?)ViewBag.Sort;
     var dir = (string)ViewBag.Dir;
     string SortUrl(string field)
     {
         var newDir = sort == field && dir == "asc" ? "desc" : "asc";
-        return $"{Context.Request.PathBase}/WorkflowFields?approvalTypeId={selectedTypeId}&sort={field}&dir={newDir}";
+        return $"{Context.Request.PathBase}/WorkflowFields?approvalTypeId={selectedTypeId}&taskTypeId={selectedTaskTypeId}&sort={field}&dir={newDir}";
     }
     string SortArrow(string field) => sort != field ? "" : (dir == "asc" ? " &#9650;" : " &#9660;");
 }
@@ -16,16 +19,27 @@
 <div class="jaco-page-header">
     <div>
         <h1>Criteria Fields</h1>
-        <p>Adding a field here makes it available on the Create/Edit form, the Details panel, and Rule Builder's criteria &mdash; no code change needed. A field added under <b>@GenericApprovalType.Name</b> shows up for every type.</p>
+        <p>Adding a field here makes it available on the Create/Edit form, the Details panel, and Rule Builder's criteria &mdash; no code change needed. A field added under <b>@GenericApprovalType.Name</b> shows up for every Approval Type. Task Type fields (below) are a separate catalog for the fields an assigned task's completer fills in.</p>
     </div>
-    <a class="jaco-btn jaco-btn-primary" href="~/WorkflowFields/Create?approvalTypeId=@selectedTypeId">+ New Field</a>
+    <a class="jaco-btn jaco-btn-primary" href="~/WorkflowFields/Create?approvalTypeId=@selectedTypeId&taskTypeId=@selectedTaskTypeId">+ New Field</a>
 </div>
 
-<div class="lookup-tabs" style="margin-bottom:18px;">
-    <a class="lookup-tab @(selectedTypeId == GenericApprovalType.Id ? "selected" : "")" href="~/WorkflowFields?approvalTypeId=@GenericApprovalType.Id">@GenericApprovalType.Name</a>
+<div class="lookup-tabs" style="margin-bottom:8px;">
+    <a class="lookup-tab @(!isTaskScope && selectedTypeId == GenericApprovalType.Id ? "selected" : "")" href="~/WorkflowFields?approvalTypeId=@GenericApprovalType.Id">@GenericApprovalType.Name</a>
     @foreach (var t in types)
     {
-        <a class="lookup-tab @(t.Id == selectedTypeId ? "selected" : "")" href="~/WorkflowFields?approvalTypeId=@t.Id">@t.Name</a>
+        <a class="lookup-tab @(!isTaskScope && t.Id == selectedTypeId ? "selected" : "")" href="~/WorkflowFields?approvalTypeId=@t.Id">@t.Name</a>
+    }
+</div>
+<div class="lookup-tabs" style="margin-bottom:18px;">
+    <span style="font-size:12px;color:var(--jaco-text-muted);align-self:center;margin-right:4px;">Task Types:</span>
+    @if (taskTypes.Count == 0)
+    {
+        <span style="font-size:13px;color:var(--jaco-text-muted);">None yet &mdash; <a class="link" href="~/TaskTypes/Create">create one</a>.</span>
+    }
+    @foreach (var t in taskTypes)
+    {
+        <a class="lookup-tab @(isTaskScope && t.Id == selectedTaskTypeId ? "selected" : "")" href="~/WorkflowFields?taskTypeId=@t.Id">@t.Name</a>
     }
 </div>
 
@@ -40,6 +54,7 @@ else
     <form method="post" action="~/WorkflowFields/BulkDelete" id="fieldsForm">
         @Html.AntiForgeryToken()
         <input type="hidden" name="approvalTypeId" value="@selectedTypeId" />
+        <input type="hidden" name="taskTypeId" value="@selectedTaskTypeId" />
 
         <div id="removeWarning" class="notice" style="display:none;background:var(--jaco-warning-bg, #fef3c7);color:var(--jaco-warning, #b45309);margin-bottom:12px;">
             <span id="removeCount">0</span> field(s) marked for removal &mdash; nothing is deleted until you click <b>Save Changes</b> below, and once saved it cannot be undone.

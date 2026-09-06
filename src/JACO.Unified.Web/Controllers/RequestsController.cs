@@ -123,7 +123,7 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
 
         var availableColumns = approvalTypeId is null
             ? []
-            : await db.WorkflowFields.Where(f => f.ApprovalTypeId == approvalTypeId || f.ApprovalTypeId == null).OrderBy(f => f.DisplayOrder)
+            : await db.WorkflowFields.Where(f => f.ApprovalTypeId == approvalTypeId || (f.ApprovalTypeId == null && f.TaskTypeId == null)).OrderBy(f => f.DisplayOrder)
                 .Select(f => new { f.FieldKey, f.FieldLabel }).ToListAsync();
         var validColumnKeys = availableColumns.Select(c => c.FieldKey).ToHashSet();
         columns = columns.Where(validColumnKeys.Contains).ToList();

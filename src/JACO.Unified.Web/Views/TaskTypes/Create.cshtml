@@ -1,0 +1,20 @@
+@model TaskType
+@{ ViewData["Title"] = "New Task Type"; }
+<a class="jaco-back-link" href="~/TaskTypes">&larr; Back to Task Types</a>
+<div class="jaco-page-header"><div><h1>New Task Type</h1></div></div>
+<form method="post" action="~/TaskTypes/Create" class="jaco-card jaco-card-pad" style="max-width:560px;">
+    @Html.AntiForgeryToken()
+    <div class="jaco-form-group">
+        <label>Code</label>
+        <input class="jaco-input" name="Code" value="@Model.Code" placeholder="e.g. SAP_UPDATE" style="text-transform:uppercase;" required />
+        <small style="display:block;color:var(--jaco-text-muted);margin-top:4px;">A short identifier stored on every assigned task of this type.</small>
+    </div>
+    <div class="jaco-form-group"><label>Name</label><input class="jaco-input" name="Name" value="@Model.Name" placeholder="e.g. Post-approval SAP update" required /></div>
+    @* Hidden "false" sibling -- without it, unchecking Active before Create silently
+       creates the type as active anyway (TaskType.Active defaults to true). *@
+    <div class="jaco-check-row"><input type="checkbox" name="Active" value="true" checked="@Model.Active" id="active" /><input type="hidden" name="Active" value="false" /><label for="active" style="margin:0;font-weight:400;">Active</label></div>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+        <button type="submit" class="jaco-btn jaco-btn-primary">Create</button>
+        <a class="jaco-btn jaco-btn-outline" href="~/TaskTypes">Cancel</a>
+    </div>
+</form>

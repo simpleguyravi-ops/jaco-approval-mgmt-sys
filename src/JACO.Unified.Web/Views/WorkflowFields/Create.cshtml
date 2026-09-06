@@ -2,9 +2,11 @@
 @{
     ViewData["Title"] = "New Criteria Field";
     var types = (List<ApprovalType>?)ViewBag.Types ?? new List<ApprovalType>();
+    var taskTypes = (List<TaskType>?)ViewBag.TaskTypes ?? new List<TaskType>();
+    int taskTypeId = ViewBag.TaskTypeId;
     int currentTypeId = Model.ApprovalTypeId ?? GenericApprovalType.Id;
 }
-<a class="jaco-back-link" href="~/WorkflowFields?approvalTypeId=@currentTypeId">&larr; Back to Criteria Fields</a>
+<a class="jaco-back-link" href="~/WorkflowFields?approvalTypeId=@currentTypeId&taskTypeId=@taskTypeId">&larr; Back to Criteria Fields</a>
 <div class="jaco-page-header">
     <div>
         <h1>New Criteria Field</h1>
@@ -15,13 +17,18 @@
     @Html.AntiForgeryToken()
     <div class="jaco-form-group">
         <label>Scope</label>
-        <select name="approvalTypeId" class="jaco-select" required>
-            <option value="@GenericApprovalType.Id" selected="@(currentTypeId == GenericApprovalType.Id)">@GenericApprovalType.Name</option>
+        <select name="approvalTypeId" id="approvalTypeSelect" class="jaco-select" required>
+            <option value="@GenericApprovalType.Id" selected="@(taskTypeId == 0 && currentTypeId == GenericApprovalType.Id)">@GenericApprovalType.Name</option>
             @foreach (var t in types)
             {
-                <option value="@t.Id" selected="@(t.Id == currentTypeId)">@t.Name</option>
+                <option value="@t.Id" selected="@(taskTypeId == 0 && t.Id == currentTypeId)">@t.Name</option>
+            }
+            @foreach (var t in taskTypes)
+            {
+                <option value="0" data-task-type-id="@t.Id" selected="@(taskTypeId == t.Id)">Task Type: @t.Name</option>
             }
         </select>
+        <input type="hidden" name="taskTypeId" id="taskTypeIdInput" value="@taskTypeId" />
     </div>
     <div class="jaco-form-group"><label>Field Key (no spaces, used in DataJson)</label><input class="jaco-input" name="FieldKey" placeholder="e.g. requiredBy" required /></div>
     <div class="jaco-form-group"><label>Label</label><input class="jaco-input" name="FieldLabel" placeholder="e.g. Required By" required /></div>
@@ -49,6 +56,16 @@
     <div class="jaco-check-row"><input type="checkbox" name="Active" value="true" checked id="act" /><input type="hidden" name="Active" value="false" /><label for="act" style="margin:0;font-weight:400;">Active</label></div>
     <div style="display:flex;gap:10px;margin-top:12px;">
         <button type="submit" class="jaco-btn jaco-btn-primary">Create</button>
-        <a class="jaco-btn jaco-btn-outline" href="~/WorkflowFields?approvalTypeId=@currentTypeId">Cancel</a>
+        <a class="jaco-btn jaco-btn-outline" href="~/WorkflowFields?approvalTypeId=@currentTypeId&taskTypeId=@taskTypeId">Cancel</a>
     </div>
 </form>
+<script>
+(function () {
+    var select = document.getElementById('approvalTypeSelect');
+    var taskTypeIdInput = document.getElementById('taskTypeIdInput');
+    select.addEventListener('change', function () {
+        var opt = select.options[select.selectedIndex];
+        taskTypeIdInput.value = opt.getAttribute('data-task-type-id') || '0';
+    });
+})();
+</script>

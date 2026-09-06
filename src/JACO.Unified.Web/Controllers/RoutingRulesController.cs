@@ -144,7 +144,7 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
             Rule = ruleId is null ? null : rule,
             Criteria = criteriaRows,
             Levels = levelRows,
-            AvailableFields = await db.WorkflowFields.Where(f => f.ApprovalTypeId == approvalTypeId || f.ApprovalTypeId == null).OrderBy(f => f.DisplayOrder).ToListAsync(),
+            AvailableFields = await db.WorkflowFields.Where(f => f.ApprovalTypeId == approvalTypeId || (f.ApprovalTypeId == null && f.TaskTypeId == null)).OrderBy(f => f.DisplayOrder).ToListAsync(),
             Users = await db.AppUsers.Where(u => u.IsActive).OrderBy(u => u.DisplayName).ToListAsync(),
             DefaultPriority = rule?.Priority ?? 10,
             PpfCountsByEvent = ppfCountsByEvent,
@@ -252,7 +252,7 @@ public sealed class RoutingRulesController(UnifiedDbContext db) : Controller
     [HttpGet]
     public async Task<IActionResult> Bulk(int approvalTypeId)
     {
-        var fields = await db.WorkflowFields.Where(f => f.ApprovalTypeId == approvalTypeId || f.ApprovalTypeId == null).OrderBy(f => f.DisplayOrder).ToListAsync();
+        var fields = await db.WorkflowFields.Where(f => f.ApprovalTypeId == approvalTypeId || (f.ApprovalTypeId == null && f.TaskTypeId == null)).OrderBy(f => f.DisplayOrder).ToListAsync();
         var users = (await db.AppUsers.Where(u => u.IsActive).OrderBy(u => u.DisplayName)
             .Select(u => new { id = u.Id, name = u.DisplayName, dept = u.Department ?? "Other", userName = u.UserName }).ToListAsync())
             .Select(u => new { u.id, u.name, u.dept, avatar = IdenticonGenerator.DataUri(u.userName, 28) }).ToList();
