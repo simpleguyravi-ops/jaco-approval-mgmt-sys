@@ -64,6 +64,7 @@ builder.Services.AddHostedService<JACO.Unified.Web.Services.DataCompletionRemind
 builder.Services.AddScoped<RequestDetailsMailer>();
 builder.Services.AddSingleton<NotificationQueue>();
 builder.Services.AddHostedService<JACO.Unified.Web.Services.NotificationDispatcher>();
+builder.Services.AddHostedService<JACO.Unified.Web.Services.TaskOverdueSchedulerHostedService>();
 builder.Services.AddSingleton(sp =>
 {
     var root = builder.Configuration["Attachments:RootPath"] ?? @"C:\JACO\_shared\unified-attachments";
