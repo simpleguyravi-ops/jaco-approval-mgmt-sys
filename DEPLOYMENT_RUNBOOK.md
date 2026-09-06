@@ -344,7 +344,12 @@ git checkout tags/qa-2026-09-05
 
 # Sanity check: this must print "true". If it doesn't, stop and figure out why before
 # continuing -- something is still wrong with the tag/checkout, not just cosmetically.
-if ((git rev-parse HEAD) -eq (git rev-parse qa-2026-09-05)) { "true" } else { "false" }
+# Note the ^{commit} on the tag side -- `git tag -a` (used above) makes an ANNOTATED tag,
+# a distinct git object with its own hash separate from the commit it points to, so comparing
+# raw `git rev-parse <tag>` against HEAD compares the wrong two hashes and always prints
+# "false" even on a perfectly correct checkout. `^{commit}` peels the tag to the commit it
+# actually points to, which is what needs to match HEAD.
+if ((git rev-parse HEAD) -eq (git rev-parse qa-2026-09-05^{commit})) { "true" } else { "false" }
 
 # 3. Apply any new migration scripts -- check Database/ for files numbered higher than the
 #    last one you ran here; run only the new ones, in order, same as Phase 2 (skip
