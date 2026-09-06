@@ -15,7 +15,7 @@ namespace JACO.Unified.Web.Controllers;
 // here is created-by-me + everywhere I'm a participant (automatic, no grant needed); the
 // separate "All Requests" oversight view is gated by UserWorkflowPermission.CanView.
 [EnableRateLimiting("sensitive")]
-public sealed class RequestsController(RequestService requests, UnifiedDbContext db, RequestAttachmentStorage attachments) : UnifiedControllerBase(requests)
+public sealed class RequestsController(RequestService requests, UnifiedDbContext db, RequestAttachmentStorage attachments, RequestDetailsMailer detailsMailer) : UnifiedControllerBase(requests)
 {
     // Extensions that could execute if ever served/opened directly, rather than
     // downloaded -- a denylist (not allowlist) since this is a general-purpose business
@@ -409,6 +409,16 @@ public sealed class RequestsController(RequestService requests, UnifiedDbContext
     {
         var user = await CurrentUserAsync();
         var (ok, message) = await requests.NudgeAsync(id, user.Id, IsAdmin);
+        TempData[ok ? "Success" : "Error"] = message;
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendDetailsByEmail(long id, string toAddress)
+    {
+        var user = await CurrentUserAsync();
+        var (ok, message) = await detailsMailer.SendAsync(id, toAddress, user.Id, IsAdmin);
         TempData[ok ? "Success" : "Error"] = message;
         return RedirectToAction(nameof(Details), new { id });
     }

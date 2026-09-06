@@ -60,6 +60,10 @@
                 <button type="submit" class="jaco-btn jaco-btn-outline jaco-btn-sm">Withdraw</button>
             </form>
         }
+        @if (Model.IsCreator || Model.IsAdmin)
+        {
+            <button type="button" id="toggleShareBtn" class="jaco-btn jaco-btn-outline jaco-btn-sm"><span class="jaco-icon jaco-icon-broadcast"></span> Share via Email</button>
+        }
         @if (Model.IsAdmin)
         {
             <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/Cockpit/AuditLog?RequestNumber=@Model.Request.RequestNumber">View History</a>
@@ -70,6 +74,28 @@
         }
     </div>
 </div>
+
+@if (Model.IsCreator || Model.IsAdmin)
+{
+    <div id="sharePanel" class="panel" style="display:none;margin-bottom:16px;">
+        <form method="post" action="~/Requests/SendDetailsByEmail/@Model.Request.Id" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;" data-confirm="Send this request's full details@(Model.Attachments.Count > 0 ? " and attachments" : "") to that address? This isn't restricted to people who already have access to JAMS.">
+            @Html.AntiForgeryToken()
+            <label style="flex:1;min-width:240px;">
+                Send full details@(Model.Attachments.Count > 0 ? " + attachments" : "") to
+                <input class="input" type="email" name="toAddress" placeholder="name@company.com" required />
+            </label>
+            <button type="submit" class="btn">Send</button>
+        </form>
+        <p style="margin:8px 0 0;color:#65727d;font-size:12px;">Recorded in this request's Audit Log, including the address it was sent to.</p>
+    </div>
+    <script>
+        (function () {
+            var btn = document.getElementById('toggleShareBtn');
+            var panel = document.getElementById('sharePanel');
+            btn.addEventListener('click', function () { panel.style.display = panel.style.display === 'none' ? '' : 'none'; });
+        })();
+    </script>
+}
 
 <section class="status-panel" style="grid-template-columns:repeat(5,1fr);gap:10px;">
     <div><span class="eyebrow">STATUS</span><span class="@StatusClass(Model.Request.Status)" style="display:block;margin-top:4px;width:fit-content;">@Model.Request.Status</span></div>
