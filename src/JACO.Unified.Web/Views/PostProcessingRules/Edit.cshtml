@@ -2,7 +2,7 @@
 @{ ViewData["Title"] = Model.Id == 0 ? "New Post-Processing Rule" : "Edit Post-Processing Rule"; }
 <a class="jaco-back-link" href="~/PostProcessingRules">&larr; Back to Post-Processing Rules</a>
 <div class="jaco-page-header">
-    <div><h1>@ViewData["Title"]</h1><p>When the event fires for the selected Approval Type, the chosen template is rendered and emailed.</p></div>
+    <div><h1>@ViewData["Title"]</h1><p>When the event fires for the selected Approval Type <b>and</b> its criteria match (or it has none), the chosen template is rendered and emailed.</p></div>
 </div>
 <form method="post" action="~/PostProcessingRules/Save">
     @Html.AntiForgeryToken()
@@ -10,13 +10,17 @@
     <div class="jaco-card jaco-card-pad" style="max-width:560px;">
         <div class="jaco-form-group">
             <label>Approval Type</label>
-            <select name="ApprovalTypeId" class="jaco-select" required>
+            <select name="ApprovalTypeId" class="jaco-select" required @(Model.Id == 0 ? Html.Raw("onchange=\"location.href='/PostProcessingRules/Create?approvalTypeId='+this.value\"") : null)>
                 <option value="0" disabled selected="@(Model.ApprovalTypeId == 0)">-- Select Approval Type --</option>
                 @foreach (var t in Model.ApprovalTypes)
                 {
                     <option value="@t.Id" selected="@(t.Id == Model.ApprovalTypeId)">@t.Name</option>
                 }
             </select>
+            @if (Model.Id != 0)
+            {
+                <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">Changing this after creation won't refresh the Field Key suggestions below -- delete and recreate the rule if it needs to move to a different type.</p>
+            }
         </div>
         <div class="jaco-form-group">
             <label>Event</label>
@@ -43,6 +47,7 @@
                 <option value="Creator" selected="@(Model.ToMode == "Creator")">Creator (of the request)</option>
                 <option value="Fixed" selected="@(Model.ToMode == "Fixed")">Fixed address</option>
                 <option value="Field" selected="@(Model.ToMode == "Field")">From a submitted field</option>
+                <option value="SpecificUser" selected="@(Model.ToMode == "SpecificUser")">A specific user (by account)</option>
                 <option value="CurrentApprover" selected="@(Model.ToMode == "CurrentApprover")">Whoever's currently eligible to decide</option>
             </select>
         </div>
@@ -56,6 +61,59 @@
             <input name="ToFieldKey" class="jaco-input" value="@Model.ToFieldKey" placeholder="e.g. accountEmail" />
             <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">Must match a Field Key this Approval Type actually has (see Criteria Fields).</p>
         </div>
+        <div class="jaco-form-group">
+            <label>User (if Recipient = A specific user)</label>
+            <select name="ToUserId" class="jaco-select">
+                <option value="">-- Select User --</option>
+                @foreach (var u in Model.Users)
+                {
+                    <option value="@u.Id" selected="@(u.Id == Model.ToUserId)">@u.DisplayName</option>
+                }
+            </select>
+            <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">Sent to that account's current email at send time -- if it changes later, this rule follows it automatically. Only users with an email on file are listed.</p>
+        </div>
+
+        <div class="jaco-form-group">
+            <label>Criteria (optional -- leave every row blank to always fire)</label>
+            <p style="margin:0 0 8px;font-size:12px;color:var(--jaco-text-muted);">E.g. only fire this rule when <code>branch</code> = <code>Riyadh</code> -- use a separate rule (different Sequence) with a different Recipient for Jeddah. Rows are AND/OR'd top to bottom, AND binding tighter than OR, same as Routing Rules.</p>
+            <datalist id="ppfFieldKeyOptions">
+                @foreach (var f in Model.AvailableFields)
+                {
+                    <option value="@f.FieldKey">@f.FieldLabel</option>
+                }
+            </datalist>
+            <div class="jaco-criteria-header" style="display:grid;grid-template-columns:36px 1fr 120px 1fr;gap:8px;font-size:11px;font-weight:600;color:var(--jaco-text-muted);margin-bottom:4px;">
+                <div></div><div>FIELD</div><div>OPERATOR</div><div>VALUE</div>
+            </div>
+            @for (var i = 0; i < Model.Criteria.Count; i++)
+            {
+                <div style="display:grid;grid-template-columns:36px 1fr 120px 1fr;gap:8px;margin-bottom:6px;align-items:center;">
+                    <div style="font-size:12px;color:var(--jaco-text-muted);text-align:center;">@(i == 0 ? "" : Model.Criteria[i].LogicalOperator == "OR" ? "OR" : "AND")</div>
+                    <input name="criteriaFieldKey" class="jaco-input" style="margin:0;" list="ppfFieldKeyOptions" value="@Model.Criteria[i].FieldKey" placeholder="e.g. branch" />
+                    <select name="criteriaOperator" class="jaco-select" style="margin:0;">
+                        @foreach (var op in RoutingService.Operators)
+                        {
+                            <option value="@op" selected="@(op == Model.Criteria[i].Operator)">@op</option>
+                        }
+                    </select>
+                    <div style="display:flex;gap:6px;">
+                        <input name="criteriaValue" class="jaco-input" style="margin:0;" value="@Model.Criteria[i].ComparisonValue" placeholder="e.g. Riyadh" />
+                        @if (i > 0)
+                        {
+                            <select name="criteriaLogicalOperator" class="jaco-select" style="margin:0;width:70px;flex:none;">
+                                <option value="AND" selected="@(Model.Criteria[i].LogicalOperator != "OR")">AND</option>
+                                <option value="OR" selected="@(Model.Criteria[i].LogicalOperator == "OR")">OR</option>
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="hidden" name="criteriaLogicalOperator" value="AND" />
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
         <div class="jaco-form-group">
             <label>CC</label>
             <select name="CcMode" class="jaco-select">
@@ -74,7 +132,7 @@
             <input name="CcFieldKey" class="jaco-input" value="@Model.CcFieldKey" placeholder="e.g. accountEmail" />
         </div>
         <div class="jaco-check-row"><input name="IncludeAttachments" type="checkbox" value="true" checked="@Model.IncludeAttachments" id="includeAttachments" /><input type="hidden" name="IncludeAttachments" value="false" /><label for="includeAttachments" style="margin:0;font-weight:400;">Attach the request's files to this email</label></div>
-        <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">Every file uploaded to the request is attached, whatever the Approval Type. Use <code>{{RequestUrl}}</code> in the template so the recipient can also open the request directly.</p>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--jaco-text-muted);">Every file uploaded to the request is attached, whatever the Approval Type. Use <code>{{RequestUrl}}</code> in the template so the recipient can also open the request directly. When Recipient is "Whoever's currently eligible to decide", the template can also use <code>{{ApproveButton}}</code>, <code>{{RejectButton}}</code> and <code>{{SendBackButton}}</code> for one-click decisions.</p>
         <div class="jaco-form-group" style="margin-top:14px;"><label>Sequence</label><input name="SequenceNo" type="number" class="jaco-input" value="@Model.SequenceNo" /></div>
         @* Hidden "false" sibling -- without it, unchecking Active silently left it true
            (PpfRuleEditViewModel.Active defaults to true, and the binder never had a form

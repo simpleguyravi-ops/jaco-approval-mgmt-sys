@@ -302,7 +302,16 @@ public sealed class PpfRuleListItem
     public string TemplateName { get; set; } = "";
     public string ToMode { get; set; } = "";
     public bool IncludeAttachments { get; set; }
+    public int CriteriaCount { get; set; }
     public bool Active { get; set; }
+}
+
+public sealed class PpfCriteriaRow
+{
+    public string FieldKey { get; set; } = "";
+    public string Operator { get; set; } = "=";
+    public string ComparisonValue { get; set; } = "";
+    public string LogicalOperator { get; set; } = "AND";
 }
 
 public sealed class PpfRuleEditViewModel
@@ -314,6 +323,7 @@ public sealed class PpfRuleEditViewModel
     public string ToMode { get; set; } = "Creator";
     public string? ToAddress { get; set; }
     public string? ToFieldKey { get; set; }
+    public int? ToUserId { get; set; }
     public string CcMode { get; set; } = "None";
     public string? CcAddress { get; set; }
     public string? CcFieldKey { get; set; }
@@ -322,6 +332,11 @@ public sealed class PpfRuleEditViewModel
     public bool Active { get; set; } = true;
     public List<(int Id, string Name)> ApprovalTypes { get; set; } = [];
     public List<(int Id, string Name)> MailTemplates { get; set; } = [];
+    public List<(int Id, string DisplayName)> Users { get; set; } = [];
+    // Every Active field this Approval Type has -- feeds the criteria builder's Field Key
+    // suggestions (a <datalist>, not a hard <select>, matching Routing Rules' own builder).
+    public List<(string FieldKey, string FieldLabel)> AvailableFields { get; set; } = [];
+    public List<PpfCriteriaRow> Criteria { get; set; } = [];
 }
 
 public sealed class DigestViewModel

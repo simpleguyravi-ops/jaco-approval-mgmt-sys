@@ -144,7 +144,20 @@ public sealed class RoutingRule
     public bool Active { get; set; } = true;
 }
 
-public sealed class RoutingRuleCriteria
+// Shape shared by RoutingRuleCriteria and PostProcessingRuleCriteria -- two different
+// tables/owners, but the exact same AND/OR-precedence matching logic against a submitted
+// request's field values (RoutingService.GroupByPrecedence/EvaluateAll/Evaluate). Extracted
+// so that evaluator is written and tested once, not copy-pasted per criteria owner.
+public interface ICriteriaRow
+{
+    string FieldKey { get; }
+    string Operator { get; }
+    string ComparisonValue { get; }
+    int SortOrder { get; }
+    string LogicalOperator { get; }
+}
+
+public sealed class RoutingRuleCriteria : ICriteriaRow
 {
     public int Id { get; set; }
     public int RoutingRuleId { get; set; }
@@ -509,6 +522,21 @@ public sealed class PostProcessingRule
     public string? ActionConfigJson { get; set; }
     public int SequenceNo { get; set; }
     public bool Active { get; set; }
+}
+
+// Optional condition on a PostProcessingRule -- e.g. "only email Faisal if Branch =
+// Jeddah." No rows at all means the rule always matches (same "no criteria = matches
+// everything" semantics as RoutingService.EvaluateAll already has for routing rules);
+// evaluated with the exact same AND/OR-precedence logic, just against a different owner.
+public sealed class PostProcessingRuleCriteria : ICriteriaRow
+{
+    public int Id { get; set; }
+    public int PostProcessingRuleId { get; set; }
+    public string FieldKey { get; set; } = "";
+    public string Operator { get; set; } = "=";
+    public string ComparisonValue { get; set; } = "";
+    public int SortOrder { get; set; }
+    public string LogicalOperator { get; set; } = "AND";
 }
 
 public sealed class PostProcessingExecution

@@ -72,9 +72,9 @@ public sealed class RoutingService(UnifiedDbContext db)
     // A row's LogicalOperator is only consulted from the second row onward; the first row of
     // a rule (and the first row of any new group) always starts a fresh group regardless of
     // what its own LogicalOperator happens to be.
-    public static List<List<RoutingRuleCriteria>> GroupByPrecedence(IEnumerable<RoutingRuleCriteria> criteria)
+    public static List<List<T>> GroupByPrecedence<T>(IEnumerable<T> criteria) where T : ICriteriaRow
     {
-        var groups = new List<List<RoutingRuleCriteria>>();
+        var groups = new List<List<T>>();
         foreach (var c in criteria.OrderBy(c => c.SortOrder))
         {
             if (groups.Count == 0 || string.Equals(c.LogicalOperator, "OR", StringComparison.OrdinalIgnoreCase))
@@ -84,13 +84,13 @@ public sealed class RoutingService(UnifiedDbContext db)
         return groups;
     }
 
-    public static bool EvaluateAll(IEnumerable<RoutingRuleCriteria> criteria, Dictionary<string, JsonElement> context)
+    public static bool EvaluateAll<T>(IEnumerable<T> criteria, Dictionary<string, JsonElement> context) where T : ICriteriaRow
     {
         var groups = GroupByPrecedence(criteria);
         return groups.Count == 0 || groups.Any(g => g.All(c => Evaluate(c, context)));
     }
 
-    public static bool Evaluate(RoutingRuleCriteria criteria, Dictionary<string, JsonElement> context)
+    public static bool Evaluate(ICriteriaRow criteria, Dictionary<string, JsonElement> context)
     {
         if (!context.TryGetValue(criteria.FieldKey, out var element)) return false;
         var actual = element.ValueKind == JsonValueKind.String ? element.GetString() ?? "" : element.ToString();

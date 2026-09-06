@@ -114,11 +114,24 @@ public sealed class MailTemplatesController(UnifiedDbContext db) : Controller
         // "cid:jaco-logo" -- an inline email attachment reference a browser can't resolve.
         // This preview renders directly in the admin's own browser on this app's own
         // origin, so a normal root-relative path is what actually loads here.
+        // Real sends never resolve these against "#" -- PpfExecutor tokens them to one
+        // specific approver's one-click link (ApprovalActionLinkService). "#" here is only
+        // so Preview shows an actual button instead of the literal, unresolved {{Token}}
+        // text an admin would otherwise mistake for a real bug (this is exactly what
+        // happened to the Creator-mode Level Pending email before it was rewired off this
+        // template: these tokens are CurrentApprover-only, so they only ever resolve there).
+        const string previewButtonStyle = "display:inline-block;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-family:Arial,sans-serif;font-size:14px;";
         var extraTokens = new Dictionary<string, string>
         {
             ["{{LogoUrl}}"] = "/img/jaco-logo-color.png",
             ["{{RequestUrl}}"] = Url.Action("Details", "Requests", new { id = 1 }) ?? "#",
             ["{{ApprovalTimeline}}"] = "<p style=\"color:#6b7280;font-size:13px;\">(the real approval timeline renders here)</p>",
+            ["{{ApproveUrl}}"] = "#",
+            ["{{RejectUrl}}"] = "#",
+            ["{{SendBackUrl}}"] = "#",
+            ["{{ApproveButton}}"] = $"<a href=\"#\" style=\"background:#15803d;{previewButtonStyle}\">Approve</a>",
+            ["{{RejectButton}}"] = $"<a href=\"#\" style=\"background:#b91c1c;{previewButtonStyle}\">Reject</a>",
+            ["{{SendBackButton}}"] = $"<a href=\"#\" style=\"background:#b45309;{previewButtonStyle}\">Send Back</a>",
         };
         var (subject, body) = model.IsTableTemplate
             ? MailMergeService.RenderTable(sample, "Approving Manager", SampleRequests())

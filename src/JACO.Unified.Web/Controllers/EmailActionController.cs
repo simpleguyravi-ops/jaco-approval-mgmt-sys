@@ -30,6 +30,8 @@ public sealed class EmailActionController(UnifiedDbContext db, RequestService re
 
         if (decision == "Reject")
             return RedirectToAction(nameof(RejectForm), new { token });
+        if (decision == "SendBack")
+            return RedirectToAction(nameof(SendBackForm), new { token });
         if (decision == "Approve")
             return RedirectToAction(nameof(ApproveForm), new { token });
 
@@ -97,5 +99,38 @@ public sealed class EmailActionController(UnifiedDbContext db, RequestService re
 
         var (ok, message) = await requests.DecideAsync(requestId, userId, "Reject", comments);
         return View("Result", new EmailActionResultViewModel { Ok = ok, Message = message, RequestNumber = req.RequestNumber, Decision = "Reject" });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> SendBackForm(string token)
+    {
+        if (!linkService.TryValidate(token, out var requestId, out var userId))
+            return View("Invalid");
+
+        var req = await db.Requests.FindAsync(requestId);
+        var eligible = req is not null && await requests.IsEligibleApproverAsync(requestId, userId);
+        if (req is null || req.Status != "Pending" || !eligible)
+            return View("AlreadyHandled", req?.RequestNumber);
+
+        return View(new EmailRejectViewModel { Token = token, RequestNumber = req.RequestNumber });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendBackConfirm(string token, string comments)
+    {
+        if (!linkService.TryValidate(token, out var requestId, out var userId))
+            return View("Invalid");
+
+        var req = await db.Requests.FindAsync(requestId);
+        var eligible = req is not null && await requests.IsEligibleApproverAsync(requestId, userId);
+        if (req is null || req.Status != "Pending" || !eligible)
+            return View("AlreadyHandled", req?.RequestNumber);
+
+        if (string.IsNullOrWhiteSpace(comments))
+            return View("SendBackForm", new EmailRejectViewModel { Token = token, RequestNumber = req.RequestNumber, Error = "A reason is required to send back." });
+
+        var (ok, message) = await requests.DecideAsync(requestId, userId, "SendBack", comments);
+        return View("Result", new EmailActionResultViewModel { Ok = ok, Message = message, RequestNumber = req.RequestNumber, Decision = "SendBack" });
     }
 }

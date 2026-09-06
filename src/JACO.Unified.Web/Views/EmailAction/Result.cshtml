@@ -2,10 +2,10 @@
 @{
     Layout = null;
     ViewData["Title"] = "Decision Recorded";
-    var icon = Model.Ok ? (Model.Decision == "Approve" ? "&#10003;" : "&#8226;") : "&#33;";
-    var accent = Model.Ok ? (Model.Decision == "Approve" ? "var(--jaco-success)" : "var(--jaco-warning)") : "var(--jaco-danger)";
-    var accentBg = Model.Ok ? (Model.Decision == "Approve" ? "var(--jaco-success-bg)" : "var(--jaco-warning-bg)") : "var(--jaco-danger-bg)";
-    var heading = !Model.Ok ? "Something went wrong" : Model.Decision == "Approve" ? "Approved" : "Rejected";
+    var icon = !Model.Ok ? "&#33;" : Model.Decision == "Approve" ? "&#10003;" : "&#8226;";
+    var accent = !Model.Ok ? "var(--jaco-danger)" : Model.Decision switch { "Approve" => "var(--jaco-success)", "SendBack" => "var(--jaco-warning)", _ => "var(--jaco-danger)" };
+    var accentBg = !Model.Ok ? "var(--jaco-danger-bg)" : Model.Decision switch { "Approve" => "var(--jaco-success-bg)", "SendBack" => "var(--jaco-warning-bg)", _ => "var(--jaco-danger-bg)" };
+    var heading = !Model.Ok ? "Something went wrong" : Model.Decision switch { "Approve" => "Approved", "SendBack" => "Sent Back", _ => "Rejected" };
 }
 <!DOCTYPE html>
 <html lang="en">

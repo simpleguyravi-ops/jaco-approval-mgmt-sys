@@ -37,8 +37,23 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
         // times for the same, unchanging set of files.
         List<AttachmentFile>? requestAttachments = null;
 
+        // Batched once for every candidate rule, same reasoning as RoutingService.ResolveAsync
+        // batching RoutingRuleCriteria -- an event with several PPF rules shouldn't mean that
+        // many extra round trips just to check whether each one's criteria match.
+        var ruleIds = rules.Select(r => r.Id).ToList();
+        var criteriaByRule = (await db.PostProcessingRuleCriteria.Where(c => ruleIds.Contains(c.PostProcessingRuleId)).ToListAsync())
+            .GroupBy(c => c.PostProcessingRuleId).ToDictionary(g => g.Key, g => g.ToList());
+        var routingContext = BuildRoutingContext(request.DataJson);
+
         foreach (var rule in rules)
         {
+            var criteria = criteriaByRule.GetValueOrDefault(rule.Id, []);
+            if (!RoutingService.EvaluateAll(criteria, routingContext))
+            {
+                await LogSkippedAsync(rule, requestId, "Rule's criteria did not match this request's submitted data.");
+                continue;
+            }
+
             using var config = JsonDocument.Parse(rule.ActionConfigJson ?? "{}");
             var root = config.RootElement;
             var mailTemplateId = root.TryGetProperty("mailTemplateId", out var t) ? t.GetInt32() : (int?)null;
@@ -85,12 +100,22 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
             }
             else
             {
-                string? toAddress = toMode switch
+                string? toAddress;
+                if (toMode == "SpecificUser")
                 {
-                    "Fixed" => root.TryGetProperty("toAddress", out var a) ? a.GetString() : null,
-                    "Field" => root.TryGetProperty("toFieldKey", out var fk) ? RequestService.ExtractField(request.DataJson, fk.GetString() ?? "") : null,
-                    _ => creator?.Email
-                };
+                    toAddress = root.TryGetProperty("toUserId", out var uid) && uid.TryGetInt32(out var toUserId)
+                        ? (await db.AppUsers.FindAsync(toUserId))?.Email
+                        : null;
+                }
+                else
+                {
+                    toAddress = toMode switch
+                    {
+                        "Fixed" => root.TryGetProperty("toAddress", out var a) ? a.GetString() : null,
+                        "Field" => root.TryGetProperty("toFieldKey", out var fk) ? RequestService.ExtractField(request.DataJson, fk.GetString() ?? "") : null,
+                        _ => creator?.Email
+                    };
+                }
                 // Not necessarily an approver (e.g. the creator getting a "Completed" email),
                 // so only a plain login-required view link -- no Approve/Reject buttons that
                 // would imply they're authorized to decide.
@@ -107,12 +132,50 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
         await db.SaveChangesAsync();
     }
 
+    async Task<int> NextAttemptNoAsync(int ruleId, long requestId) => 1 + await db.PostProcessingExecutions
+        .Where(e => e.PostProcessingRuleId == ruleId && e.RequestId == requestId)
+        .CountAsync();
+
+    // A rule whose criteria don't match this request never reaches SendAndLogAsync at all --
+    // logged here instead so PPF Monitor shows WHY a configured rule didn't fire, the same
+    // as it already does for "no recipient address on file", rather than just silence.
+    async Task LogSkippedAsync(Core.Models.PostProcessingRule rule, long requestId, string reason)
+    {
+        var now = DateTime.UtcNow;
+        db.PostProcessingExecutions.Add(new Core.Models.PostProcessingExecution
+        {
+            PostProcessingRuleId = rule.Id,
+            RequestId = requestId,
+            AttemptNo = await NextAttemptNoAsync(rule.Id, requestId),
+            ActionType = rule.ActionType,
+            Target = null,
+            Status = "Skipped",
+            ErrorMessage = reason,
+            StartedAt = now,
+            FinishedAt = now,
+            CreatedAt = now
+        });
+    }
+
+    // Same shape RequestService.SubmitAsync builds for RoutingService.ResolveAsync at
+    // submit time, just read back from the request's current (already-persisted) DataJson
+    // instead of a fresh submission payload -- so a PPF rule's criteria can match on the
+    // exact same field vocabulary a Routing Rule can, at any event, not just Submit.
+    static Dictionary<string, JsonElement> BuildRoutingContext(string? dataJson)
+    {
+        var context = new Dictionary<string, JsonElement>();
+        if (string.IsNullOrWhiteSpace(dataJson)) return context;
+        using var doc = JsonDocument.Parse(dataJson);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object) return context;
+        foreach (var prop in doc.RootElement.EnumerateObject())
+            context[prop.Name] = prop.Value.Clone();
+        return context;
+    }
+
     async Task SendAndLogAsync(Core.Models.PostProcessingRule rule, Core.Models.Request request, long requestId, int? mailTemplateId, string creatorName, string? toAddress, string? ccAddress, IReadOnlyDictionary<string, string> extraTokens, IReadOnlyList<AttachmentFile>? attachments)
     {
         var startedAt = DateTime.UtcNow;
-        var attemptNo = 1 + await db.PostProcessingExecutions
-            .Where(e => e.PostProcessingRuleId == rule.Id && e.RequestId == requestId)
-            .CountAsync();
+        var attemptNo = await NextAttemptNoAsync(rule.Id, requestId);
 
         string status;
         string? error = null;
@@ -213,13 +276,16 @@ public sealed class PpfExecutor(UnifiedDbContext db, MailSender mailSender, Appr
         var token = linkService.GenerateToken(request.Id, userId);
         var approveUrl = $"{baseUrl}/EmailAction/Decide?token={Uri.EscapeDataString(token)}&decision=Approve";
         var rejectUrl = $"{baseUrl}/EmailAction/RejectForm?token={Uri.EscapeDataString(token)}";
+        var sendBackUrl = $"{baseUrl}/EmailAction/SendBackForm?token={Uri.EscapeDataString(token)}";
         return new Dictionary<string, string>
         {
             ["{{RequestUrl}}"] = requestUrl,
             ["{{ApproveUrl}}"] = approveUrl,
             ["{{RejectUrl}}"] = rejectUrl,
+            ["{{SendBackUrl}}"] = sendBackUrl,
             ["{{ApproveButton}}"] = $"<a href=\"{approveUrl}\" style=\"display:inline-block;background:#15803d;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-family:Arial,sans-serif;font-size:14px;\">Approve</a>",
             ["{{RejectButton}}"] = $"<a href=\"{rejectUrl}\" style=\"display:inline-block;background:#b91c1c;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-family:Arial,sans-serif;font-size:14px;\">Reject</a>",
+            ["{{SendBackButton}}"] = $"<a href=\"{sendBackUrl}\" style=\"display:inline-block;background:#b45309;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-family:Arial,sans-serif;font-size:14px;\">Send Back</a>",
         };
     }
 

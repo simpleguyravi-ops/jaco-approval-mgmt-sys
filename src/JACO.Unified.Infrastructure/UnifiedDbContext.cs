@@ -24,6 +24,7 @@ public sealed class UnifiedDbContext(DbContextOptions<UnifiedDbContext> options)
     public DbSet<RoutingLogEntry> RoutingLog => Set<RoutingLogEntry>();
     public DbSet<MailTemplate> MailTemplates => Set<MailTemplate>();
     public DbSet<PostProcessingRule> PostProcessingRules => Set<PostProcessingRule>();
+    public DbSet<PostProcessingRuleCriteria> PostProcessingRuleCriteria => Set<PostProcessingRuleCriteria>();
     public DbSet<PostProcessingExecution> PostProcessingExecutions => Set<PostProcessingExecution>();
     public DbSet<EmailSettings> EmailSettings => Set<EmailSettings>();
     public DbSet<ApiClient> ApiClients => Set<ApiClient>();
