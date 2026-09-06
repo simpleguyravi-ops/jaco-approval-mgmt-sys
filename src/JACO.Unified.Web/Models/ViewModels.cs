@@ -482,6 +482,22 @@ public sealed class TransactionalDataClearViewModel
     public TransactionalDataCounts? Counts { get; set; }
 }
 
+public sealed class ApprovalTypeDeleteViewModel
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    // Not yet resolved (Draft/Pending/Sent Back) -- deletion is refused outright while
+    // this is above zero, no override. Everything below only matters once it's zero.
+    public int OpenRequestCount { get; set; }
+    public TransactionalDataCounts ClosedRequests { get; set; } = new();
+    public int WorkflowFieldCount { get; set; }
+    public int RoutingRuleCount { get; set; }
+    public int PostProcessingRuleCount { get; set; }
+    public int UserPermissionCount { get; set; }
+    public int DigestScheduleCount { get; set; }
+    public int RoutingLogCount { get; set; }
+}
+
 public sealed class LogArchiveFilter
 {
     public string? LogType { get; set; }

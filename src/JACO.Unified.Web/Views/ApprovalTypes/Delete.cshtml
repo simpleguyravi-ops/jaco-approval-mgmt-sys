@@ -1,0 +1,41 @@
+@model ApprovalTypeDeleteViewModel
+@{ ViewData["Title"] = "Delete Approval Type"; }
+<a class="jaco-back-link" href="~/ApprovalTypes">&larr; Back to Approval Types</a>
+<div class="jaco-page-header">
+    <div><h1>Delete '@Model.Name'</h1><p>Permanently removes this Approval Type and everything that belongs to it &mdash; requests, fields, routing rules, post-processing rules, permissions, and digest schedule.</p></div>
+</div>
+
+<div class="jaco-card jaco-card-pad" style="max-width:600px;">
+@if (Model.OpenRequestCount > 0)
+{
+    <div class="jaco-alert" style="background:var(--jaco-danger-bg);color:var(--jaco-danger);">
+        Can't delete &mdash; <strong>@Model.OpenRequestCount</strong> request(s) for '@Model.Name' are still open (Draft, Pending, or Sent Back). Resolve, reject, or withdraw them first, then come back here.
+    </div>
+    <a class="jaco-btn jaco-btn-outline" style="margin-top:12px;" href="~/Requests/All?approvalTypeId=@Model.Id">View Open Requests</a>
+}
+else
+{
+    <div class="jaco-alert" style="background:var(--jaco-warning-bg);color:var(--jaco-warning);">
+        No open requests &mdash; this type can be deleted. Everything below will be archived, then permanently removed:
+        <ul style="margin:8px 0 0;padding-left:20px;">
+            @if (Model.ClosedRequests.Requests > 0)
+            {
+                <li>@Model.ClosedRequests.Requests closed request(s) (Approved/Rejected/Withdrawn), incl. @Model.ClosedRequests.Attachments uploaded file(s) &mdash; deleted from disk, <strong>not</strong> recoverable from the archive</li>
+            }
+            <li>@Model.WorkflowFieldCount criteria field(s)</li>
+            <li>@Model.RoutingRuleCount routing rule(s)</li>
+            <li>@Model.PostProcessingRuleCount post-processing (email) rule(s)</li>
+            <li>@Model.UserPermissionCount user Create/View permission(s)</li>
+            <li>@Model.DigestScheduleCount digest schedule(s)</li>
+            <li>@Model.RoutingLogCount routing/determination log entr(ies)</li>
+        </ul>
+    </div>
+    <p style="margin-top:8px;font-size:12px;color:var(--jaco-text-muted);">Audit Log entries for these requests are kept, not deleted &mdash; they'll show a blank Request No. afterward. Mail Templates are shared across types and are never deleted here.</p>
+    <form method="post" asp-controller="ApprovalTypes" asp-action="DeleteConfirmed" style="margin-top:12px;" data-confirm="Permanently delete the Approval Type '@Model.Name' and everything attached to it? This cannot be undone for the files, even from the archive.">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@Model.Id" />
+        <button type="submit" class="jaco-btn" style="background:var(--jaco-danger);color:#fff;border-color:var(--jaco-danger);">Archive &amp; Delete '@Model.Name'</button>
+        <a class="jaco-btn jaco-btn-outline" href="~/ApprovalTypes">Cancel</a>
+    </form>
+}
+</div>

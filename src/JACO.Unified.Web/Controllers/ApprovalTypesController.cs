@@ -1,5 +1,7 @@
+using System.Text.Json;
 using JACO.Unified.Core.Models;
 using JACO.Unified.Infrastructure;
+using JACO.Unified.Web.Models;
 using JACO.Unified.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,8 +13,14 @@ namespace JACO.Unified.Web.Controllers;
 // field catalog (WorkflowFieldsController) and routing (RoutingRulesController) are
 // configured separately -- this screen only owns the type's identity + lifecycle.
 [Authorize(Policy = "UnifiedAdmin")]
-public sealed class ApprovalTypesController(UnifiedDbContext db) : Controller
+public sealed class ApprovalTypesController(UnifiedDbContext db, RequestAttachmentStorage attachmentStorage) : Controller
 {
+    // A request still waiting on a decision -- deleting the type out from under it would
+    // strand whoever's supposed to act on it (or the creator, for a Draft) with no way
+    // back in. Approved/Rejected/Withdrawn are the only statuses treated as resolved;
+    // anything else (including a status added later) counts as open, not closed, to keep
+    // this check safe by default rather than needing to recognize every "closed" name.
+    static readonly string[] TerminalStatuses = ["Approved", "Rejected", "Withdrawn"];
     public async Task<IActionResult> Index(string? sort, string dir = "asc")
     {
         ViewBag.Sort = sort; ViewBag.Dir = dir;
@@ -112,6 +120,157 @@ public sealed class ApprovalTypesController(UnifiedDbContext db) : Controller
         await db.SaveChangesAsync();
 
         TempData["Success"] = "Saved.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var type = await db.ApprovalTypes.FindAsync(id);
+        if (type is null) return NotFound();
+
+        var requestIds = await db.Requests.Where(r => r.ApprovalTypeId == id).Select(r => r.Id).ToListAsync();
+        var openCount = await db.Requests.CountAsync(r => r.ApprovalTypeId == id && !TerminalStatuses.Contains(r.Status));
+        var closedIds = requestIds; // only ever reaches the counts below once openCount == 0 (see view)
+
+        var model = new ApprovalTypeDeleteViewModel
+        {
+            Id = type.Id,
+            Name = type.Name,
+            OpenRequestCount = openCount,
+            ClosedRequests = new TransactionalDataCounts
+            {
+                Requests = closedIds.Count,
+                Attachments = await db.RequestAttachments.CountAsync(a => closedIds.Contains(a.RequestId)),
+                Actions = await db.RequestActions.CountAsync(a => closedIds.Contains(a.RequestId)),
+                PpfExecutions = await db.PostProcessingExecutions.CountAsync(e => closedIds.Contains(e.RequestId)),
+                Reassignments = await db.ApproverReassignments.CountAsync(r => closedIds.Contains(r.RequestId)),
+                Participants = await db.WorkflowParticipants.CountAsync(p => closedIds.Contains(p.RequestId)),
+            },
+            WorkflowFieldCount = await db.WorkflowFields.CountAsync(f => f.ApprovalTypeId == id),
+            RoutingRuleCount = await db.RoutingRules.CountAsync(r => db.WorkflowVersions.Where(v => v.ApprovalTypeId == id).Select(v => v.Id).Contains(r.WorkflowVersionId)),
+            PostProcessingRuleCount = await db.PostProcessingRules.CountAsync(r => r.ApprovalTypeId == id),
+            UserPermissionCount = await db.UserWorkflowPermissions.CountAsync(p => p.ApprovalTypeId == id),
+            DigestScheduleCount = await db.DigestSchedules.CountAsync(d => d.ApprovalTypeId == id),
+            RoutingLogCount = await db.RoutingLog.CountAsync(r => r.ApprovalTypeId == id),
+        };
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteConfirmed(int id)
+    {
+        var type = await db.ApprovalTypes.FindAsync(id);
+        if (type is null) return NotFound();
+
+        // Re-checked here, not just in the view -- a POST can be replayed/forged independent
+        // of what the confirm page showed, including after a new request was submitted in
+        // the time between loading that page and clicking Delete.
+        var openCount = await db.Requests.CountAsync(r => r.ApprovalTypeId == id && !TerminalStatuses.Contains(r.Status));
+        if (openCount > 0)
+        {
+            TempData["Error"] = $"Can't delete '{type.Name}' -- {openCount} request(s) are still open (Draft, Pending, or Sent Back). Resolve or withdraw them first.";
+            return RedirectToAction(nameof(Delete), new { id });
+        }
+
+        var requestIds = await db.Requests.Where(r => r.ApprovalTypeId == id).Select(r => r.Id).ToListAsync();
+        var attachments = await db.RequestAttachments.Where(a => requestIds.Contains(a.RequestId)).ToListAsync();
+        var actions = await db.RequestActions.Where(a => requestIds.Contains(a.RequestId)).ToListAsync();
+        var ppfExecutions = await db.PostProcessingExecutions.Where(e => requestIds.Contains(e.RequestId)).ToListAsync();
+        var reassignments = await db.ApproverReassignments.Where(r => requestIds.Contains(r.RequestId)).ToListAsync();
+        var participants = await db.WorkflowParticipants.Where(p => requestIds.Contains(p.RequestId)).ToListAsync();
+        var requests = await db.Requests.Where(r => requestIds.Contains(r.Id)).ToListAsync();
+
+        var workflowFields = await db.WorkflowFields.Where(f => f.ApprovalTypeId == id).ToListAsync();
+        var workflowVersions = await db.WorkflowVersions.Where(v => v.ApprovalTypeId == id).ToListAsync();
+        var versionIds = workflowVersions.Select(v => v.Id).ToList();
+        var routingRules = await db.RoutingRules.Where(r => versionIds.Contains(r.WorkflowVersionId)).ToListAsync();
+        var ruleIds = routingRules.Select(r => r.Id).ToList();
+        var routingRuleCriteria = await db.RoutingRuleCriteria.Where(c => ruleIds.Contains(c.RoutingRuleId)).ToListAsync();
+        var workflowSteps = await db.WorkflowSteps.Where(s => ruleIds.Contains(s.RoutingRuleId)).ToListAsync();
+        var stepIds = workflowSteps.Select(s => s.Id).ToList();
+        var workflowStepApprovers = await db.WorkflowStepApprovers.Where(a => stepIds.Contains(a.WorkflowStepId)).ToListAsync();
+        var postProcessingRules = await db.PostProcessingRules.Where(r => r.ApprovalTypeId == id).ToListAsync();
+        var userPermissions = await db.UserWorkflowPermissions.Where(p => p.ApprovalTypeId == id).ToListAsync();
+        var digestSchedules = await db.DigestSchedules.Where(d => d.ApprovalTypeId == id).ToListAsync();
+        var digestRuns = await db.DigestRuns.Where(r => r.ApprovalTypeId == id).ToListAsync();
+        var digestRunIds = digestRuns.Select(r => r.Id).ToList();
+        var digestRunRecipients = await db.DigestRunRecipients.Where(r => digestRunIds.Contains(r.DigestRunId)).ToListAsync();
+        var routingLogEntries = await db.RoutingLog.Where(r => r.ApprovalTypeId == id).ToListAsync();
+
+        // One recovery snapshot of literally everything this type owned -- same shape as
+        // Clear Transactional Data's archive, just covering the type's configuration too
+        // (fields, routing, PPF rules, permissions, digest schedule) since none of that
+        // survives the type itself. Restorable from Archived Clears short of the files.
+        db.LogArchives.Add(new LogArchive
+        {
+            LogType = $"ApprovalTypeDeleted:{type.Name}",
+            BeforeDate = DateTime.UtcNow,
+            EntryCount = requests.Count,
+            ContentJson = JsonSerializer.Serialize(new
+            {
+                approvalType = type, requests, attachments, actions, ppfExecutions, reassignments, participants,
+                workflowFields, workflowVersions, routingRules, routingRuleCriteria, workflowSteps, workflowStepApprovers,
+                postProcessingRules, userPermissions, digestSchedules, digestRuns, digestRunRecipients, routingLogEntries
+            }),
+            ClearedByUserName = User.Identity?.Name,
+            ClearedAt = DateTime.UtcNow
+        });
+
+        db.RequestAttachments.RemoveRange(attachments);
+        db.RequestActions.RemoveRange(actions);
+        db.PostProcessingExecutions.RemoveRange(ppfExecutions);
+        db.ApproverReassignments.RemoveRange(reassignments);
+        db.WorkflowParticipants.RemoveRange(participants);
+        db.Requests.RemoveRange(requests);
+        db.WorkflowStepApprovers.RemoveRange(workflowStepApprovers);
+        db.WorkflowSteps.RemoveRange(workflowSteps);
+        db.RoutingRuleCriteria.RemoveRange(routingRuleCriteria);
+        db.RoutingRules.RemoveRange(routingRules);
+        db.WorkflowVersions.RemoveRange(workflowVersions);
+        db.WorkflowFields.RemoveRange(workflowFields);
+        db.PostProcessingRules.RemoveRange(postProcessingRules);
+        db.UserWorkflowPermissions.RemoveRange(userPermissions);
+        db.DigestRunRecipients.RemoveRange(digestRunRecipients);
+        db.DigestRuns.RemoveRange(digestRuns);
+        db.DigestSchedules.RemoveRange(digestSchedules);
+        db.RoutingLog.RemoveRange(routingLogEntries);
+        db.ApprovalTypes.Remove(type);
+
+        // Audit Log entries (LoginSuccess, Approve/Reject decisions, admin overrides, etc.)
+        // referencing these requests are deliberately left in place, same as Clear
+        // Transactional Data -- they're evidence the type and its requests existed, not
+        // part of what's being cleaned up.
+        db.AuditLogs.Add(new AuditLog
+        {
+            ActionCode = "ApprovalTypeDeleted",
+            DetailsJson = JsonSerializer.Serialize(new
+            {
+                approvalType = type.Name,
+                code = type.Code,
+                requestsDeleted = requests.Count,
+                workflowFieldsDeleted = workflowFields.Count,
+                routingRulesDeleted = routingRules.Count,
+                postProcessingRulesDeleted = postProcessingRules.Count,
+                deletedBy = User.Identity?.Name
+            }),
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+
+        foreach (var reqId in requestIds)
+        {
+            try
+            {
+                var dir = attachmentStorage.GetRequestDirectory(reqId);
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            }
+            catch { /* one request's files failing to delete shouldn't block the rest */ }
+        }
+
+        TempData["Success"] = $"'{type.Name}' and everything attached to it (archived first -- see Archived Clears) have been permanently deleted.";
         return RedirectToAction(nameof(Index));
     }
 }
