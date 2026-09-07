@@ -801,3 +801,17 @@ public sealed class ConfigSyncPreview
     public int TotalCount => Templates.Count + Rules.Count;
     public int ErrorCount => Templates.Count(t => !t.IsValid) + Rules.Count(r => !r.IsValid);
 }
+
+// The Config Sync landing page's "export specific items only" picker -- Detail is just a
+// short at-a-glance label (a template's Subject, or a rule's "Event -> ActionType").
+public sealed class ConfigSyncIndexItem
+{
+    public string Name { get; set; } = "";
+    public string Detail { get; set; } = "";
+}
+
+public sealed class ConfigSyncIndexViewModel
+{
+    public List<ConfigSyncIndexItem> MailTemplates { get; set; } = [];
+    public List<ConfigSyncIndexItem> Rules { get; set; } = [];
+}

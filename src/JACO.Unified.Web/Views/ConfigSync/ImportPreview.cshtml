@@ -23,9 +23,45 @@
 }
 else if (Model.TotalCount > 0)
 {
-    <form method="post" action="~/ConfigSync/ImportConfirm" style="margin-bottom:14px;" data-confirm="Apply this import? This writes to the live Mail Templates and Post-Processing Rules on this environment.">
+    <form method="post" action="~/ConfigSync/ImportConfirm" style="margin-bottom:14px;" data-confirm="Apply this import? This writes to the live Mail Templates and Post-Processing Rules on this environment, for whatever is still checked below.">
         @Html.AntiForgeryToken()
         <input type="hidden" name="encodedFile" value="@Model.EncodedFile" />
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button type="button" class="jaco-btn jaco-btn-outline jaco-btn-sm" onclick="document.querySelectorAll('.cfgsync-include').forEach(function(c){c.checked=true;})">Select All</button>
+            <button type="button" class="jaco-btn jaco-btn-outline jaco-btn-sm" onclick="document.querySelectorAll('.cfgsync-include').forEach(function(c){c.checked=false;})">Select None</button>
+        </div>
+        <p style="font-size:12.5px;color:var(--jaco-text-muted);margin:0 0 10px;">Every item below is checked by default. Uncheck anything you don't want written &mdash; e.g. an item whose <b>Action</b> is <b>Update</b> and that you've deliberately customized on this environment already.</p>
+
+        <div class="jaco-card" style="margin-bottom:14px;">
+            <table class="jaco-table">
+                <thead><tr><th></th><th>Kind</th><th>Name</th><th>Action</th><th>Details</th><th>Status</th></tr></thead>
+                <tbody>
+                @foreach (var item in Model.Templates)
+                {
+                    <tr>
+                        <td><input type="checkbox" class="cfgsync-include" name="includeTemplates" value="@item.Name" checked style="width:auto;" /></td>
+                        <td>@item.Kind</td>
+                        <td>@item.Name</td>
+                        <td>@(item.Action == "Update" ? Html.Raw("<span class=\"jaco-badge jaco-badge-neutral\">Update</span>") : Html.Raw("<span class=\"jaco-badge jaco-badge-success\">Insert</span>"))</td>
+                        <td style="font-size:12.5px;">@item.Summary</td>
+                        <td><span class="jaco-badge jaco-badge-success">OK</span></td>
+                    </tr>
+                }
+                @foreach (var item in Model.Rules)
+                {
+                    <tr>
+                        <td><input type="checkbox" class="cfgsync-include" name="includeRules" value="@item.Name" checked style="width:auto;" /></td>
+                        <td>@item.Kind</td>
+                        <td>@item.Name</td>
+                        <td>@(item.Action == "Update" ? Html.Raw("<span class=\"jaco-badge jaco-badge-neutral\">Update</span>") : Html.Raw("<span class=\"jaco-badge jaco-badge-success\">Insert</span>"))</td>
+                        <td style="font-size:12.5px;">@item.Summary</td>
+                        <td><span class="jaco-badge jaco-badge-success">OK</span></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
         <button type="submit" class="jaco-btn jaco-btn-primary">Confirm Import</button>
     </form>
 }
@@ -34,30 +70,33 @@ else
     <div class="jaco-alert jaco-alert-danger" style="margin-bottom:14px;">This file contained no Mail Templates and no Post-Processing Rules.</div>
 }
 
-<div class="jaco-card" style="margin-bottom:16px;">
-    <table class="jaco-table">
-        <thead><tr><th>Kind</th><th>Name</th><th>Action</th><th>Details</th><th>Status</th></tr></thead>
-        <tbody>
-        @foreach (var item in Model.Templates.Concat(Model.Rules))
-        {
-            <tr>
-                <td>@item.Kind</td>
-                <td>@item.Name</td>
-                <td>@item.Action</td>
-                <td style="font-size:12.5px;">@item.Summary</td>
-                <td>
-                    @if (item.IsValid)
-                    {
-                        <span class="jaco-badge jaco-badge-success">OK</span>
-                    }
-                    else
-                    {
-                        <span class="jaco-badge jaco-badge-danger" title="@string.Join("; ", item.Errors)">@item.Errors.Count error(s)</span>
-                        <div style="font-size:12px;color:var(--jaco-danger);margin-top:4px;">@string.Join("; ", item.Errors)</div>
-                    }
-                </td>
-            </tr>
-        }
-        </tbody>
-    </table>
-</div>
+@if (Model.ErrorCount > 0)
+{
+    <div class="jaco-card" style="margin-bottom:16px;">
+        <table class="jaco-table">
+            <thead><tr><th>Kind</th><th>Name</th><th>Action</th><th>Details</th><th>Status</th></tr></thead>
+            <tbody>
+            @foreach (var item in Model.Templates.Concat(Model.Rules))
+            {
+                <tr>
+                    <td>@item.Kind</td>
+                    <td>@item.Name</td>
+                    <td>@item.Action</td>
+                    <td style="font-size:12.5px;">@item.Summary</td>
+                    <td>
+                        @if (item.IsValid)
+                        {
+                            <span class="jaco-badge jaco-badge-success">OK</span>
+                        }
+                        else
+                        {
+                            <span class="jaco-badge jaco-badge-danger" title="@string.Join("; ", item.Errors)">@item.Errors.Count error(s)</span>
+                            <div style="font-size:12px;color:var(--jaco-danger);margin-top:4px;">@string.Join("; ", item.Errors)</div>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

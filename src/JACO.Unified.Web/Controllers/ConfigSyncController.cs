@@ -21,12 +21,34 @@ public sealed class ConfigSyncController(UnifiedDbContext db) : Controller
 {
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
-    public IActionResult Index() => View();
-
-    public async Task<IActionResult> Export()
+    public async Task<IActionResult> Index()
     {
-        var templates = await db.MailTemplates.OrderBy(t => t.Name).ToListAsync();
-        var rules = await db.PostProcessingRules.OrderBy(r => r.SequenceNo).ToListAsync();
+        var model = new ConfigSyncIndexViewModel
+        {
+            MailTemplates = await db.MailTemplates.OrderBy(t => t.Name).Select(t => new ConfigSyncIndexItem { Name = t.Name, Detail = t.Subject }).ToListAsync(),
+            Rules = await db.PostProcessingRules.OrderBy(r => r.SequenceNo).Select(r => new ConfigSyncIndexItem { Name = r.Name, Detail = r.EventCode + " -> " + r.ActionType }).ToListAsync()
+        };
+        return View(model);
+    }
+
+    // Full export -- the one-click download links on the Mail Templates / Post-Processing
+    // Rules screens, and the "everything" case for the selective picker below.
+    public Task<IActionResult> Export() => BuildExportFileAsync(null, null);
+
+    // Picking specific items matters most promoting Dev/QA-tested changes into Production:
+    // a same-named item already customized there would otherwise get silently overwritten
+    // by a full sync -- exporting only what was actually tested avoids that.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public Task<IActionResult> ExportSelected(List<string>? templateNames, List<string>? ruleNames) =>
+        BuildExportFileAsync(templateNames?.ToHashSet(), ruleNames?.ToHashSet());
+
+    async Task<IActionResult> BuildExportFileAsync(HashSet<string>? templateNameFilter, HashSet<string>? ruleNameFilter)
+    {
+        var templates = await db.MailTemplates.OrderBy(t => t.Name)
+            .Where(t => templateNameFilter == null || templateNameFilter.Contains(t.Name)).ToListAsync();
+        var rules = await db.PostProcessingRules.OrderBy(r => r.SequenceNo)
+            .Where(r => ruleNameFilter == null || ruleNameFilter.Contains(r.Name)).ToListAsync();
         var typesByRule = (await db.PostProcessingRuleApprovalTypes.ToListAsync())
             .GroupBy(x => x.PostProcessingRuleId).ToDictionary(g => g.Key, g => g.Select(x => x.ApprovalTypeId).ToList());
         var criteriaByRule = (await db.PostProcessingRuleCriteria.ToListAsync())
@@ -128,9 +150,13 @@ public sealed class ConfigSyncController(UnifiedDbContext db) : Controller
         return View("ImportPreview", preview);
     }
 
+    // includeTemplates/includeRules are the checkboxes left checked on the preview screen --
+    // default is "everything in the file", but an admin importing into Production can uncheck
+    // a same-named item they've deliberately customized there so this import leaves it alone
+    // entirely, rather than only choosing what went INTO the file back on the export side.
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ImportConfirm(string encodedFile)
+    public async Task<IActionResult> ImportConfirm(string encodedFile, List<string>? includeTemplates, List<string>? includeRules)
     {
         string content;
         try { content = Encoding.UTF8.GetString(Convert.FromBase64String(encodedFile)); }
@@ -150,7 +176,19 @@ public sealed class ConfigSyncController(UnifiedDbContext db) : Controller
             return View("ImportPreview", preview);
         }
 
-        var export = JsonSerializer.Deserialize<ConfigSyncExport>(content, JsonOpts) ?? new ConfigSyncExport();
+        var fullExport = JsonSerializer.Deserialize<ConfigSyncExport>(content, JsonOpts) ?? new ConfigSyncExport();
+        var includedTemplateNames = (includeTemplates ?? []).ToHashSet();
+        var includedRuleNames = (includeRules ?? []).ToHashSet();
+        var export = new ConfigSyncExport
+        {
+            MailTemplates = fullExport.MailTemplates.Where(t => includedTemplateNames.Contains(t.Name)).ToList(),
+            PostProcessingRules = fullExport.PostProcessingRules.Where(r => includedRuleNames.Contains(r.Name)).ToList()
+        };
+        if (export.MailTemplates.Count == 0 && export.PostProcessingRules.Count == 0)
+        {
+            TempData["Error"] = "Nothing was selected to import. Nothing was changed.";
+            return RedirectToAction(nameof(Index));
+        }
 
         var templatesInserted = 0;
         var templatesUpdated = 0;
@@ -200,23 +238,27 @@ public sealed class ConfigSyncController(UnifiedDbContext db) : Controller
             rule.ActionConfigJson = r.ActionType switch
             {
                 "ApiCall" => JsonSerializer.Serialize(new { apiUrl = r.ApiUrl, apiAuthHeaderValue = r.ApiAuthHeaderValue }),
+                // GetValueOrDefault(int) would silently write 0 (a real, wrong, Id) for a
+                // reference that didn't resolve -- e.g. its Mail Template got deselected on
+                // this import while the rule that needs it stayed selected. TryGetValue keeps
+                // that case an honest null instead.
                 "AssignTask" => JsonSerializer.Serialize(new
                 {
-                    taskTypeId = r.TaskTypeCode is not null ? taskTypeIdsByCode.GetValueOrDefault(r.TaskTypeCode) : (int?)null,
+                    taskTypeId = r.TaskTypeCode is not null && taskTypeIdsByCode.TryGetValue(r.TaskTypeCode, out var ttid) ? ttid : (int?)null,
                     taskTitle = r.TaskTitle,
                     assignToMode = r.TaskAssignToMode,
-                    assignToUserId = r.TaskAssignToUserName is not null ? userIdsByUserName.GetValueOrDefault(r.TaskAssignToUserName) : (int?)null,
+                    assignToUserId = r.TaskAssignToUserName is not null && userIdsByUserName.TryGetValue(r.TaskAssignToUserName, out var atuid) ? atuid : (int?)null,
                     assignToDepartment = r.TaskAssignToDepartment,
                     dueInDays = r.TaskDueInDays,
                     contextFieldKeys = r.TaskContextFieldKeys
                 }),
                 _ => JsonSerializer.Serialize(new
                 {
-                    mailTemplateId = r.MailTemplateName is not null ? templateIdsByName.GetValueOrDefault(r.MailTemplateName) : (int?)null,
+                    mailTemplateId = r.MailTemplateName is not null && templateIdsByName.TryGetValue(r.MailTemplateName, out var mtid) ? mtid : (int?)null,
                     toMode = r.ToMode,
                     toAddress = r.ToAddress,
                     toFieldKey = r.ToFieldKey,
-                    toUserId = r.ToUserName is not null ? userIdsByUserName.GetValueOrDefault(r.ToUserName) : (int?)null,
+                    toUserId = r.ToUserName is not null && userIdsByUserName.TryGetValue(r.ToUserName, out var tuid) ? tuid : (int?)null,
                     ccMode = r.CcMode,
                     ccAddress = r.CcAddress,
                     ccFieldKey = r.CcFieldKey,

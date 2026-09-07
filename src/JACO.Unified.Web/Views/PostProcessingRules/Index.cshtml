@@ -15,9 +15,12 @@
     <div><h1>Post-Processing Rules</h1><p>What fires -- an email or an API call -- when an event happens on a request, for whichever Approval Type(s) the rule applies to.</p></div>
     <a class="jaco-btn jaco-btn-primary" href="~/PostProcessingRules/Create">+ New Rule</a>
 </div>
-<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;">
     <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/PostProcessingRules/Export">Download CSV</a>
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/ConfigSync/Export" title="Downloads this rule AND every Mail Template as one file -- rules reference templates by name, so the two travel together.">Download Config JSON</a>
+    <a class="jaco-btn jaco-btn-outline jaco-btn-sm" href="~/ConfigSync">Upload Config JSON</a>
 </div>
+<p style="font-size:12.5px;color:var(--jaco-text-muted);margin:-4px 0 12px;">"Download CSV" above is a read-only summary. To move these rules (and their Mail Templates) to another environment -- e.g. testing here in Dev/QA, then promoting to Production -- use <b>Config Sync</b>: it round-trips the real rule config and template bodies as JSON, matching existing items by name so re-running it is safe to repeat.</p>
 <div class="jaco-card">
     <table class="jaco-table">
         <thead><tr>

@@ -1,22 +1,23 @@
+@model ConfigSyncIndexViewModel
 @{ ViewData["Title"] = "Config Sync"; }
 <a class="jaco-back-link" href="~/Admin">&larr; Back to Administration</a>
 <div class="jaco-page-header">
     <div>
         <h1>Config Sync</h1>
-        <p>Move every Mail Template and Post-Processing Rule between environments (e.g. Dev &rarr; QA) as one JSON file. Every reference &mdash; mail template, Approval Type, user, Task Type &mdash; travels by name/code, not raw database Id, so the file applies cleanly to a database whose Ids differ from this one.</p>
+        <p>Move Mail Templates and Post-Processing Rules between environments (e.g. Dev &rarr; QA &rarr; Production) as one JSON file. Every reference &mdash; mail template, Approval Type, user, Task Type &mdash; travels by name/code, not raw database Id, so the file applies cleanly to a database whose Ids differ from this one.</p>
     </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;margin-bottom:20px;">
     <div class="jaco-card jaco-card-pad">
-        <h2 style="font-size:14px;margin-top:0;">Export from this environment</h2>
-        <p style="font-size:13px;color:var(--jaco-text-muted);">Downloads every current Mail Template and Post-Processing Rule (with its Approval Types and criteria) as one <code>.json</code> file.</p>
-        <a class="jaco-btn jaco-btn-primary" href="~/ConfigSync/Export">Download Config JSON</a>
+        <h2 style="font-size:14px;margin-top:0;">Export everything</h2>
+        <p style="font-size:13px;color:var(--jaco-text-muted);">Downloads every current Mail Template and Post-Processing Rule as one <code>.json</code> file. Fine for Dev &rarr; QA where the two are meant to match exactly.</p>
+        <a class="jaco-btn jaco-btn-primary" href="~/ConfigSync/Export">Download Everything</a>
     </div>
 
     <div class="jaco-card jaco-card-pad">
         <h2 style="font-size:14px;margin-top:0;">Import into this environment</h2>
-        <p style="font-size:13px;color:var(--jaco-text-muted);">Upload a file exported from another environment (or this one). Nothing is written until you review the preview and confirm &mdash; a template or rule whose Name already matches here is updated in place, not duplicated; anything else is added.</p>
+        <p style="font-size:13px;color:var(--jaco-text-muted);">Upload a file exported from another environment. Nothing is written until you review the preview and confirm &mdash; and the preview screen lets you deselect specific items too, so an item you've deliberately customized here (e.g. in Production) doesn't get overwritten just because its Name also exists in the file.</p>
         <form method="post" action="~/ConfigSync/ImportPreview" enctype="multipart/form-data">
             @Html.AntiForgeryToken()
             <div class="jaco-form-group">
@@ -26,4 +27,41 @@
             <button type="submit" class="jaco-btn jaco-btn-primary">Preview Import</button>
         </form>
     </div>
+</div>
+
+<div class="jaco-card jaco-card-pad">
+    <h2 style="font-size:14px;margin-top:0;">Export specific items only</h2>
+    <p style="font-size:13px;color:var(--jaco-text-muted);">Useful when promoting Dev/QA-tested changes into Production without re-applying everything at once &mdash; e.g. Production may already have its own item sharing a Name with something here that you don't want touched. Uncheck anything you don't want in the downloaded file, then download just the rest.</p>
+    @if (Model.MailTemplates.Count == 0 && Model.Rules.Count == 0)
+    {
+        <p style="font-size:13px;color:var(--jaco-text-muted);">Nothing to export yet.</p>
+    }
+    else
+    {
+        <form method="post" action="~/ConfigSync/ExportSelected">
+            @Html.AntiForgeryToken()
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <button type="button" class="jaco-btn jaco-btn-outline jaco-btn-sm" onclick="document.querySelectorAll('.cfgsync-item').forEach(function(c){c.checked=true;})">Select All</button>
+                <button type="button" class="jaco-btn jaco-btn-outline jaco-btn-sm" onclick="document.querySelectorAll('.cfgsync-item').forEach(function(c){c.checked=false;})">Select None</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+                <div>
+                    <div style="font-size:12.5px;font-weight:700;color:var(--jaco-text-muted);margin-bottom:6px;">MAIL TEMPLATES</div>
+                    @foreach (var t in Model.MailTemplates)
+                    {
+                        <label style="display:block;font-size:13px;padding:4px 0;"><input type="checkbox" class="cfgsync-item" name="templateNames" value="@t.Name" checked style="width:auto;margin-right:6px;" />@t.Name</label>
+                    }
+                </div>
+                <div>
+                    <div style="font-size:12.5px;font-weight:700;color:var(--jaco-text-muted);margin-bottom:6px;">POST-PROCESSING RULES</div>
+                    @foreach (var r in Model.Rules)
+                    {
+                        <label style="display:block;font-size:13px;padding:4px 0;"><input type="checkbox" class="cfgsync-item" name="ruleNames" value="@r.Name" checked style="width:auto;margin-right:6px;" />@r.Name <span style="color:var(--jaco-text-muted);">(@r.Detail)</span></label>
+                    }
+                </div>
+            </div>
+            <p style="font-size:12px;color:var(--jaco-text-muted);margin-top:12px;">A Rule left checked here still needs its Mail Template &mdash; either also checked, or already present by that same Name on the environment you import into.</p>
+            <button type="submit" class="jaco-btn jaco-btn-primary" style="margin-top:6px;">Download Selected as Config JSON</button>
+        </form>
+    }
 </div>
