@@ -11,5 +11,10 @@ GO
 
 -- Backfill history so existing override decisions are consistent with the new column
 -- rather than only being real from this point forward.
-UPDATE dbo.RequestActions SET IsAdminOverride = 1 WHERE Comments LIKE '[Admin override%';
+-- '[' is a LIKE wildcard (starts a character-class match) -- '[[]' is T-SQL's escape for a
+-- literal '['. The unescaped version below silently matched zero rows on every environment
+-- that had real historical override data (caught during the QA sync of this migration,
+-- 2026-09-07): it happened to look correct on Dev only because Dev's own override history
+-- had separately been cleaned up by the time this ran here.
+UPDATE dbo.RequestActions SET IsAdminOverride = 1 WHERE Comments LIKE '[[]Admin override%';
 GO
